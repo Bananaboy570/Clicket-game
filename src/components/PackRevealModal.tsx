@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BlookItem, PackInfo, RARITY_COLORS } from '../data/blooks';
 import { BlookArt } from './BlookArt';
 import { PackCoverArt } from './PackCoverArt';
@@ -295,6 +295,12 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
 }) => {
   const [phase, setPhase] = useState<PackAnimationPhase>('READY');
   const [inspectedPull, setInspectedPull] = useState<PackPullResult | null>(null);
+  const phaseTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  const clearPhaseTimers = () => {
+    phaseTimersRef.current.forEach((t) => clearTimeout(t));
+    phaseTimersRef.current = [];
+  };
 
   const isMulti = pulls.length > 1;
 
@@ -312,35 +318,37 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
   const rarityColor = RARITY_COLORS[bestPull.blook.rarity];
 
   useEffect(() => {
+    clearPhaseTimers();
     setPhase('READY');
     setInspectedPull(null);
+    return clearPhaseTimers;
   }, [pulls, pack]);
 
   const handleStartOpening = () => {
     if (phase !== 'READY') return;
+    clearPhaseTimers();
 
     setPhase('SHAKING');
     playSfx('shake');
-    setTimeout(() => playSfx('shake'), 250);
-    setTimeout(() => playSfx('shake'), 500);
-
-    setTimeout(() => {
-      setPhase('TEARING');
-      playSfx('rip');
-    }, 750);
-
-    setTimeout(() => {
-      setPhase('BURST');
-      if (bestPull.blook.rarity === 'Mystic' || bestPull.blook.rarity === 'Chroma') {
-        playSfx('mystic');
-      } else {
-        playSfx('reveal');
-      }
-    }, 1150);
-
-    setTimeout(() => {
-      setPhase('REVEALED');
-    }, 1450);
+    phaseTimersRef.current.push(
+      setTimeout(() => playSfx('shake'), 250),
+      setTimeout(() => playSfx('shake'), 500),
+      setTimeout(() => {
+        setPhase('TEARING');
+        playSfx('rip');
+      }, 750),
+      setTimeout(() => {
+        setPhase('BURST');
+        if (bestPull.blook.rarity === 'Mystic' || bestPull.blook.rarity === 'Chroma') {
+          playSfx('mystic');
+        } else {
+          playSfx('reveal');
+        }
+      }, 1150),
+      setTimeout(() => {
+        setPhase('REVEALED');
+      }, 1450)
+    );
   };
 
   // Confetti strictly using Triangle, Rectangle, and Circle shapes in shades of the pulled blook's rarity color

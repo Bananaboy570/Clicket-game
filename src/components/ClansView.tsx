@@ -18,6 +18,7 @@ import {
 import { ALL_BLOOKS } from '../data/blooks';
 import { BlookArt, BlooketTokenIcon } from './BlookArt';
 import { OwnerAchievementIcon, DeveloperAchievementIcon } from './AchievementsView';
+import { apiFetch } from '../lib/apiClient';
 
 export interface ClanMemberSummary {
   id: string;
@@ -114,7 +115,7 @@ export const ClansView: React.FC<ClansViewProps> = ({
 
   const fetchClans = useCallback(async () => {
     try {
-      const res = await fetch('/api/clans');
+      const res = await apiFetch('/api/clans');
       if (res.ok) {
         const data = await res.json();
         setClans(Array.isArray(data.clans) ? data.clans : []);
@@ -150,7 +151,7 @@ export const ClansView: React.FC<ClansViewProps> = ({
     setErrorMsg(null);
     setActionBusy(true);
     try {
-      const res = await fetch('/api/clans/create', {
+      const res = await apiFetch('/api/clans/create', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -187,7 +188,7 @@ export const ClansView: React.FC<ClansViewProps> = ({
     setErrorMsg(null);
     setActionBusy(true);
     try {
-      const res = await fetch(`/api/clans/${encodeURIComponent(clanId)}/join`, {
+      const res = await apiFetch(`/api/clans/${encodeURIComponent(clanId)}/join`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
@@ -210,7 +211,7 @@ export const ClansView: React.FC<ClansViewProps> = ({
     setErrorMsg(null);
     setActionBusy(true);
     try {
-      const res = await fetch('/api/clans/leave', {
+      const res = await apiFetch('/api/clans/leave', {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionToken}` },
       });
@@ -234,7 +235,7 @@ export const ClansView: React.FC<ClansViewProps> = ({
     const text = chatText.trim();
     setChatText('');
     try {
-      const res = await fetch(`/api/clans/${encodeURIComponent(myClan.id)}/message`, {
+      const res = await apiFetch(`/api/clans/${encodeURIComponent(myClan.id)}/message`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -253,7 +254,7 @@ export const ClansView: React.FC<ClansViewProps> = ({
   const handleToggleRole = async (targetUserId: string) => {
     if (!sessionToken || !myClan) return;
     try {
-      const res = await fetch(`/api/clans/${encodeURIComponent(myClan.id)}/role`, {
+      const res = await apiFetch(`/api/clans/${encodeURIComponent(myClan.id)}/role`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -270,7 +271,7 @@ export const ClansView: React.FC<ClansViewProps> = ({
   const handleKickMember = async (targetUserId: string) => {
     if (!sessionToken || !myClan) return;
     try {
-      const res = await fetch(`/api/clans/${encodeURIComponent(myClan.id)}/kick`, {
+      const res = await apiFetch(`/api/clans/${encodeURIComponent(myClan.id)}/kick`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -289,7 +290,7 @@ export const ClansView: React.FC<ClansViewProps> = ({
     if (!sessionToken || !myClan) return;
     setActionBusy(true);
     try {
-      const res = await fetch(`/api/clans/${encodeURIComponent(myClan.id)}/update`, {
+      const res = await apiFetch(`/api/clans/${encodeURIComponent(myClan.id)}/update`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

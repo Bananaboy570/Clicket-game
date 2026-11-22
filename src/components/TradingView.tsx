@@ -14,6 +14,7 @@ import {
 import { ALL_BLOOKS, RARITY_COLORS, RARITY_RANK, BlookItem } from '../data/blooks';
 import { BlookArt } from './BlookArt';
 import type { TradeHistoryItem } from './AuthScreen';
+import { isStaticMode } from '../lib/apiClient';
 
 export interface OnlinePlayerSummary {
   clientId: string;
@@ -169,10 +170,18 @@ export const TradingView: React.FC<TradingViewProps> = ({
           <span>
             {wsConnected
               ? `${otherPlayers.length} Other ${otherPlayers.length === 1 ? 'Player' : 'Players'} Online`
+              : isStaticMode()
+              ? 'Static Website Mode (Local)'
               : 'Connecting to Live Server...'}
           </span>
         </div>
       </div>
+
+      {!wsConnected && isStaticMode() && (
+        <div className="mb-5 max-w-3xl bg-white/95 border-2 border-amber-300 text-slate-700 px-5 py-3.5 rounded-2xl shadow-lg font-nunito font-bold text-sm">
+          You are playing on static web hosting. Live cross-device trading requires the Node WebSocket server, while <strong className="text-[#dc2626]">Bazaar</strong>, <strong className="text-[#dc2626]">Market</strong>, <strong className="text-[#dc2626]">Blooks</strong>, <strong className="text-[#dc2626]">Rewards</strong>, <strong className="text-[#dc2626]">Clans</strong>, and <strong className="text-[#dc2626]">Solo Trivia</strong> work right in your browser!
+        </div>
+      )}
 
       {/* Error / Status Banner */}
       {tradeError && (

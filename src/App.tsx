@@ -66,9 +66,14 @@ import {
   TradeCompletedNotice,
 } from './components/TradingView';
 import { ClansView } from './components/ClansView';
-import { AchievementsView } from './components/AchievementsView';
+import {
+  AchievementsView,
+  OwnerAchievementIcon,
+  DeveloperAchievementIcon,
+} from './components/AchievementsView';
+import { apiFetch, isStaticMode, onStaticModeChange } from './lib/apiClient';
 
-const ADMIN_EMAIL = '354245082@educ.dpcdsb.org';
+const OWNER_USERNAME = 'clicketownerofficial';
 
 type ActiveTab =
   | 'Play'
@@ -193,7 +198,7 @@ export default function App() {
 
   const refreshSetStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/sets/stats');
+      const res = await apiFetch('/api/sets/stats');
       if (res.ok) {
         const data = await res.json();
         setSetStats(data.stats || {});
@@ -207,7 +212,7 @@ export default function App() {
     const savedToken = localStorage.getItem('clicket_session_token');
     if (!savedToken) return;
     try {
-      const res = await fetch('/api/auth/me', {
+      const res = await apiFetch('/api/auth/me', {
         headers: { Authorization: `Bearer ${savedToken}` },
       });
       if (res.ok) {
@@ -223,7 +228,7 @@ export default function App() {
   const recordSetPlay = useCallback(
     async (setId: string) => {
       try {
-        const res = await fetch(`/api/sets/${encodeURIComponent(setId)}/play`, {
+        const res = await apiFetch(`/api/sets/${encodeURIComponent(setId)}/play`, {
           method: 'POST',
           headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {},
         });
@@ -256,7 +261,7 @@ export default function App() {
       }
 
       try {
-        const res = await fetch('/api/auth/me', {
+        const res = await apiFetch('/api/auth/me', {
           headers: { Authorization: `Bearer ${savedToken}` },
         });
         if (!res.ok) {
@@ -291,7 +296,7 @@ export default function App() {
 
     if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
     syncTimeoutRef.current = setTimeout(() => {
-      fetch('/api/user/sync', {
+      apiFetch('/api/user/sync', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -343,7 +348,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (!currentUser) {
+    if (!currentUser || isStaticMode()) {
       if (presenceWsRef.current) {
         presenceWsRef.current.close();
         presenceWsRef.current = null;
@@ -358,8 +363,18 @@ export default function App() {
     let cancelled = false;
     let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
 
+    const unsubscribeStatic = onStaticModeChange(() => {
+      cancelled = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (presenceWsRef.current) {
+        presenceWsRef.current.close();
+        presenceWsRef.current = null;
+      }
+      setPresenceConnected(false);
+    });
+
     const connectPresence = () => {
-      if (cancelled) return;
+      if (cancelled || isStaticMode()) return;
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
       presenceWsRef.current = ws;
@@ -421,8 +436,8 @@ export default function App() {
 
       ws.onclose = () => {
         setPresenceConnected(false);
-        if (!cancelled) {
-          reconnectTimer = setTimeout(connectPresence, 2000);
+        if (!cancelled && !isStaticMode()) {
+          reconnectTimer = setTimeout(connectPresence, 3000);
         }
       };
     };
@@ -431,6 +446,7 @@ export default function App() {
 
     return () => {
       cancelled = true;
+      unsubscribeStatic();
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (presenceWsRef.current) {
         presenceWsRef.current.close();
@@ -469,7 +485,7 @@ export default function App() {
 
   const handleLogout = async () => {
     if (sessionToken) {
-      fetch('/api/auth/logout', {
+      apiFetch('/api/auth/logout', {
         method: 'POST',
         headers: { Authorization: `Bearer ${sessionToken}` },
       }).catch(() => {});
@@ -485,10 +501,20 @@ export default function App() {
     setTokenPillPulse(false);
   };
 
-  // Only the specific account 354245082@educ.dpcdsb.org gets the +100, +1000, and +10000 token buttons
-  const isPrivilegedTokenUser =
-    currentUser?.email?.trim().toLowerCase() === ADMIN_EMAIL ||
-    currentUser?.username?.trim().toLowerCase() === ADMIN_EMAIL;
+  // Only the specific account ClicketOwnerOfficial gets owner privileges and token buttons
+  const isOwnerAccount =
+    currentUser?.username?.trim().toLowerCase() === OWNER_USERNAME ||
+    currentUser?.email?.trim().toLowerCase() === OWNER_USERNAME;
+
+  const userAchievements = Array.from(
+    new Set([
+      ...(Array.isArray(currentUser?.achievements) ? currentUser.achievements : []),
+      ...(isOwnerAccount ? ['owner', 'developer'] : []),
+    ])
+  );
+  const hasOwnerBadge = userAchievements.includes('owner');
+  const hasDeveloperBadge = userAchievements.includes('developer');
+  const isPrivilegedTokenUser = isOwnerAccount || hasOwnerBadge;
 
   const openPackPurchaseModal = (pack: PackInfo) => {
     setMarketNotice(null);
@@ -839,6 +865,16 @@ export default function App() {
               <span className="font-nunito font-bold text-[15px] tracking-tight max-w-[120px] truncate">
                 {username}
               </span>
+              {hasOwnerBadge && (
+                <span title="Owner Badge" className="shrink-0 flex items-center">
+                  <OwnerAchievementIcon className="w-5 h-5 drop-shadow-sm" />
+                </span>
+              )}
+              {hasDeveloperBadge && !hasOwnerBadge && (
+                <span title="Developer Badge" className="shrink-0 flex items-center">
+                  <DeveloperAchievementIcon className="w-5 h-5 drop-shadow-sm" />
+                </span>
+              )}
               <ChevronDown className="w-4 h-4 opacity-90" />
             </button>
 
@@ -854,11 +890,27 @@ export default function App() {
                       )}
                     </div>
                     <div className="min-w-0">
-                      <span className="block font-nunito font-black text-sm truncate text-slate-800">
-                        {username}
-                      </span>
+                      <div className="flex items-center gap-1">
+                        <span className="block font-nunito font-black text-sm truncate text-slate-800">
+                          {username}
+                        </span>
+                        {hasOwnerBadge && (
+                          <span title="Owner Badge" className="shrink-0">
+                            <OwnerAchievementIcon className="w-4 h-4" />
+                          </span>
+                        )}
+                        {hasDeveloperBadge && (
+                          <span title="Developer Badge" className="shrink-0">
+                            <DeveloperAchievementIcon className="w-4 h-4" />
+                          </span>
+                        )}
+                      </div>
                       <span className="block font-nunito font-bold text-[11px] text-slate-400">
-                        CLICKET Player
+                        {hasOwnerBadge
+                          ? 'CLICKET Owner'
+                          : hasDeveloperBadge
+                          ? 'CLICKET Developer'
+                          : 'CLICKET Player'}
                       </span>
                     </div>
                   </div>
@@ -875,6 +927,33 @@ export default function App() {
                     <span>Rename</span>
                   </button>
                 </div>
+
+                {(hasOwnerBadge || hasDeveloperBadge) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveTab('Achievements');
+                      setShowProfileMenu(false);
+                    }}
+                    className="w-full mb-2 px-2.5 py-1.5 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 flex items-center gap-2 cursor-pointer transition-colors"
+                  >
+                    {hasOwnerBadge && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-r from-red-600 to-amber-500 text-white font-nunito font-black text-[11px]">
+                        <OwnerAchievementIcon className="w-3.5 h-3.5" />
+                        <span>Owner</span>
+                      </span>
+                    )}
+                    {hasDeveloperBadge && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 text-white font-nunito font-black text-[11px]">
+                        <DeveloperAchievementIcon className="w-3.5 h-3.5" />
+                        <span>Dev</span>
+                      </span>
+                    )}
+                    <span className="ml-auto font-nunito font-bold text-[11px] text-amber-800">
+                      Badges →
+                    </span>
+                  </button>
+                )}
 
                 <p className="font-nunito font-black text-[11px] text-slate-400 mb-1.5 uppercase tracking-wide">
                   Account Controls
@@ -893,7 +972,7 @@ export default function App() {
                     <PenSquare className="w-4 h-4" />
                   </button>
 
-                  {/* Token buttons strictly restricted to 354245082@educ.dpcdsb.org */}
+                  {/* Token buttons strictly restricted to ClicketOwnerOfficial */}
                   {isPrivilegedTokenUser && (
                     <>
                       <button
@@ -1663,7 +1742,7 @@ export default function App() {
         {/* TAB 3E: ACHIEVEMENTS AREA (OWNER & DEVELOPER) */}
         {activeTab === 'Achievements' && (
           <AchievementsView
-            unlockedIds={currentUser.achievements || []}
+            unlockedIds={userAchievements}
             sessionToken={sessionToken}
             onRefreshUser={refreshUserFromServer}
           />
@@ -2142,7 +2221,7 @@ export default function App() {
                 setRenameError(null);
                 setRenameLoading(true);
                 try {
-                  const res = await fetch('/api/user/rename', {
+                  const res = await apiFetch('/api/user/rename', {
                     method: 'POST',
                     headers: {
                       'Content-Type': 'application/json',

@@ -8,32 +8,38 @@ interface BlookArtProps {
 }
 
 /**
- * Exact Blooket Token Icon from the Market GUI:
- * Tilted golden rounded rectangle coin with a 3D right/bottom edge and an embossed 'B' inside.
+ * Circular Clicket Token Icon:
+ * Golden circular coin with 3D bottom-right rim, inset ring, subtle shine, and embossed 'C' inside.
  */
 export const BlooketTokenIcon: React.FC<{ className?: string }> = ({ className = 'w-6 h-6' }) => (
   <svg viewBox="0 0 40 40" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
-    <g transform="rotate(-12 20 20)">
-      {/* 3D Side Extrusion */}
-      <rect x="8" y="6" width="25" height="30" rx="5" fill="#b45309" />
-      {/* Main Coin Face */}
-      <rect x="6" y="4" width="25" height="30" rx="5" fill="#fbbf24" stroke="#d97706" strokeWidth="1.5" />
-      {/* Inner Inset Frame */}
-      <rect x="9.5" y="7.5" width="18" height="23" rx="3" fill="#f59e0b" stroke="#fde68a" strokeWidth="1.2" />
-      {/* Embossed C */}
-      <text
-        x="18.5"
-        y="24.5"
-        textAnchor="middle"
-        fill="#fef3c7"
-        fontFamily="'Titan One', cursive, sans-serif"
-        fontSize="16"
-        fontWeight="bold"
-        style={{ filter: 'drop-shadow(1px 1.5px 0px #b45309)' }}
-      >
-        C
-      </text>
-    </g>
+    {/* 3D Side Extrusion */}
+    <circle cx="21.5" cy="21.5" r="15.5" fill="#b45309" />
+    {/* Main Circular Coin Face */}
+    <circle cx="19" cy="19" r="15.5" fill="#fbbf24" stroke="#d97706" strokeWidth="1.6" />
+    {/* Inner Inset Circle */}
+    <circle cx="19" cy="19" r="11.4" fill="#f59e0b" stroke="#fde68a" strokeWidth="1.3" />
+    {/* Subtle Top Highlight Arc */}
+    <path
+      d="M11.5 12.5 A 10.5 10.5 0 0 1 25.5 11.2"
+      stroke="#fef9c3"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      opacity="0.7"
+    />
+    {/* Embossed C */}
+    <text
+      x="18.8"
+      y="24.6"
+      textAnchor="middle"
+      fill="#fef3c7"
+      fontFamily="'Titan One', cursive, sans-serif"
+      fontSize="17"
+      fontWeight="bold"
+      style={{ filter: 'drop-shadow(1px 1.5px 0px #b45309)' }}
+    >
+      C
+    </text>
   </svg>
 );
 
@@ -91,7 +97,7 @@ export const BlookArt: React.FC<BlookArtProps> = ({
 
   // Special animated Cyborg Coach (blinks + looks around + Chroma float & shine)
   if (id === 'athlete-cyborg') {
-    const cyborgUrl = meta?.imageUrl || '/assets/aistudio/download__18__e086e375.png';
+    const cyborgUrl = meta?.imageUrl || 'assets/aistudio/download__18__e086e375.png';
     if (!animated) {
       return (
         <img

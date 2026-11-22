@@ -20,6 +20,7 @@ import { ALL_BLOOKS, RARITY_COLORS } from '../data/blooks';
 import { BlookArt, BlooketTokenIcon } from './BlookArt';
 import { GameModeLogo, MultiplayerGameMode } from './GameModeLogo';
 import { PlayTriviaView, TriviaQuestion } from './PlayTriviaView';
+import { isStaticMode } from '../lib/apiClient';
 
 type CurseType = 'scrambled_keys' | 'tax_collector' | 'fog_screen';
 
@@ -166,6 +167,11 @@ export const PlayLobbyAndGame: React.FC<PlayLobbyAndGameProps> = ({
 
   // Connect WebSocket when needed
   const ensureSocket = (): Promise<WebSocket> => {
+    if (isStaticMode()) {
+      return Promise.reject(
+        new Error('Live multiplayer lobbies require the live server. Try Solo Practice below!')
+      );
+    }
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
       return Promise.resolve(wsRef.current);
     }
@@ -180,7 +186,7 @@ export const PlayLobbyAndGame: React.FC<PlayLobbyAndGameProps> = ({
         resolve(ws);
       };
       ws.onerror = () => {
-        setRoomError('Could not connect to multiplayer server.');
+        setRoomError('Could not connect to multiplayer server. Solo Practice works anytime!');
         reject(new Error('WebSocket error'));
       };
       ws.onclose = () => {
@@ -213,7 +219,9 @@ export const PlayLobbyAndGame: React.FC<PlayLobbyAndGameProps> = ({
     return () => {
       clearInterval(t);
       if (wsRef.current) {
-        wsRef.current.send(JSON.stringify({ type: 'room:leave' }));
+        if (wsRef.current.readyState === WebSocket.OPEN) {
+          wsRef.current.send(JSON.stringify({ type: 'room:leave' }));
+        }
         wsRef.current.close();
       }
     };
@@ -272,8 +280,12 @@ export const PlayLobbyAndGame: React.FC<PlayLobbyAndGameProps> = ({
           targetCashGoal: hostTargetCash,
         })
       );
-    } catch {
-      setRoomError('Unable to reach multiplayer server.');
+    } catch (err) {
+      setRoomError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to reach multiplayer server. Solo Practice works anytime!'
+      );
     }
   };
 
@@ -295,8 +307,12 @@ export const PlayLobbyAndGame: React.FC<PlayLobbyAndGameProps> = ({
           userId,
         })
       );
-    } catch {
-      setRoomError('Unable to reach multiplayer server.');
+    } catch (err) {
+      setRoomError(
+        err instanceof Error
+          ? err.message
+          : 'Unable to reach multiplayer server. Solo Practice works anytime!'
+      );
     }
   };
 

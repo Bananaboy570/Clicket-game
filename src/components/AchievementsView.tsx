@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, CheckCircle2, Sparkles, ShieldCheck } from 'lucide-react';
+import { apiFetch } from '../lib/apiClient';
 
 export const OwnerAchievementIcon: React.FC<{ className?: string }> = ({
   className = 'w-20 h-20',
@@ -197,7 +198,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
     setSubmitting(true);
     setStatusMsg(null);
     try {
-      const res = await fetch('/api/achievements/grant', {
+      const res = await apiFetch('/api/achievements/grant', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

@@ -11,6 +11,7 @@ import {
   Clock,
 } from 'lucide-react';
 import { BlookArt, BlooketTokenIcon } from './BlookArt';
+import { apiFetch } from '../lib/apiClient';
 
 interface FloatingClickPopup {
   id: number;
@@ -124,6 +125,7 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
   const endTimeRef = useRef<number | null>(null);
   const clicksRef = useRef<number>(0);
   const popupCounterRef = useRef<number>(0);
+  const wheelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const tokensPerClick = 1 + clickUpgradeLevel;
   // Costs 50 tokens first, then increases by 200 tokens every time you buy it (50, 250, 450, 650...)
@@ -136,9 +138,22 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
     return () => clearInterval(t);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
+    };
+  }, []);
+
   const dailyUnlockAt = lastDailyPlayAt ? lastDailyPlayAt + TWENTY_FOUR_HOURS_MS : 0;
   const dailyRemainingMs = Math.max(0, dailyUnlockAt - now);
   const isDailyLocked = dailyRemainingMs > 0 && phase !== 'ACTIVE';
+
+  useEffect(() => {
+    if (phase === 'FINISHED' && dailyRemainingMs === 0) {
+      setPhase('READY');
+      setTimeLeft(ROUND_DURATION);
+    }
+  }, [phase, dailyRemainingMs]);
 
   const wheelUnlockAt = lastWheelSpinAt ? lastWheelSpinAt + TWENTY_FOUR_HOURS_MS : 0;
   const wheelRemainingMs = Math.max(0, wheelUnlockAt - now);
@@ -229,7 +244,8 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
     setWheelRotation(nextRotation);
     playTone(400, 720, 0.14);
 
-    setTimeout(() => {
+    if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
+    wheelTimerRef.current = setTimeout(() => {
       const won = WHEEL_SEGMENTS[winningIdx].amount;
       setIsSpinning(false);
       setWheelPrize(won);
@@ -244,7 +260,7 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
     setClaimingHourly(true);
     setHourlyError(null);
     try {
-      const res = await fetch('/api/rewards/hourly', {
+      const res = await apiFetch('/api/rewards/hourly', {
         method: 'POST',
         headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {},
       });
@@ -522,17 +538,17 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
                             >
                               {seg.label}
                             </text>
-                            <g transform="translate(220, 121.5) scale(0.42) rotate(-12 20 20)">
-                              <rect x="8" y="6" width="25" height="30" rx="5" fill="#b45309" />
-                              <rect x="6" y="4" width="25" height="30" rx="5" fill="#fbbf24" stroke="#d97706" strokeWidth="1.8" />
-                              <rect x="9.5" y="7.5" width="18" height="23" rx="3" fill="#f59e0b" stroke="#fde68a" strokeWidth="1.4" />
+                            <g transform="translate(220, 121.5) scale(0.42)">
+                              <circle cx="21.5" cy="21.5" r="15.5" fill="#b45309" />
+                              <circle cx="19" cy="19" r="15.5" fill="#fbbf24" stroke="#d97706" strokeWidth="1.8" />
+                              <circle cx="19" cy="19" r="11.4" fill="#f59e0b" stroke="#fde68a" strokeWidth="1.4" />
                               <text
-                                x="18.5"
-                                y="24.5"
+                                x="18.8"
+                                y="24.6"
                                 textAnchor="middle"
                                 fill="#fef3c7"
                                 fontFamily="'Titan One', cursive, sans-serif"
-                                fontSize="16"
+                                fontSize="17"
                                 fontWeight="bold"
                               >
                                 C

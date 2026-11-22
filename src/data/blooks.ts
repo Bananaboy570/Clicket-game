@@ -187,7 +187,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '15%',
     sellPrice: 5,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__8__1fd2ddf0.png',
+    imageUrl: 'assets/aistudio/download__8__1fd2ddf0.png',
   },
   {
     id: 'athlete-baseball',
@@ -197,7 +197,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '15%',
     sellPrice: 5,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__9__503c7292.png',
+    imageUrl: 'assets/aistudio/download__9__503c7292.png',
   },
   {
     id: 'athlete-racer',
@@ -207,7 +207,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '15%',
     sellPrice: 5,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__10__a82bd15a.png',
+    imageUrl: 'assets/aistudio/download__10__a82bd15a.png',
   },
   {
     id: 'athlete-referee',
@@ -217,7 +217,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '15%',
     sellPrice: 5,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__11__98e22493.png',
+    imageUrl: 'assets/aistudio/download__11__98e22493.png',
   },
   {
     id: 'athlete-basketball',
@@ -227,7 +227,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '15%',
     sellPrice: 5,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__12__145c93f6.png',
+    imageUrl: 'assets/aistudio/download__12__145c93f6.png',
   },
   {
     id: 'athlete-runner',
@@ -237,7 +237,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '7%',
     sellPrice: 20,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__13__9bca1b6b.png',
+    imageUrl: 'assets/aistudio/download__13__9bca1b6b.png',
   },
   {
     id: 'athlete-martial-artist',
@@ -247,7 +247,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '7%',
     sellPrice: 20,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__14__24143c42.png',
+    imageUrl: 'assets/aistudio/download__14__24143c42.png',
   },
   {
     id: 'athlete-fencer',
@@ -257,7 +257,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '7%',
     sellPrice: 20,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__15__d4d9b8c1.png',
+    imageUrl: 'assets/aistudio/download__15__d4d9b8c1.png',
   },
   {
     id: 'athlete-golfer',
@@ -267,7 +267,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '3.57%',
     sellPrice: 75,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__16__518d3dbc.png',
+    imageUrl: 'assets/aistudio/download__16__518d3dbc.png',
   },
   {
     id: 'athlete-soccer',
@@ -277,7 +277,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '0.4%',
     sellPrice: 200,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__17__e8d8a365.png',
+    imageUrl: 'assets/aistudio/download__17__e8d8a365.png',
   },
   {
     id: 'athlete-cyborg',
@@ -287,7 +287,7 @@ export const ATHLETES_BLOOKS: BlookItem[] = [
     chanceLabel: '0.03%',
     sellPrice: 350,
     packId: 'athletes',
-    imageUrl: '/assets/aistudio/download__18__e086e375.png',
+    imageUrl: 'assets/aistudio/download__18__e086e375.png',
   },
 ];
 
@@ -300,7 +300,7 @@ export const CIRCUS_PACK: PackInfo = {
   bgColor: '#ff4242',
   borderColor: '#b91c1c',
   revealBgColor: '#fca5a5',
-  coverImageUrl: '/assets/aistudio/Pack_Designs__4_-removebg-preview_40ec04e2.png',
+  coverImageUrl: 'assets/aistudio/Pack_Designs__4_-removebg-preview_40ec04e2.png',
   blooks: CIRCUS_BLOOKS,
 };
 
@@ -311,7 +311,7 @@ export const ATHLETES_PACK: PackInfo = {
   bgColor: '#4ade80',
   borderColor: '#16a34a',
   revealBgColor: '#86efac',
-  coverImageUrl: '/assets/aistudio/Pack_Designs__2_-removebg-preview_c4530e10.png',
+  coverImageUrl: 'assets/aistudio/Pack_Designs__2_-removebg-preview_c4530e10.png',
   blooks: ATHLETES_BLOOKS,
 };
 

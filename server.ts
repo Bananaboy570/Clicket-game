@@ -121,13 +121,13 @@ function generateSixDigitCode(): string {
   return crypto.randomInt(100000, 1000000).toString();
 }
 
-const OWNER_EMAILS = new Set(['354245082@educ.dpcdsb.org', 'alexr.t.1157@gmail.com']);
+const OWNER_IDENTIFIERS = new Set(['clicketownerofficial']);
 
 function resolveUserAchievements(u: StoredUser): string[] {
   const set = new Set<string>(Array.isArray(u.achievements) ? u.achievements : []);
   const cleanEmail = (u.email || '').trim().toLowerCase();
   const cleanUser = (u.username || '').trim().toLowerCase();
-  if (OWNER_EMAILS.has(cleanEmail) || OWNER_EMAILS.has(cleanUser)) {
+  if (OWNER_IDENTIFIERS.has(cleanEmail) || OWNER_IDENTIFIERS.has(cleanUser)) {
     set.add('owner');
     set.add('developer');
   }
@@ -337,7 +337,7 @@ async function createServer() {
       const user: StoredUser = {
         id: crypto.randomUUID(),
         username: cleanUsername,
-        email: lowerUser === '354245082@educ.dpcdsb.org' ? lowerUser : '',
+        email: '',
         passwordHash: hashPassword(rawPassword),
         verified: true,
         verificationCode: null,
@@ -347,8 +347,10 @@ async function createServer() {
         clickUpgradeLevel: 0,
         bestDailyClicks: 0,
         equippedBlookId: '',
+        achievements: [],
         createdAt: new Date().toISOString(),
       };
+      user.achievements = resolveUserAchievements(user);
 
       db.users[userKey] = user;
       const sessionToken = crypto.randomBytes(32).toString('hex');
@@ -467,6 +469,7 @@ async function createServer() {
       found.user.verified = true;
       found.user.verificationCode = null;
       found.user.codeExpiresAt = null;
+      found.user.achievements = resolveUserAchievements(found.user);
 
       const sessionToken = crypto.randomBytes(32).toString('hex');
       db.sessions[sessionToken] = found.key;

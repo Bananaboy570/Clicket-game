@@ -252,7 +252,7 @@ export const PackCoverArt: React.FC<{ packId?: string; className?: string }> = (
     return (
       <div className={`${className} drop-shadow-[0_6px_8px_rgba(0,0,0,0.45)] transition-transform duration-200 flex items-center justify-center`}>
         <img
-          src="/assets/aistudio/Pack_Designs__2_-removebg-preview_c4530e10.png"
+          src="assets/aistudio/Pack_Designs__2_-removebg-preview_c4530e10.png"
           alt="Athletes Pack"
           className="w-full h-full object-contain select-none"
           draggable={false}
@@ -264,7 +264,7 @@ export const PackCoverArt: React.FC<{ packId?: string; className?: string }> = (
   return (
     <div className={`${className} drop-shadow-[0_6px_8px_rgba(0,0,0,0.45)] transition-transform duration-200 flex items-center justify-center`}>
       <img
-        src="/assets/aistudio/Pack_Designs__4_-removebg-preview_40ec04e2.png"
+        src="assets/aistudio/Pack_Designs__4_-removebg-preview_40ec04e2.png"
         alt="Circus Pack"
         className="w-full h-full object-contain select-none"
         draggable={false}
