@@ -965,7 +965,7 @@ export default function App() {
                     setShowcasePackTab('circus');
                     setShowCircusSheetModal(true);
                   }}
-                  className="px-3.5 py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                  className="px-3.5 py-2 rounded-xl bg-[#ff3e3e] hover:brightness-110 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>Circus Rates ({unlockedCircusCount}/15)</span>
@@ -975,7 +975,7 @@ export default function App() {
                     setShowcasePackTab('athletes');
                     setShowCircusSheetModal(true);
                   }}
-                  className="px-3.5 py-2 rounded-xl bg-emerald-500/80 hover:bg-emerald-500 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                  className="px-3.5 py-2 rounded-xl bg-[#5cb61f] hover:brightness-110 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
                 >
                   <Sparkles className="w-4 h-4" />
                   <span>Athletes Rates ({unlockedAthletesCount}/11)</span>
