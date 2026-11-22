@@ -7,6 +7,8 @@ import {
   Lock,
   Disc3,
   Sparkles,
+  Gift,
+  Clock,
 } from 'lucide-react';
 import { BlookArt, BlooketTokenIcon } from './BlookArt';
 
@@ -24,14 +26,18 @@ interface DailyClickerViewProps {
   equippedBlookId: string;
   lastDailyPlayAt: number | null;
   lastWheelSpinAt: number | null;
+  lastHourlyClaimAt: number | null;
+  sessionToken: string | null;
   onEarnTokens: (amount: number) => void;
   onBuyClickUpgrade: (cost: number) => void;
   onUpdateBestClicks: (clicks: number) => void;
   onLockDaily: (timestamp: number) => void;
   onRecordWheelSpin: (timestamp: number) => void;
+  onClaimHourlyReward: (reward: number, newTokens: number, claimedAt: number) => void;
 }
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+const ONE_HOUR_MS = 60 * 60 * 1000;
 
 const WHEEL_SEGMENTS = [
   { amount: 1000, label: '+1.0k', color: '#dc2626', text: '#ffffff' },
@@ -85,14 +91,17 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
   equippedBlookId,
   lastDailyPlayAt,
   lastWheelSpinAt,
+  lastHourlyClaimAt,
+  sessionToken,
   onEarnTokens,
   onBuyClickUpgrade,
   onUpdateBestClicks,
   onLockDaily,
   onRecordWheelSpin,
+  onClaimHourlyReward,
 }) => {
   const ROUND_DURATION = 30.0;
-  const [subTab, setSubTab] = useState<'CLICKER' | 'WHEEL'>('CLICKER');
+  const [subTab, setSubTab] = useState<'CLICKER' | 'WHEEL' | 'HOURLY'>('CLICKER');
   const [now, setNow] = useState<number>(() => Date.now());
 
   const [phase, setPhase] = useState<'READY' | 'ACTIVE' | 'FINISHED'>('READY');
@@ -107,6 +116,11 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
   const [isSpinning, setIsSpinning] = useState<boolean>(false);
   const [wheelPrize, setWheelPrize] = useState<number | null>(null);
 
+  // Hourly Reward state
+  const [claimingHourly, setClaimingHourly] = useState<boolean>(false);
+  const [hourlyPrize, setHourlyPrize] = useState<number | null>(null);
+  const [hourlyError, setHourlyError] = useState<string | null>(null);
+
   const endTimeRef = useRef<number | null>(null);
   const clicksRef = useRef<number>(0);
   const popupCounterRef = useRef<number>(0);
@@ -116,7 +130,7 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
   const nextUpgradeCost = 50 + clickUpgradeLevel * 200;
   const canAffordUpgrade = tokens >= nextUpgradeCost;
 
-  // Live clock for 24h locks
+  // Live clock for 24h and 1h locks
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(t);
@@ -129,6 +143,10 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
   const wheelUnlockAt = lastWheelSpinAt ? lastWheelSpinAt + TWENTY_FOUR_HOURS_MS : 0;
   const wheelRemainingMs = Math.max(0, wheelUnlockAt - now);
   const isWheelLocked = wheelRemainingMs > 0 && !isSpinning;
+
+  const hourlyUnlockAt = lastHourlyClaimAt ? lastHourlyClaimAt + ONE_HOUR_MS : 0;
+  const hourlyRemainingMs = Math.max(0, hourlyUnlockAt - now);
+  const isHourlyLocked = hourlyRemainingMs > 0;
 
   useEffect(() => {
     if (phase !== 'ACTIVE') return;
@@ -221,6 +239,30 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
     }, 4100);
   };
 
+  const handleClaimHourly = async () => {
+    if (isHourlyLocked || claimingHourly) return;
+    setClaimingHourly(true);
+    setHourlyError(null);
+    try {
+      const res = await fetch('/api/rewards/hourly', {
+        method: 'POST',
+        headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {},
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setHourlyError(data.error || 'Hourly reward is not ready yet.');
+        return;
+      }
+      setHourlyPrize(data.reward);
+      onClaimHourlyReward(data.reward, data.tokens, data.lastHourlyClaimAt);
+      playTone(587, 1046, 0.22);
+    } catch {
+      setHourlyError('Network error claiming hourly reward.');
+    } finally {
+      setClaimingHourly(false);
+    }
+  };
+
   const elapsed = phase === 'READY' ? 0 : ROUND_DURATION - timeLeft;
   const currentCps = elapsed > 0.2 ? (clicksThisRun / elapsed).toFixed(1) : '0.0';
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / ROUND_DURATION) * 100));
@@ -231,10 +273,10 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
       <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
         <div>
           <h1 className="font-titan text-white text-[44px] leading-none tracking-wide drop-shadow-[0_3px_0_rgba(0,0,0,0.18)]">
-            Daily Rewards
+            Rewards
           </h1>
           <p className="font-nunito font-extrabold text-white/90 text-sm mt-1">
-            30-second Clicker Sprint (24h cooldown) · Upgrade Clicks Anytime · Daily Token Wheel
+            Hourly Reward (300–900 Tokens) · 30s Clicker Sprint (24h) · Daily Token Wheel
           </p>
         </div>
 
@@ -246,8 +288,8 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
         </div>
       </div>
 
-      {/* Sub-Tab Switcher: 30s Clicker vs Daily Token Wheel */}
-      <div className="inline-flex self-start items-center gap-1.5 p-1.5 rounded-2xl bg-white/20 mb-6">
+      {/* Sub-Tab Switcher: 30s Clicker vs Daily Token Wheel vs Hourly Reward */}
+      <div className="inline-flex flex-wrap self-start items-center gap-1.5 p-1.5 rounded-2xl bg-white/20 mb-6">
         <button
           type="button"
           onClick={() => setSubTab('CLICKER')}
@@ -272,6 +314,23 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
           <Disc3 className="w-4 h-4" />
           <span>Daily Token Wheel</span>
           {!isWheelLocked && (
+            <span className="text-xs font-nunito font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-md">
+              Ready
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={() => setSubTab('HOURLY')}
+          className={`px-5 py-2 rounded-xl font-titan text-base flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            subTab === 'HOURLY'
+              ? 'bg-white text-[#dc2626] shadow-sm'
+              : 'text-white hover:bg-white/10'
+          }`}
+        >
+          <Gift className="w-4 h-4" />
+          <span>Hourly Reward</span>
+          {!isHourlyLocked && (
             <span className="text-xs font-nunito font-black text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded-md">
               Ready
             </span>
@@ -398,7 +457,7 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
                 </div>
               )}
             </>
-          ) : (
+          ) : subTab === 'WHEEL' ? (
             /* DAILY TOKEN WHEEL */
             <div className="w-full flex flex-col items-center py-2">
               <div className="text-center mb-4">
@@ -476,7 +535,7 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
                                 fontSize="16"
                                 fontWeight="bold"
                               >
-                                B
+                                C
                               </text>
                             </g>
                           </g>
@@ -518,63 +577,173 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
                 </button>
               )}
             </div>
+          ) : (
+            /* HOURLY REWARD (300 - 900 TOKENS, DIVISIBLE BY 5) */
+            <div className="w-full flex flex-col items-center py-4 text-center">
+              <div className="w-24 h-24 rounded-3xl bg-gradient-to-br from-amber-300 via-amber-400 to-orange-500 border-4 border-white shadow-[0_10px_25px_rgba(245,158,11,0.35)] flex items-center justify-center mb-4">
+                <Gift className="w-12 h-12 text-amber-950 drop-shadow-sm" />
+              </div>
+
+              <h2 className="font-titan text-3xl text-[#dc2626]">Hourly Reward</h2>
+              <p className="font-nunito font-bold text-sm text-slate-500 mt-1 max-w-sm">
+                Claim once every hour for a random drop between{' '}
+                <strong className="text-slate-700">300 and 900 Tokens</strong> (always a multiple of 5)!
+              </p>
+
+              {hourlyError && (
+                <div className="mt-4 px-4 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-nunito font-extrabold text-xs">
+                  {hourlyError}
+                </div>
+              )}
+
+              {hourlyPrize !== null && (
+                <div className="mt-5 px-6 py-3 rounded-2xl bg-amber-100 border-2 border-amber-300 flex items-center gap-2.5 animate-pop-reveal shadow-sm">
+                  <Sparkles className="w-5 h-5 text-amber-700" />
+                  <BlooketTokenIcon className="w-6 h-6" />
+                  <span className="font-titan text-2xl text-amber-900">
+                    +{hourlyPrize.toLocaleString()} Tokens Claimed!
+                  </span>
+                </div>
+              )}
+
+              <div className="mt-6">
+                {isHourlyLocked ? (
+                  <div className="px-7 py-4 rounded-2xl bg-slate-100 border-2 border-slate-200 text-center">
+                    <span className="flex items-center justify-center gap-1.5 font-nunito font-black text-xs text-slate-500">
+                      <Clock className="w-3.5 h-3.5" />
+                      <span>NEXT HOURLY REWARD IN</span>
+                    </span>
+                    <span className="block font-titan text-3xl text-slate-800 tabular-nums mt-1">
+                      {formatRemaining(hourlyRemainingMs)}
+                    </span>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={claimingHourly}
+                    onClick={handleClaimHourly}
+                    className="px-10 py-4 rounded-2xl bg-[#fbbf24] hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_6px_0_#b45309] text-amber-950 font-titan text-2xl cursor-pointer transition-all disabled:opacity-60 flex items-center gap-2.5"
+                  >
+                    <BlooketTokenIcon className="w-7 h-7" />
+                    <span>{claimingHourly ? 'Claiming...' : 'Claim Hourly Reward!'}</span>
+                  </button>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
-        {/* RIGHT COLUMN: CLICK UPGRADES (ALWAYS UNLOCKED EVEN DURING 24H COOLDOWN!) */}
-        <div className="lg:col-span-5 bg-white rounded-3xl p-6 shadow-[0_8px_0_rgba(0,0,0,0.18)] flex flex-col gap-5">
-          <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-4">
-            <div className="w-11 h-11 rounded-2xl bg-red-100 text-[#dc2626] flex items-center justify-center shrink-0">
-              <ArrowUpCircle className="w-6 h-6" />
+        {/* RIGHT COLUMN: HOURLY REWARD QUICK-CLAIM + CLICK UPGRADES */}
+        <div className="lg:col-span-5 flex flex-col gap-6">
+          {/* Hourly Reward Quick-Claim Card */}
+          <div className="bg-white rounded-3xl p-5 shadow-[0_8px_0_rgba(0,0,0,0.18)] flex flex-col gap-3.5 border-2 border-amber-200">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                  <Gift className="w-6 h-6" />
+                </div>
+                <div>
+                  <h2 className="font-titan text-xl text-slate-800 leading-tight">
+                    Hourly Reward
+                  </h2>
+                  <p className="font-nunito font-bold text-xs text-slate-500">
+                    300–900 Tokens every hour (x5)
+                  </p>
+                </div>
+              </div>
+
+              {!isHourlyLocked && (
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-700 font-nunito font-black text-xs shrink-0">
+                  Ready!
+                </span>
+              )}
             </div>
-            <div>
-              <h2 className="font-titan text-2xl text-slate-800 leading-tight">
-                Click Upgrades
-              </h2>
-              <p className="font-nunito font-bold text-xs text-slate-500">
-                Always open — upgrade even while Daily is locked!
-              </p>
-            </div>
+
+            {hourlyPrize !== null && (
+              <div className="px-3.5 py-2 rounded-xl bg-amber-50 border border-amber-200 flex items-center gap-2 text-amber-900 font-nunito font-black text-xs">
+                <BlooketTokenIcon className="w-4 h-4" />
+                <span>Last Claim: +{hourlyPrize.toLocaleString()} Tokens!</span>
+              </div>
+            )}
+
+            {isHourlyLocked ? (
+              <div className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-between">
+                <span className="font-nunito font-black text-xs text-slate-500 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Cooldown</span>
+                </span>
+                <span className="font-titan text-lg text-slate-800 tabular-nums">
+                  {formatRemaining(hourlyRemainingMs)}
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={claimingHourly}
+                onClick={handleClaimHourly}
+                className="w-full py-2.5 px-4 rounded-xl font-titan text-lg flex items-center justify-center gap-2 transition-all cursor-pointer bg-[#fbbf24] hover:brightness-105 text-amber-950 shadow-[0_5px_0_#b45309] active:translate-y-0.5 active:shadow-none disabled:opacity-60"
+              >
+                <BlooketTokenIcon className="w-5 h-5" />
+                <span>{claimingHourly ? 'Claiming...' : 'Claim'}</span>
+              </button>
+            )}
           </div>
 
-          <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 flex items-center justify-between">
-            <div>
-              <span className="font-nunito font-black text-xs text-[#dc2626] uppercase">
-                Current Power (Lv. {clickUpgradeLevel})
-              </span>
-              <p className="font-titan text-3xl text-slate-900 mt-0.5 tabular-nums">
-                {tokensPerClick} {tokensPerClick === 1 ? 'Token' : 'Tokens'} / Click
+          {/* Click Upgrades Card */}
+          <div className="bg-white rounded-3xl p-6 shadow-[0_8px_0_rgba(0,0,0,0.18)] flex flex-col gap-5">
+            <div className="flex items-center gap-3 border-b-2 border-slate-100 pb-4">
+              <div className="w-11 h-11 rounded-2xl bg-red-100 text-[#dc2626] flex items-center justify-center shrink-0">
+                <ArrowUpCircle className="w-6 h-6" />
+              </div>
+              <div>
+                <h2 className="font-titan text-2xl text-slate-800 leading-tight">
+                  Click Upgrades
+                </h2>
+                <p className="font-nunito font-bold text-xs text-slate-500">
+                  Always open — upgrade even while Daily is locked!
+                </p>
+              </div>
+            </div>
+
+            <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-4 flex items-center justify-between">
+              <div>
+                <span className="font-nunito font-black text-xs text-[#dc2626] uppercase">
+                  Current Power (Lv. {clickUpgradeLevel})
+                </span>
+                <p className="font-titan text-3xl text-slate-900 mt-0.5 tabular-nums">
+                  {tokensPerClick} {tokensPerClick === 1 ? 'Token' : 'Tokens'} / Click
+                </p>
+              </div>
+              <BlooketTokenIcon className="w-11 h-11" />
+            </div>
+
+            <div className="rounded-2xl border-2 border-slate-200 p-4 bg-slate-50">
+              <div className="flex items-center justify-between mb-2">
+                <span className="font-titan text-lg text-slate-800">
+                  +1 Token Per Click
+                </span>
+                <span className="font-nunito font-black text-xs text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">
+                  {tokensPerClick} → {tokensPerClick + 1} / click
+                </span>
+              </div>
+              <p className="font-nunito font-bold text-xs text-slate-500 mb-4">
+                Starts at 50 tokens and increases by 200 tokens every time you buy an upgrade.
               </p>
-            </div>
-            <BlooketTokenIcon className="w-11 h-11" />
-          </div>
 
-          <div className="rounded-2xl border-2 border-slate-200 p-4 bg-slate-50">
-            <div className="flex items-center justify-between mb-2">
-              <span className="font-titan text-lg text-slate-800">
-                +1 Token Per Click
-              </span>
-              <span className="font-nunito font-black text-xs text-emerald-700 bg-emerald-100 px-2.5 py-1 rounded-lg">
-                {tokensPerClick} → {tokensPerClick + 1} / click
-              </span>
+              <button
+                type="button"
+                disabled={!canAffordUpgrade}
+                onClick={() => onBuyClickUpgrade(nextUpgradeCost)}
+                className={`w-full py-3 px-4 rounded-xl font-titan text-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
+                  canAffordUpgrade
+                    ? 'bg-[#fbbf24] hover:brightness-105 text-amber-950 shadow-[0_5px_0_#b45309] active:translate-y-0.5 active:shadow-none'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                <BlooketTokenIcon className="w-6 h-6" />
+                <span>Upgrade ({nextUpgradeCost.toLocaleString()} Tokens)</span>
+              </button>
             </div>
-            <p className="font-nunito font-bold text-xs text-slate-500 mb-4">
-              Starts at 50 tokens and increases by 200 tokens every time you buy an upgrade.
-            </p>
-
-            <button
-              type="button"
-              disabled={!canAffordUpgrade}
-              onClick={() => onBuyClickUpgrade(nextUpgradeCost)}
-              className={`w-full py-3 px-4 rounded-xl font-titan text-lg flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                canAffordUpgrade
-                  ? 'bg-[#fbbf24] hover:brightness-105 text-amber-950 shadow-[0_5px_0_#b45309] active:translate-y-0.5 active:shadow-none'
-                  : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-              }`}
-            >
-              <BlooketTokenIcon className="w-6 h-6" />
-              <span>Upgrade ({nextUpgradeCost.toLocaleString()} Tokens)</span>
-            </button>
           </div>
         </div>
       </div>

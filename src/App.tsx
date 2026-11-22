@@ -23,6 +23,8 @@ import {
   User,
   Handshake,
   X,
+  Shield,
+  Trophy,
 } from 'lucide-react';
 import {
   CIRCUS_PACK,
@@ -54,11 +56,17 @@ import { PlayLobbyAndGame } from './components/PlayLobbyAndGame';
 import { AuthScreen, AuthenticatedUser, TradeHistoryItem } from './components/AuthScreen';
 import { DailyClickerView } from './components/DailyClickerView';
 import {
+  HourlyTokenDropOverlay,
+  HourlyTokenBurst,
+} from './components/HourlyTokenDropOverlay';
+import {
   TradingView,
   OnlinePlayerSummary,
   LiveTradeSession,
   TradeCompletedNotice,
 } from './components/TradingView';
+import { ClansView } from './components/ClansView';
+import { AchievementsView } from './components/AchievementsView';
 
 const ADMIN_EMAIL = '354245082@educ.dpcdsb.org';
 
@@ -69,6 +77,8 @@ type ActiveTab =
   | 'Market'
   | 'Bazaar'
   | 'Trading'
+  | 'Clans'
+  | 'Achievements'
   | 'Discover'
   | 'Set Creator'
   | 'My Sets'
@@ -96,6 +106,12 @@ export default function App() {
   const [bestDailyClicks, setBestDailyClicks] = useState<number>(0);
   const [lastDailyPlayAt, setLastDailyPlayAt] = useState<number | null>(null);
   const [lastWheelSpinAt, setLastWheelSpinAt] = useState<number | null>(null);
+  const [lastHourlyClaimAt, setLastHourlyClaimAt] = useState<number | null>(null);
+  const tokenCounterRef = useRef<HTMLDivElement | null>(null);
+  const [hourlyTokenBurst, setHourlyTokenBurst] = useState<HourlyTokenBurst | null>(null);
+  const [tokenDisplayOverride, setTokenDisplayOverride] = useState<number | null>(null);
+  const [tokenPillPulse, setTokenPillPulse] = useState<boolean>(false);
+  const tokenPillPulseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [username, setUsername] = useState<string>('Player');
   const [equippedBlookId, setEquippedBlookId] = useState<string>('');
   const [activeSetId, setActiveSetId] = useState<string>('circus-official');
@@ -171,6 +187,7 @@ export default function App() {
     setEquippedBlookId(validEquipped);
     setLastDailyPlayAt(user.lastDailyPlayAt ?? null);
     setLastWheelSpinAt(user.lastWheelSpinAt ?? null);
+    setLastHourlyClaimAt(user.lastHourlyClaimAt ?? null);
     setTradeHistory(Array.isArray(user.tradeHistory) ? user.tradeHistory : []);
   }, []);
 
@@ -463,6 +480,9 @@ export default function App() {
     setShowProfileMenu(false);
     setPullHistory([]);
     setTradeHistory([]);
+    setHourlyTokenBurst(null);
+    setTokenDisplayOverride(null);
+    setTokenPillPulse(false);
   };
 
   // Only the specific account 354245082@educ.dpcdsb.org gets the +100, +1000, and +10000 token buttons
@@ -619,6 +639,8 @@ export default function App() {
     { label: 'Market', icon: <Store className="w-5 h-5" /> },
     { label: 'Bazaar', icon: <ArrowLeftRight className="w-5 h-5" /> },
     { label: 'Trading', icon: <Handshake className="w-5 h-5" /> },
+    { label: 'Clans', icon: <Shield className="w-5 h-5" /> },
+    { label: 'Achievements', icon: <Trophy className="w-5 h-5" /> },
     { label: 'Discover', icon: <Compass className="w-5 h-5" /> },
     { label: 'Set Creator', icon: <PenSquare className="w-5 h-5" /> },
     { label: 'My Sets', icon: <List className="w-5 h-5" /> },
@@ -633,7 +655,7 @@ export default function App() {
       {/* TOP GUI BAR */}
       <header className="w-full shrink-0 bg-[#dc2626] px-4 md:px-6 py-2 flex flex-wrap items-center justify-between gap-3 z-30 shadow-[0_4px_15px_rgba(0,0,0,0.18)] overflow-visible">
         {/* CLICKET All-Caps Logo */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-baseline gap-2 shrink-0">
           <span
             onClick={() => setActiveTab('Market')}
             className="text-white tracking-wide cursor-pointer block drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]"
@@ -645,6 +667,17 @@ export default function App() {
             }}
           >
             CLICKET
+          </span>
+          <span
+            className="text-white/80 tracking-normal select-none"
+            style={{
+              fontFamily: "'Lexend Deca', sans-serif",
+              fontWeight: 300,
+              fontSize: '12px',
+              lineHeight: '1',
+            }}
+          >
+            v1.0.0
           </span>
         </div>
 
@@ -778,10 +811,15 @@ export default function App() {
         {/* Right: Token Balance + User Profile Menu */}
         <div className="flex items-center gap-2.5 shrink-0">
           {/* Token Counter Pill */}
-          <div className="bg-[#991b1b] text-white px-3.5 py-1.5 rounded-xl border border-white/15 flex items-center gap-2 shadow-inner">
+          <div
+            ref={tokenCounterRef}
+            className={`bg-[#991b1b] text-white px-3.5 py-1.5 rounded-xl border border-white/15 flex items-center gap-2 shadow-inner transition-transform duration-100 ${
+              tokenPillPulse ? 'scale-110 brightness-110' : 'scale-100'
+            }`}
+          >
             <BlooketTokenIcon className="w-5 h-5" />
             <span className="font-nunito font-extrabold text-[17px] tabular-nums">
-              {tokens.toLocaleString()}
+              {(tokenDisplayOverride !== null ? tokenDisplayOverride : tokens).toLocaleString()}
             </span>
           </div>
 
@@ -1086,7 +1124,7 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 2: DAILY 30-SECOND CLICKER (24H LOCK), UPGRADES & DAILY WHEEL */}
+        {/* TAB 2: DAILY 30-SECOND CLICKER (24H LOCK), UPGRADES, DAILY WHEEL & HOURLY REWARD */}
         {activeTab === 'Daily' && (
           <DailyClickerView
             tokens={tokens}
@@ -1095,6 +1133,8 @@ export default function App() {
             equippedBlookId={activeAvatarBlookId}
             lastDailyPlayAt={lastDailyPlayAt}
             lastWheelSpinAt={lastWheelSpinAt}
+            lastHourlyClaimAt={lastHourlyClaimAt}
+            sessionToken={sessionToken}
             onEarnTokens={(amt) => setTokens((prev) => prev + amt)}
             onBuyClickUpgrade={handleBuyClickUpgrade}
             onUpdateBestClicks={(clicks) =>
@@ -1102,6 +1142,18 @@ export default function App() {
             }
             onLockDaily={(ts) => setLastDailyPlayAt(ts)}
             onRecordWheelSpin={(ts) => setLastWheelSpinAt(ts)}
+            onClaimHourlyReward={(reward, newTokens, claimedAt) => {
+              const fromTokens = Math.max(0, newTokens - reward);
+              setTokenDisplayOverride(fromTokens);
+              setHourlyTokenBurst({
+                id: Date.now(),
+                reward,
+                fromTokens,
+                toTokens: newTokens,
+              });
+              setTokens(newTokens);
+              setLastHourlyClaimAt(claimedAt);
+            }}
           />
         )}
 
@@ -1165,6 +1217,7 @@ export default function App() {
                           >
                             <BlookArt
                               id={blook.id}
+                              animated={isUnlocked}
                               className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
                             />
                           </div>
@@ -1230,6 +1283,7 @@ export default function App() {
                           >
                             <BlookArt
                               id={blook.id}
+                              animated={isUnlocked}
                               className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
                             />
                           </div>
@@ -1280,7 +1334,11 @@ export default function App() {
                         : undefined
                     }
                   >
-                    <BlookArt id={selectedBlook.id} className="w-full h-full" />
+                    <BlookArt
+                      id={selectedBlook.id}
+                      animated={(inventory[selectedBlook.id] || 0) > 0}
+                      className="w-full h-full"
+                    />
                   </div>
 
                   <div className="z-10 pb-1">
@@ -1490,7 +1548,11 @@ export default function App() {
                                 className="w-12 h-12 flex items-center justify-center mb-1"
                                 style={have <= 0 ? { filter: 'brightness(0) invert(72%)' } : undefined}
                               >
-                                <BlookArt id={ingBlook.id} className="w-full h-full" />
+                                <BlookArt
+                                  id={ingBlook.id}
+                                  animated={have > 0}
+                                  className="w-full h-full"
+                                />
                               </div>
                               <span className="font-nunito font-extrabold text-[11px] text-slate-700 leading-tight max-w-[86px] truncate">
                                 {ingBlook.name}
@@ -1585,6 +1647,25 @@ export default function App() {
             onCancelTrade={(tradeId) => {
               sendPresenceWs({ type: 'trade:cancel', tradeId });
             }}
+          />
+        )}
+
+        {/* TAB 3D: CLANS AREA */}
+        {activeTab === 'Clans' && (
+          <ClansView
+            myUserId={currentUser.id}
+            myClanId={currentUser.clanId ?? null}
+            sessionToken={sessionToken}
+            onRefreshUser={refreshUserFromServer}
+          />
+        )}
+
+        {/* TAB 3E: ACHIEVEMENTS AREA (OWNER & DEVELOPER) */}
+        {activeTab === 'Achievements' && (
+          <AchievementsView
+            unlockedIds={currentUser.achievements || []}
+            sessionToken={sessionToken}
+            onRefreshUser={refreshUserFromServer}
           />
         )}
 
@@ -2489,6 +2570,28 @@ export default function App() {
           </div>
         );
       })()}
+
+      <HourlyTokenDropOverlay
+        burst={hourlyTokenBurst}
+        targetRef={tokenCounterRef}
+        onProgressTokens={(displayed, pulse) => {
+          setTokenDisplayOverride(displayed);
+          if (pulse) {
+            setTokenPillPulse(true);
+            if (tokenPillPulseTimeoutRef.current) {
+              clearTimeout(tokenPillPulseTimeoutRef.current);
+            }
+            tokenPillPulseTimeoutRef.current = setTimeout(() => {
+              setTokenPillPulse(false);
+            }, 90);
+          }
+        }}
+        onComplete={() => {
+          setHourlyTokenBurst(null);
+          setTokenDisplayOverride(null);
+          setTokenPillPulse(false);
+        }}
+      />
     </div>
   );
 }

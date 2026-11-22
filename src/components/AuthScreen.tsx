@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
-import { BlookArt, BlooketTokenIcon } from './BlookArt';
+import { BlookArt } from './BlookArt';
 
 export interface TradeHistoryItem {
   id: string;
@@ -22,7 +22,10 @@ export interface AuthenticatedUser {
   equippedBlookId: string;
   lastDailyPlayAt?: number | null;
   lastWheelSpinAt?: number | null;
+  lastHourlyClaimAt?: number | null;
   tradeHistory?: TradeHistoryItem[];
+  clanId?: string | null;
+  achievements?: string[];
 }
 
 interface AuthScreenProps {
@@ -125,20 +128,29 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
 
       {/* Top Red Bar with CLICKET Logo */}
       <div className="fixed top-0 inset-x-0 h-16 bg-[#dc2626] shadow-[0_4px_15px_rgba(0,0,0,0.18)] flex items-center justify-between px-6 z-20">
-        <span
-          className="text-white tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]"
-          style={{
-            fontFamily: "'Lexend', sans-serif",
-            fontWeight: 'bold',
-            fontSize: '33px',
-            lineHeight: '57px',
-          }}
-        >
-          CLICKET
-        </span>
-        <div className="flex items-center gap-2 text-white/90 font-nunito font-extrabold text-sm">
-          <BlooketTokenIcon className="w-5 h-5" />
-          <span>Circus Pack Edition</span>
+        <div className="flex items-baseline gap-2">
+          <span
+            className="text-white tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]"
+            style={{
+              fontFamily: "'Lexend', sans-serif",
+              fontWeight: 'bold',
+              fontSize: '33px',
+              lineHeight: '57px',
+            }}
+          >
+            CLICKET
+          </span>
+          <span
+            className="text-white/80 tracking-normal select-none"
+            style={{
+              fontFamily: "'Lexend', sans-serif",
+              fontWeight: 300,
+              fontSize: '12px',
+              lineHeight: '1',
+            }}
+          >
+            v1.0.0
+          </span>
         </div>
       </div>
 

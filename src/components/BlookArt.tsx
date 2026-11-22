@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { ALL_BLOOKS } from '../data/blooks';
 
 interface BlookArtProps {
   id: string;
   className?: string;
+  animated?: boolean;
 }
 
 /**
@@ -19,7 +20,7 @@ export const BlooketTokenIcon: React.FC<{ className?: string }> = ({ className =
       <rect x="6" y="4" width="25" height="30" rx="5" fill="#fbbf24" stroke="#d97706" strokeWidth="1.5" />
       {/* Inner Inset Frame */}
       <rect x="9.5" y="7.5" width="18" height="23" rx="3" fill="#f59e0b" stroke="#fde68a" strokeWidth="1.2" />
-      {/* Embossed B */}
+      {/* Embossed C */}
       <text
         x="18.5"
         y="24.5"
@@ -30,22 +31,179 @@ export const BlooketTokenIcon: React.FC<{ className?: string }> = ({ className =
         fontWeight="bold"
         style={{ filter: 'drop-shadow(1px 1.5px 0px #b45309)' }}
       >
-        B
+        C
       </text>
     </g>
   </svg>
 );
 
+const SvgShineSweep: React.FC<{
+  maskId: string;
+  gradId: string;
+  width: number;
+  height: number;
+  isMystic?: boolean;
+}> = ({ maskId, gradId, width, height, isMystic = false }) => (
+  <>
+    <defs>
+      <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+        <stop offset="32%" stopColor={isMystic ? '#fef08a' : '#e0f2fe'} stopOpacity="0.28" />
+        <stop offset="50%" stopColor="#ffffff" stopOpacity="0.88" />
+        <stop offset="68%" stopColor={isMystic ? '#e9d5ff' : '#bae6fd'} stopOpacity="0.28" />
+        <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+      </linearGradient>
+    </defs>
+    <g mask={`url(#${maskId})`} style={{ pointerEvents: 'none' }}>
+      <g>
+        <animateTransform
+          attributeName="transform"
+          type="translate"
+          values={`${-width} 0; ${width * 1.6} 0; ${width * 1.6} 0`}
+          keyTimes="0; 0.45; 1"
+          dur="2.4s"
+          repeatCount="indefinite"
+        />
+        <polygon
+          points={`0,${-height * 0.2} ${width * 0.36},${-height * 0.2} ${width * 0.14},${height * 1.2} ${-width * 0.22},${height * 1.2}`}
+          fill={`url(#${gradId})`}
+        />
+      </g>
+    </g>
+  </>
+);
+
 /**
  * Exact Blook artwork from uploaded PNGs and Circus Pack SVGs
+ * Chromas & Mysticals animate with smooth floating motion and a moving shine sweep;
+ * Cyborg Coach additionally blinks and looks around.
  */
-export const BlookArt: React.FC<BlookArtProps> = ({ id, className = 'w-24 h-24' }) => {
-  const imageBlook = ALL_BLOOKS.find((b) => b.id === id && b.imageUrl);
-  if (imageBlook?.imageUrl) {
+export const BlookArt: React.FC<BlookArtProps> = ({
+  id,
+  className = 'w-24 h-24',
+  animated = true,
+}) => {
+  const uid = useId().replace(/:/g, '');
+  const meta = ALL_BLOOKS.find((b) => b.id === id);
+  const isChroma = meta?.rarity === 'Chroma';
+  const isMystic = meta?.rarity === 'Mystic';
+  const shouldAnimateSpecial = animated && (isChroma || isMystic);
+
+  // Special animated Cyborg Coach (blinks + looks around + Chroma float & shine)
+  if (id === 'athlete-cyborg') {
+    const cyborgUrl = meta?.imageUrl || '/assets/aistudio/download__18__e086e375.png';
+    if (!animated) {
+      return (
+        <img
+          src={cyborgUrl}
+          alt={meta?.name || 'Cyborg Coach'}
+          className={`${className} object-contain select-none`}
+          draggable={false}
+        />
+      );
+    }
+
+    const leftEyeClipId = `cyborg-left-eye-${uid}`;
+    const rightLensClipId = `cyborg-right-lens-${uid}`;
+
+    return (
+      <div className={`relative ${className} animate-chroma-move select-none`}>
+        <svg viewBox="0 0 160 184" className="w-full h-full overflow-visible" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <clipPath id={leftEyeClipId}>
+              <circle cx="30.5" cy="105.5" r="19.2" />
+            </clipPath>
+            <clipPath id={rightLensClipId}>
+              <circle cx="125" cy="105" r="20" />
+            </clipPath>
+          </defs>
+
+          {/* Base Cyborg Coach artwork */}
+          <image href={cyborgUrl} x="0" y="0" width="160" height="184" />
+
+          {/* Left Human Eye: animated sclera, looking pupil, blinking eyelid */}
+          <g clipPath={`url(#${leftEyeClipId})`}>
+            <circle cx="30.5" cy="105.5" r="20" fill="#ffffff" />
+            <g className="animate-cyborg-look">
+              <circle cx="30.5" cy="106.5" r="10.8" fill="#18181b" />
+              <circle cx="36" cy="100.5" r="4" fill="#ffffff" />
+              <circle cx="25.5" cy="111.5" r="2.1" fill="#ffffff" />
+            </g>
+            {/* Peach Eyelid Blink */}
+            <rect
+              x="9"
+              y="84"
+              width="44"
+              height="44"
+              fill="#fedba9"
+              className="animate-cyborg-blink"
+            />
+          </g>
+
+          {/* Crisp Orange-Gold Eyebrow sitting cleanly above the eye & blink */}
+          <path
+            d="M 19 82 Q 36 87 53 107"
+            fill="none"
+            stroke="#fabc2e"
+            strokeWidth="7.2"
+            strokeLinecap="round"
+          />
+
+          {/* Right Cybernetic Red Scanner Lens: animated tracking reticle + metallic blink shutter */}
+          <g clipPath={`url(#${rightLensClipId})`}>
+            <g className="animate-cyborg-look">
+              <circle
+                cx="125"
+                cy="105"
+                r="9.5"
+                fill="none"
+                stroke="rgba(255,255,255,0.65)"
+                strokeWidth="2"
+                strokeDasharray="4 3"
+              />
+              <circle cx="125" cy="105" r="3.4" fill="#ffffff" opacity="0.9" />
+              <line x1="112" y1="105" x2="119" y2="105" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" />
+              <line x1="131" y1="105" x2="138" y2="105" stroke="rgba(255,255,255,0.7)" strokeWidth="1.5" />
+            </g>
+            {/* Metallic Cybernetic Shutter Blink */}
+            <g className="animate-cyborg-blink">
+              <rect x="103" y="83" width="44" height="44" fill="#4b5563" />
+              <rect x="105" y="103" width="40" height="3" fill="#38bdf8" opacity="0.85" />
+            </g>
+          </g>
+        </svg>
+
+        {/* Moving Chroma Shine masked strictly to the Cyborg Coach PNG silhouette */}
+        <div
+          className="pointer-events-none absolute inset-0 overflow-hidden"
+          style={{
+            WebkitMaskImage: `url(${cyborgUrl})`,
+            maskImage: `url(${cyborgUrl})`,
+            WebkitMaskSize: 'contain',
+            maskSize: 'contain',
+            WebkitMaskRepeat: 'no-repeat',
+            maskRepeat: 'no-repeat',
+            WebkitMaskPosition: 'center',
+            maskPosition: 'center',
+          }}
+        >
+          <div
+            className="absolute inset-y-[-20%] w-[55%] animate-blook-shine"
+            style={{
+              background:
+                'linear-gradient(90deg, transparent 0%, rgba(224,242,254,0.28) 32%, rgba(255,255,255,0.88) 50%, rgba(186,230,253,0.28) 68%, transparent 100%)',
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  if (meta?.imageUrl) {
     return (
       <img
-        src={imageBlook.imageUrl}
-        alt={imageBlook.name}
+        src={meta.imageUrl}
+        alt={meta.name}
         className={`${className} object-contain select-none`}
         draggable={false}
       />
@@ -320,15 +478,16 @@ export const BlookArt: React.FC<BlookArtProps> = ({ id, className = 'w-24 h-24' 
         </svg>
       );
 
-    case 'circus-ball':
+    case 'circus-ball': {
+      const clipId = `circusBallClip-${uid}`;
       return (
         <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
           <defs>
-            <clipPath id="circusBallClip">
+            <clipPath id={clipId}>
               <rect x="10" y="10" width="100" height="100" rx="18" />
             </clipPath>
           </defs>
-          <g clipPath="url(#circusBallClip)">
+          <g clipPath={`url(#${clipId})`}>
             <rect x="10" y="10" width="100" height="100" fill="#f5e6d3" />
             <path d="M10 34 Q35 28 60 42 L26 110 H10 Z" fill="#f2b949" />
             <path d="M60 42 L24 110 H94 Z" fill="#2b59c3" />
@@ -338,17 +497,31 @@ export const BlookArt: React.FC<BlookArtProps> = ({ id, className = 'w-24 h-24' 
           </g>
         </svg>
       );
+    }
 
-    case 'circus-elephant':
+    case 'circus-elephant': {
+      const clipId = `elephantBallClip-${uid}`;
+      const shineMaskId = `elephantShineMask-${uid}`;
+      const shineGradId = `elephantShineGrad-${uid}`;
       return (
-        <svg viewBox="0 0 120 140" className={className} xmlns="http://www.w3.org/2000/svg">
+        <svg
+          viewBox="0 0 120 140"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-chroma-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <clipPath id={clipId}>
+              <rect x="24" y="50" width="72" height="60" rx="22" />
+            </clipPath>
+            <mask id={shineMaskId}>
+              <rect x="24" y="76" width="72" height="60" rx="22" fill="#ffffff" />
+              <rect x="24" y="6" width="72" height="70" rx="14" fill="#ffffff" />
+              <rect x="24" y="72" width="14" height="14" rx="3" fill="#ffffff" />
+              <rect x="82" y="72" width="14" height="14" rx="3" fill="#ffffff" />
+            </mask>
+          </defs>
           <g transform="translate(0, 26)">
-            <defs>
-              <clipPath id="elephantBallClip">
-                <rect x="24" y="50" width="72" height="60" rx="22" />
-              </clipPath>
-            </defs>
-            <g clipPath="url(#elephantBallClip)">
+            <g clipPath={`url(#${clipId})`}>
               <rect x="24" y="50" width="72" height="60" fill="#f5e6d3" />
               <path d="M24 58 L60 68 L36 110 H24 Z" fill="#f2b949" />
               <path d="M60 68 L36 110 H84 Z" fill="#2b59c3" />
@@ -378,15 +551,35 @@ export const BlookArt: React.FC<BlookArtProps> = ({ id, className = 'w-24 h-24' 
           <path d="M53 38 V62 C53 74 74 74 74 62 V52" stroke="#b4c0e8" strokeWidth="10" strokeLinecap="round" fill="none" />
           <line x1="50" y1="45" x2="56" y2="45" stroke="#8594c7" strokeWidth="2" strokeLinecap="round" />
           <line x1="50" y1="51" x2="56" y2="51" stroke="#8594c7" strokeWidth="2" strokeLinecap="round" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={140} />
+          )}
         </svg>
       );
+    }
 
-    case 'ring-lion':
+    case 'ring-lion': {
+      const shineMaskId = `lionShineMask-${uid}`;
+      const shineGradId = `lionShineGrad-${uid}`;
       return (
-        <svg viewBox="0 0 130 130" className={className} xmlns="http://www.w3.org/2000/svg">
-          <circle cx="65" cy="65" r="57" fill="none" stroke="#14b8a6" strokeWidth="5.5" />
-          <path d="M65 8 A57 57 0 0 1 122 65" fill="none" stroke="#eab308" strokeWidth="5.5" />
-          <path d="M65 122 A57 57 0 0 1 8 65" fill="none" stroke="#eab308" strokeWidth="5.5" />
+        <svg
+          viewBox="0 0 130 130"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-chroma-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <mask id={shineMaskId}>
+              <circle cx="65" cy="65" r="60" fill="none" stroke="#ffffff" strokeWidth="7" />
+              <rect x="23" y="23" width="84" height="84" rx="16" fill="#ffffff" />
+              <circle cx="30" cy="24" r="7" fill="#ffffff" />
+              <circle cx="100" cy="24" r="7" fill="#ffffff" />
+            </mask>
+          </defs>
+          <g className={shouldAnimateSpecial ? 'animate-ring-spin' : ''}>
+            <circle cx="65" cy="65" r="57" fill="none" stroke="#14b8a6" strokeWidth="5.5" />
+            <path d="M65 8 A57 57 0 0 1 122 65" fill="none" stroke="#eab308" strokeWidth="5.5" />
+            <path d="M65 122 A57 57 0 0 1 8 65" fill="none" stroke="#eab308" strokeWidth="5.5" />
+          </g>
           <rect x="23" y="23" width="84" height="84" rx="16" fill="#ea7317" />
           <circle cx="30" cy="24" r="7" fill="#3a2e2b" />
           <circle cx="100" cy="24" r="7" fill="#3a2e2b" />
@@ -408,12 +601,29 @@ export const BlookArt: React.FC<BlookArtProps> = ({ id, className = 'w-24 h-24' 
           <circle cx="79" cy="78" r="1.3" fill="#d97706" />
           <circle cx="75" cy="81" r="1.3" fill="#d97706" />
           <circle cx="80" cy="82" r="1.3" fill="#d97706" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={130} height={130} />
+          )}
         </svg>
       );
+    }
 
-    case 'fire-guy':
+    case 'fire-guy': {
+      const shineMaskId = `fireShineMask-${uid}`;
+      const shineGradId = `fireShineGrad-${uid}`;
       return (
-        <svg viewBox="0 0 130 120" className={className} xmlns="http://www.w3.org/2000/svg">
+        <svg
+          viewBox="0 0 130 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-chroma-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <mask id={shineMaskId}>
+              <rect x="20" y="14" width="90" height="92" rx="16" fill="#ffffff" />
+              <path d="M22 103 C10 103 8 88 16 78 C18 84 21 84 23 73 C31 83 36 93 28 101 Z" fill="#ffffff" />
+              <path d="M108 103 C120 103 122 88 114 78 C112 84 109 84 107 73 C99 83 94 93 102 101 Z" fill="#ffffff" />
+            </mask>
+          </defs>
           <rect x="20" y="14" width="90" height="92" rx="16" fill="#ffcc00" />
           <path d="M20 92 H110 V94 C110 100.627 104.627 106 98 106 H32 C25.373 106 20 100.627 20 94 V92 Z" fill="#dc2626" />
           <path d="M36 14 H94 C102.837 14 110 21.163 110 30 V40 H20 V30 C20 21.163 27.163 14 36 14 Z" fill="#784f30" />
@@ -429,28 +639,48 @@ export const BlookArt: React.FC<BlookArtProps> = ({ id, className = 'w-24 h-24' 
           <rect x="55" y="70" width="20" height="5" fill="#ffffff" />
           <path d="M58 81 Q65 78 72 81 C71 86 68 89 65 89 C62 89 59 86 58 81 Z" fill="#e11d48" />
           <rect x="24" y="88" width="82" height="11" rx="3" fill="#fde68a" stroke="#d97706" strokeWidth="1" />
-          <path d="M22 103 C10 103 8 88 16 78 C18 84 21 84 23 73 C31 83 36 93 28 101 Z" fill="#f97316" />
-          <path d="M22 101 C16 101 15 92 21 84 C25 90 27 96 22 101 Z" fill="#facc15" />
-          <path d="M108 103 C120 103 122 88 114 78 C112 84 109 84 107 73 C99 83 94 93 102 101 Z" fill="#f97316" />
-          <path d="M108 101 C114 101 115 92 109 84 C105 90 103 96 108 101 Z" fill="#facc15" />
+          <g className={shouldAnimateSpecial ? 'animate-flame-flicker' : ''}>
+            <path d="M22 103 C10 103 8 88 16 78 C18 84 21 84 23 73 C31 83 36 93 28 101 Z" fill="#f97316" />
+            <path d="M22 101 C16 101 15 92 21 84 C25 90 27 96 22 101 Z" fill="#facc15" />
+          </g>
+          <g className={shouldAnimateSpecial ? 'animate-flame-flicker' : ''}>
+            <path d="M108 103 C120 103 122 88 114 78 C112 84 109 84 107 73 C99 83 94 93 102 101 Z" fill="#f97316" />
+            <path d="M108 101 C114 101 115 92 109 84 C105 90 103 96 108 101 Z" fill="#facc15" />
+          </g>
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={130} height={120} />
+          )}
         </svg>
       );
+    }
 
-    case 'the-golden-ticket':
+    case 'the-golden-ticket': {
+      const gradId = `goldTicketGrad-${uid}`;
+      const shineMaskId = `ticketShineMask-${uid}`;
+      const shineGradId = `ticketShineGrad-${uid}`;
+      const ticketPath =
+        'M14 16 H136 C136 22 142 24 142 28 C142 32 136 34 136 38 C136 42 142 44 142 48 C142 52 136 54 136 58 C136 62 142 64 142 68 C142 72 136 74 136 78 C136 82 142 84 142 88 C142 92 136 94 136 96 H14 C14 94 8 92 8 88 C8 84 14 82 14 78 C14 74 8 72 8 68 C8 64 14 62 14 58 C14 54 8 52 8 48 C8 44 14 42 14 38 C14 34 8 32 8 28 C8 24 14 22 14 16 Z';
       return (
-        <svg viewBox="0 0 150 110" className={className} xmlns="http://www.w3.org/2000/svg">
+        <svg
+          viewBox="0 0 150 110"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-mystic-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
           <defs>
-            <linearGradient id="goldTicketGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#fef08a" />
               <stop offset="35%" stopColor="#eab308" />
               <stop offset="55%" stopColor="#fef9c3" />
               <stop offset="80%" stopColor="#ca8a04" />
               <stop offset="100%" stopColor="#854d0e" />
             </linearGradient>
+            <mask id={shineMaskId}>
+              <path d={ticketPath} fill="#ffffff" />
+            </mask>
           </defs>
           <path
-            d="M14 16 H136 C136 22 142 24 142 28 C142 32 136 34 136 38 C136 42 142 44 142 48 C142 52 136 54 136 58 C136 62 142 64 142 68 C142 72 136 74 136 78 C136 82 142 84 142 88 C142 92 136 94 136 96 H14 C14 94 8 92 8 88 C8 84 14 82 14 78 C14 74 8 72 8 68 C8 64 14 62 14 58 C14 54 8 52 8 48 C8 44 14 42 14 38 C14 34 8 32 8 28 C8 24 14 22 14 16 Z"
-            fill="url(#goldTicketGrad)"
+            d={ticketPath}
+            fill={`url(#${gradId})`}
             stroke="#a16207"
             strokeWidth="2"
           />
@@ -466,8 +696,26 @@ export const BlookArt: React.FC<BlookArtProps> = ({ id, className = 'w-24 h-24' 
           <text x="75" y="86" textAnchor="middle" fill="#dc2626" fontFamily="'Nunito', sans-serif" fontWeight="900" fontSize="15">
             35726
           </text>
+          {shouldAnimateSpecial && (
+            <>
+              <SvgShineSweep
+                maskId={shineMaskId}
+                gradId={shineGradId}
+                width={150}
+                height={110}
+                isMystic
+              />
+              <path d="M26 20 L28 25 L33 27 L28 29 L26 34 L24 29 L19 27 L24 25 Z" fill="#ffffff">
+                <animate attributeName="opacity" values="0.2;1;0.2" dur="1.8s" repeatCount="indefinite" />
+              </path>
+              <path d="M126 76 L128 80 L132 82 L128 84 L126 88 L124 84 L120 82 L124 80 Z" fill="#fef9c3">
+                <animate attributeName="opacity" values="1;0.2;1" dur="1.8s" repeatCount="indefinite" />
+              </path>
+            </>
+          )}
         </svg>
       );
+    }
 
     default:
       return (

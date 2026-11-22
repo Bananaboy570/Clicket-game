@@ -195,6 +195,130 @@
   animation: newBadgeBounce 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
 }
 
+/* Chroma & Mystic Blook Movement */
+@keyframes chromaFloatMove {
+  0%, 100% {
+    transform: translateY(0px) rotate(-1.5deg) scale(1);
+  }
+  25% {
+    transform: translateY(-4px) rotate(1.5deg) scale(1.02);
+  }
+  50% {
+    transform: translateY(-1px) rotate(2deg) scale(1.03);
+  }
+  75% {
+    transform: translateY(-5px) rotate(-1deg) scale(1.015);
+  }
+}
+
+@keyframes mysticFloatMove {
+  0%, 100% {
+    transform: translateY(0px) rotate(-2deg) scale(1);
+    filter: drop-shadow(0 0 8px rgba(168, 85, 247, 0.55));
+  }
+  50% {
+    transform: translateY(-6px) rotate(2deg) scale(1.045);
+    filter: drop-shadow(0 0 16px rgba(250, 204, 21, 0.85));
+  }
+}
+
+/* Moving Glossy Shine Sweep across Chromas & Mysticals */
+@keyframes blookShineSweep {
+  0% {
+    transform: translateX(-160%) skewX(-22deg);
+  }
+  45%, 100% {
+    transform: translateX(220%) skewX(-22deg);
+  }
+}
+
+/* Cyborg Coach Looking Around (human pupil + cyber reticle) */
+@keyframes cyborgLookAround {
+  0%, 16% {
+    transform: translate(0px, 0px);
+  }
+  22%, 36% {
+    transform: translate(-5px, -1.5px);
+  }
+  44%, 58% {
+    transform: translate(5px, -2px);
+  }
+  66%, 78% {
+    transform: translate(3.5px, 3px);
+  }
+  84%, 92% {
+    transform: translate(-3.5px, 2px);
+  }
+  100% {
+    transform: translate(0px, 0px);
+  }
+}
+
+/* Cyborg Coach Natural Blink */
+@keyframes cyborgBlink {
+  0%, 42%, 48%, 88%, 94%, 100% {
+    transform: scaleY(0);
+  }
+  45%, 91% {
+    transform: scaleY(1);
+  }
+}
+
+/* Ring Lion spinning halo & Fire Guy flickering flames */
+@keyframes ringSlowSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes flameFlicker {
+  0%, 100% {
+    transform: scaleY(1) scaleX(1) translateY(0px);
+  }
+  33% {
+    transform: scaleY(1.08) scaleX(0.95) translateY(-1.5px);
+  }
+  66% {
+    transform: scaleY(0.94) scaleX(1.05) translateY(1px);
+  }
+}
+
+.animate-chroma-move {
+  animation: chromaFloatMove 3.2s ease-in-out infinite;
+}
+
+.animate-mystic-move {
+  animation: mysticFloatMove 2.8s ease-in-out infinite;
+}
+
+.animate-blook-shine {
+  animation: blookShineSweep 2.6s ease-in-out infinite;
+}
+
+.animate-cyborg-look {
+  animation: cyborgLookAround 5.2s ease-in-out infinite;
+}
+
+.animate-cyborg-blink {
+  transform-box: fill-box;
+  transform-origin: top center;
+  animation: cyborgBlink 4.2s ease-in-out infinite;
+}
+
+.animate-ring-spin {
+  transform-origin: 65px 65px;
+  animation: ringSlowSpin 9s linear infinite;
+}
+
+.animate-flame-flicker {
+  transform-box: fill-box;
+  transform-origin: bottom center;
+  animation: flameFlicker 0.9s ease-in-out infinite;
+}
+
 /* Custom Blooket Scrollbar */
 ::-webkit-scrollbar {
   width: 10px;

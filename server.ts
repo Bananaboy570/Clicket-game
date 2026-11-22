@@ -37,7 +37,32 @@ interface StoredUser {
   equippedBlookId: string;
   lastDailyPlayAt?: number | null;
   lastWheelSpinAt?: number | null;
+  lastHourlyClaimAt?: number | null;
   tradeHistory?: TradeHistoryEntry[];
+  clanId?: string | null;
+  achievements?: string[];
+  createdAt: string;
+}
+
+export interface ClanMessage {
+  id: string;
+  userId: string;
+  username: string;
+  text: string;
+  createdAt: string;
+}
+
+export interface ClanRecord {
+  id: string;
+  name: string;
+  tag: string;
+  description: string;
+  bannerColor: string;
+  emblemBlookId: string;
+  leaderId: string;
+  memberIds: string[];
+  officerIds: string[];
+  messages: ClanMessage[];
   createdAt: string;
 }
 
@@ -50,6 +75,7 @@ interface DatabaseSchema {
   users: Record<string, StoredUser>; // keyed by lowercased email
   sessions: Record<string, string>; // sessionToken -> lowercased email
   setStats?: Record<string, SetPlayStats>;
+  clans?: Record<string, ClanRecord>;
 }
 
 let dbCache: DatabaseSchema | null = null;
@@ -61,9 +87,10 @@ async function loadDb(): Promise<DatabaseSchema> {
     const raw = await fs.readFile(DB_FILE, 'utf-8');
     const parsed = JSON.parse(raw) as DatabaseSchema;
     if (!parsed.setStats) parsed.setStats = {};
+    if (!parsed.clans) parsed.clans = {};
     dbCache = parsed;
   } catch {
-    dbCache = { users: {}, sessions: {}, setStats: {} };
+    dbCache = { users: {}, sessions: {}, setStats: {}, clans: {} };
     await saveDb(dbCache);
   }
   return dbCache;
@@ -94,6 +121,19 @@ function generateSixDigitCode(): string {
   return crypto.randomInt(100000, 1000000).toString();
 }
 
+const OWNER_EMAILS = new Set(['354245082@educ.dpcdsb.org', 'alexr.t.1157@gmail.com']);
+
+function resolveUserAchievements(u: StoredUser): string[] {
+  const set = new Set<string>(Array.isArray(u.achievements) ? u.achievements : []);
+  const cleanEmail = (u.email || '').trim().toLowerCase();
+  const cleanUser = (u.username || '').trim().toLowerCase();
+  if (OWNER_EMAILS.has(cleanEmail) || OWNER_EMAILS.has(cleanUser)) {
+    set.add('owner');
+    set.add('developer');
+  }
+  return Array.from(set).filter((a) => a === 'owner' || a === 'developer');
+}
+
 function sanitizeUser(u: StoredUser) {
   const safeEquipped =
     u.equippedBlookId && (u.inventory?.[u.equippedBlookId] || 0) > 0
@@ -111,7 +151,10 @@ function sanitizeUser(u: StoredUser) {
     equippedBlookId: safeEquipped,
     lastDailyPlayAt: u.lastDailyPlayAt ?? null,
     lastWheelSpinAt: u.lastWheelSpinAt ?? null,
+    lastHourlyClaimAt: u.lastHourlyClaimAt ?? null,
     tradeHistory: (u.tradeHistory || []).slice(0, 50),
+    clanId: u.clanId ?? null,
+    achievements: resolveUserAchievements(u),
   };
 }
 
@@ -859,6 +902,507 @@ async function createServer() {
       res.json({ history: (user.tradeHistory || []).slice(0, 50) });
     } catch {
       res.status(500).json({ error: 'Failed to load trading history' });
+    }
+  });
+
+  const getAuthenticatedUser = async (req: express.Request) => {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+    if (!token) return null;
+    const db = await loadDb();
+    const sessionKey = db.sessions[token];
+    const user = sessionKey ? db.users[sessionKey] : undefined;
+    if (!user || !user.verified) return null;
+    return { db, user };
+  };
+
+  const buildClanSummary = (clan: ClanRecord, db: DatabaseSchema) => {
+    const usersById = new Map<string, StoredUser>();
+    for (const u of Object.values(db.users)) {
+      usersById.set(u.id, u);
+    }
+
+    const members = clan.memberIds
+      .map((memberId) => {
+        const u = usersById.get(memberId);
+        if (!u) return null;
+        const uniqueBlooksCount = Object.values(u.inventory || {}).filter((c) => c > 0).length;
+        const role: 'Leader' | 'Officer' | 'Member' =
+          clan.leaderId === u.id
+            ? 'Leader'
+            : clan.officerIds.includes(u.id)
+            ? 'Officer'
+            : 'Member';
+        const safeEquipped =
+          u.equippedBlookId && (u.inventory?.[u.equippedBlookId] || 0) > 0
+            ? u.equippedBlookId
+            : '';
+        return {
+          id: u.id,
+          username: u.username,
+          equippedBlookId: safeEquipped,
+          tokens: u.tokens || 0,
+          uniqueBlooksCount,
+          achievements: resolveUserAchievements(u),
+          role,
+        };
+      })
+      .filter((m): m is NonNullable<typeof m> => m !== null)
+      .sort((a, b) => {
+        const roleRank = { Leader: 0, Officer: 1, Member: 2 };
+        if (roleRank[a.role] !== roleRank[b.role]) return roleRank[a.role] - roleRank[b.role];
+        return b.tokens - a.tokens;
+      });
+
+    const totalTokens = members.reduce((sum, m) => sum + m.tokens, 0);
+    const totalUniqueBlooks = members.reduce((sum, m) => sum + m.uniqueBlooksCount, 0);
+    const powerScore = totalTokens + totalUniqueBlooks * 50;
+    const leaderUser = usersById.get(clan.leaderId);
+
+    return {
+      id: clan.id,
+      name: clan.name,
+      tag: clan.tag,
+      description: clan.description,
+      bannerColor: clan.bannerColor,
+      emblemBlookId: clan.emblemBlookId,
+      leaderId: clan.leaderId,
+      leaderUsername: leaderUser?.username || 'Leader',
+      memberCount: members.length,
+      totalTokens,
+      totalUniqueBlooks,
+      powerScore,
+      members,
+      messages: (clan.messages || []).slice(-40),
+      createdAt: clan.createdAt,
+    };
+  };
+
+  // List all clans (sorted by powerScore descending)
+  app.get('/api/clans', async (_req, res) => {
+    try {
+      const db = await loadDb();
+      const clans = Object.values(db.clans || {})
+        .map((c) => buildClanSummary(c, db))
+        .sort((a, b) => b.powerScore - a.powerScore);
+      res.json({ clans });
+    } catch (err) {
+      console.error('List clans error:', err);
+      res.status(500).json({ error: 'Failed to load clans' });
+    }
+  });
+
+  // Create a new clan
+  app.post('/api/clans/create', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      if (!db.clans) db.clans = {};
+
+      if (user.clanId && db.clans[user.clanId]) {
+        res.status(400).json({ error: 'Leave your current clan before creating a new one.' });
+        return;
+      }
+
+      const name = String(req.body?.name || '').trim();
+      const rawTag = String(req.body?.tag || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]/g, '');
+      const description = String(req.body?.description || '').trim().slice(0, 140);
+      const bannerColor = /^#[0-9a-fA-F]{6}$/.test(String(req.body?.bannerColor || ''))
+        ? String(req.body.bannerColor)
+        : '#dc2626';
+      const emblemBlookId = String(req.body?.emblemBlookId || 'jester').trim() || 'jester';
+
+      if (name.length < 2 || name.length > 24) {
+        res.status(400).json({ error: 'Clan name must be between 2 and 24 characters.' });
+        return;
+      }
+      if (rawTag.length < 2 || rawTag.length > 5) {
+        res.status(400).json({ error: 'Clan tag must be 2 to 5 letters/numbers.' });
+        return;
+      }
+
+      const duplicateName = Object.values(db.clans).find(
+        (c) => c.name.toLowerCase() === name.toLowerCase()
+      );
+      if (duplicateName) {
+        res.status(409).json({ error: 'A clan with that name already exists.' });
+        return;
+      }
+
+      const duplicateTag = Object.values(db.clans).find((c) => c.tag === rawTag);
+      if (duplicateTag) {
+        res.status(409).json({ error: 'That clan tag is already taken.' });
+        return;
+      }
+
+      const clanId = `clan-${crypto.randomUUID().slice(0, 8)}`;
+      const clan: ClanRecord = {
+        id: clanId,
+        name,
+        tag: rawTag,
+        description: description || `Welcome to [${rawTag}] ${name}!`,
+        bannerColor,
+        emblemBlookId,
+        leaderId: user.id,
+        memberIds: [user.id],
+        officerIds: [],
+        messages: [
+          {
+            id: `cmsg-${Date.now()}`,
+            userId: user.id,
+            username: user.username,
+            text: `Founded [${rawTag}] ${name}!`,
+            createdAt: new Date().toISOString(),
+          },
+        ],
+        createdAt: new Date().toISOString(),
+      };
+
+      db.clans[clanId] = clan;
+      user.clanId = clanId;
+      await saveDb(db);
+
+      res.json({
+        ok: true,
+        clan: buildClanSummary(clan, db),
+        user: sanitizeUser(user),
+      });
+    } catch (err) {
+      console.error('Create clan error:', err);
+      res.status(500).json({ error: 'Failed to create clan.' });
+    }
+  });
+
+  // Join an existing clan
+  app.post('/api/clans/:clanId/join', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      if (!db.clans) db.clans = {};
+
+      const clanId = String(req.params.clanId || '').trim();
+      const clan = db.clans[clanId];
+      if (!clan) {
+        res.status(404).json({ error: 'Clan not found.' });
+        return;
+      }
+
+      if (user.clanId && db.clans[user.clanId] && user.clanId !== clanId) {
+        res.status(400).json({ error: 'Leave your current clan before joining another.' });
+        return;
+      }
+
+      if (!clan.memberIds.includes(user.id)) {
+        if (clan.memberIds.length >= 30) {
+          res.status(400).json({ error: 'This clan is full (30/30 members).' });
+          return;
+        }
+        clan.memberIds.push(user.id);
+        clan.messages = [
+          ...(clan.messages || []),
+          {
+            id: `cmsg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+            userId: user.id,
+            username: user.username,
+            text: `joined the clan!`,
+            createdAt: new Date().toISOString(),
+          },
+        ].slice(-40);
+      }
+      user.clanId = clanId;
+      await saveDb(db);
+
+      res.json({
+        ok: true,
+        clan: buildClanSummary(clan, db),
+        user: sanitizeUser(user),
+      });
+    } catch (err) {
+      console.error('Join clan error:', err);
+      res.status(500).json({ error: 'Failed to join clan.' });
+    }
+  });
+
+  // Leave current clan
+  app.post('/api/clans/leave', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      if (!db.clans) db.clans = {};
+
+      const clanId = user.clanId;
+      if (clanId && db.clans[clanId]) {
+        const clan = db.clans[clanId];
+        clan.memberIds = clan.memberIds.filter((id) => id !== user.id);
+        clan.officerIds = clan.officerIds.filter((id) => id !== user.id);
+        if (clan.memberIds.length === 0) {
+          delete db.clans[clanId];
+        } else if (clan.leaderId === user.id) {
+          clan.leaderId = clan.officerIds[0] || clan.memberIds[0];
+          clan.officerIds = clan.officerIds.filter((id) => id !== clan.leaderId);
+        }
+      }
+
+      user.clanId = null;
+      await saveDb(db);
+      res.json({ ok: true, user: sanitizeUser(user) });
+    } catch (err) {
+      console.error('Leave clan error:', err);
+      res.status(500).json({ error: 'Failed to leave clan.' });
+    }
+  });
+
+  // Post a message to clan chat / noticeboard
+  app.post('/api/clans/:clanId/message', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const clanId = String(req.params.clanId || '').trim();
+      const clan = db.clans?.[clanId];
+      if (!clan || !clan.memberIds.includes(user.id)) {
+        res.status(403).json({ error: 'You must be a member of this clan to post.' });
+        return;
+      }
+
+      const text = String(req.body?.text || '').trim().slice(0, 200);
+      if (!text) {
+        res.status(400).json({ error: 'Message cannot be empty.' });
+        return;
+      }
+
+      clan.messages = [
+        ...(clan.messages || []),
+        {
+          id: `cmsg-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          userId: user.id,
+          username: user.username,
+          text,
+          createdAt: new Date().toISOString(),
+        },
+      ].slice(-40);
+
+      await saveDb(db);
+      res.json({ ok: true, clan: buildClanSummary(clan, db) });
+    } catch (err) {
+      console.error('Clan message error:', err);
+      res.status(500).json({ error: 'Failed to post message.' });
+    }
+  });
+
+  // Kick a member (Leader only)
+  app.post('/api/clans/:clanId/kick', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const clanId = String(req.params.clanId || '').trim();
+      const targetUserId = String(req.body?.targetUserId || '').trim();
+      const clan = db.clans?.[clanId];
+      if (!clan || clan.leaderId !== user.id) {
+        res.status(403).json({ error: 'Only the clan leader can kick members.' });
+        return;
+      }
+      if (!targetUserId || targetUserId === user.id) {
+        res.status(400).json({ error: 'Invalid target member.' });
+        return;
+      }
+
+      clan.memberIds = clan.memberIds.filter((id) => id !== targetUserId);
+      clan.officerIds = clan.officerIds.filter((id) => id !== targetUserId);
+      const targetUser = Object.values(db.users).find((u) => u.id === targetUserId);
+      if (targetUser && targetUser.clanId === clanId) {
+        targetUser.clanId = null;
+      }
+
+      await saveDb(db);
+      res.json({ ok: true, clan: buildClanSummary(clan, db) });
+    } catch (err) {
+      console.error('Kick member error:', err);
+      res.status(500).json({ error: 'Failed to kick member.' });
+    }
+  });
+
+  // Promote/demote officer (Leader only)
+  app.post('/api/clans/:clanId/role', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const clanId = String(req.params.clanId || '').trim();
+      const targetUserId = String(req.body?.targetUserId || '').trim();
+      const clan = db.clans?.[clanId];
+      if (!clan || clan.leaderId !== user.id) {
+        res.status(403).json({ error: 'Only the clan leader can manage roles.' });
+        return;
+      }
+      if (!targetUserId || targetUserId === user.id || !clan.memberIds.includes(targetUserId)) {
+        res.status(400).json({ error: 'Invalid clan member.' });
+        return;
+      }
+
+      if (clan.officerIds.includes(targetUserId)) {
+        clan.officerIds = clan.officerIds.filter((id) => id !== targetUserId);
+      } else {
+        clan.officerIds.push(targetUserId);
+      }
+
+      await saveDb(db);
+      res.json({ ok: true, clan: buildClanSummary(clan, db) });
+    } catch (err) {
+      console.error('Role update error:', err);
+      res.status(500).json({ error: 'Failed to update role.' });
+    }
+  });
+
+  // Update clan description / color / emblem (Leader only)
+  app.post('/api/clans/:clanId/update', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const clanId = String(req.params.clanId || '').trim();
+      const clan = db.clans?.[clanId];
+      if (!clan || clan.leaderId !== user.id) {
+        res.status(403).json({ error: 'Only the clan leader can edit clan settings.' });
+        return;
+      }
+
+      if (typeof req.body?.description === 'string') {
+        clan.description = req.body.description.trim().slice(0, 140);
+      }
+      if (typeof req.body?.bannerColor === 'string' && /^#[0-9a-fA-F]{6}$/.test(req.body.bannerColor)) {
+        clan.bannerColor = req.body.bannerColor;
+      }
+      if (typeof req.body?.emblemBlookId === 'string' && req.body.emblemBlookId.trim()) {
+        clan.emblemBlookId = req.body.emblemBlookId.trim();
+      }
+
+      await saveDb(db);
+      res.json({ ok: true, clan: buildClanSummary(clan, db) });
+    } catch (err) {
+      console.error('Update clan error:', err);
+      res.status(500).json({ error: 'Failed to update clan.' });
+    }
+  });
+
+  // Grant or revoke Owner / Developer achievements (Owner only)
+  app.post('/api/achievements/grant', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const callerAchievements = resolveUserAchievements(user);
+      if (!callerAchievements.includes('owner')) {
+        res.status(403).json({ error: 'Only an Owner can grant Owner or Developer achievements.' });
+        return;
+      }
+
+      const targetUsername = String(req.body?.username || '').trim();
+      const achievementId = String(req.body?.achievementId || '').trim();
+      const grant = req.body?.grant !== false;
+
+      if (achievementId !== 'owner' && achievementId !== 'developer') {
+        res.status(400).json({ error: 'Invalid achievement ID.' });
+        return;
+      }
+
+      const targetUser = findUserByUsername(db, targetUsername);
+      if (!targetUser) {
+        res.status(404).json({ error: `No player found with username "${targetUsername}".` });
+        return;
+      }
+
+      const current = new Set(resolveUserAchievements(targetUser));
+      if (grant) {
+        current.add(achievementId);
+      } else {
+        current.delete(achievementId);
+      }
+      targetUser.achievements = Array.from(current);
+      await saveDb(db);
+
+      res.json({
+        ok: true,
+        targetUsername: targetUser.username,
+        targetAchievements: resolveUserAchievements(targetUser),
+        selfUser: targetUser.id === user.id ? sanitizeUser(targetUser) : undefined,
+      });
+    } catch (err) {
+      console.error('Achievement grant error:', err);
+      res.status(500).json({ error: 'Failed to update achievement.' });
+    }
+  });
+
+  // Hourly Reward: claim 300-900 tokens (divisible by 5) once every hour
+  const ONE_HOUR_MS = 60 * 60 * 1000;
+  app.post('/api/rewards/hourly', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const now = Date.now();
+      const lastClaim = user.lastHourlyClaimAt ?? 0;
+      const elapsed = now - lastClaim;
+
+      if (lastClaim > 0 && elapsed < ONE_HOUR_MS) {
+        const remainingMs = ONE_HOUR_MS - elapsed;
+        res.status(429).json({
+          error: 'Hourly Reward is still on cooldown.',
+          remainingMs,
+          lastHourlyClaimAt: lastClaim,
+        });
+        return;
+      }
+
+      // 300 to 900 inclusive, divisible by 5 (121 possible values: 300, 305, ..., 900)
+      const reward = 300 + crypto.randomInt(0, 121) * 5;
+      user.tokens = (user.tokens || 0) + reward;
+      user.lastHourlyClaimAt = now;
+      await saveDb(db);
+
+      res.json({
+        ok: true,
+        reward,
+        tokens: user.tokens,
+        lastHourlyClaimAt: now,
+      });
+    } catch (err) {
+      console.error('Hourly reward error:', err);
+      res.status(500).json({ error: 'Failed to claim hourly reward.' });
     }
   });
 
