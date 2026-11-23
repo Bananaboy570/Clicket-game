@@ -76,21 +76,52 @@ export interface StaticChatMessage {
   createdAt: string;
 }
 
+export interface StaticGlobalTradeListing {
+  id: string;
+  creatorId: string;
+  creatorUsername: string;
+  creatorAvatarBlookId: string;
+  creatorAchievements: string[];
+  creatorIsOwner: boolean;
+  offeredBlookId: string;
+  requestedBlookId: string | null;
+  requestedRarity: string | null;
+  note: string;
+  status: 'OPEN' | 'FULFILLED' | 'CANCELLED';
+  createdAt: string;
+  fulfilledByUsername?: string;
+  fulfilledAt?: string;
+}
+
 interface StaticDatabase {
   users: Record<string, StaticStoredUser>;
   sessions: Record<string, string>;
   setStats: Record<string, StaticSetStats>;
   clans: Record<string, StaticClanRecord>;
   chatMessages: StaticChatMessage[];
+  globalTrades: StaticGlobalTradeListing[];
 }
 
 const STATIC_CHAT_CHANNEL = 'clicket_static_chat';
+const STATIC_TRADES_CHANNEL = 'clicket_static_trades';
 
 function notifyStaticChatUpdated(): void {
   try {
     if (typeof BroadcastChannel !== 'undefined') {
       const ch = new BroadcastChannel(STATIC_CHAT_CHANNEL);
       ch.postMessage({ type: 'chat:updated' });
+      ch.close();
+    }
+  } catch {
+    // Ignore BroadcastChannel unavailability
+  }
+}
+
+function notifyStaticTradesUpdated(): void {
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const ch = new BroadcastChannel(STATIC_TRADES_CHANNEL);
+      ch.postMessage({ type: 'trades:updated' });
       ch.close();
     }
   } catch {
@@ -149,6 +180,78 @@ export function onStaticModeChange(listener: () => void): () => void {
   };
 }
 
+const INITIAL_STATIC_GLOBAL_TRADES: StaticGlobalTradeListing[] = [
+  {
+    id: 'gt-seed-1',
+    creatorId: 'seed-trader-1',
+    creatorUsername: 'CircusCollector',
+    creatorAvatarBlookId: 'magician',
+    creatorAchievements: ['day_one'],
+    creatorIsOwner: false,
+    offeredBlookId: 'cotton-candy',
+    requestedBlookId: 'popcorn',
+    requestedRarity: null,
+    note: 'Trading my Rare Cotton Candy for a Popcorn!',
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+  {
+    id: 'gt-seed-2',
+    creatorId: 'seed-trader-2',
+    creatorUsername: 'AthleteFan99',
+    creatorAvatarBlookId: 'athlete-soccer',
+    creatorAchievements: ['day_one'],
+    creatorIsOwner: false,
+    offeredBlookId: 'athlete-basketball',
+    requestedBlookId: 'tightrope-walker',
+    requestedRarity: null,
+    note: '1-to-1 Uncommon swap! Need Tightrope Walker.',
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+  },
+  {
+    id: 'gt-seed-3',
+    creatorId: 'seed-trader-3',
+    creatorUsername: 'BlookCollectorPro',
+    creatorAvatarBlookId: 'ring-lion',
+    creatorAchievements: ['day_one', 'legendary'],
+    creatorIsOwner: false,
+    offeredBlookId: 'circus-elephant',
+    requestedBlookId: null,
+    requestedRarity: 'Rare',
+    note: 'Offering Circus Elephant for ANY Rare Blook!',
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 10800000).toISOString(),
+  },
+  {
+    id: 'gt-seed-4',
+    creatorId: 'seed-trader-4',
+    creatorUsername: 'ClicketTrader',
+    creatorAvatarBlookId: 'jester',
+    creatorAchievements: ['day_one'],
+    creatorIsOwner: false,
+    offeredBlookId: 'magician',
+    requestedBlookId: 'jester',
+    requestedRarity: null,
+    note: 'Need an extra Jester for Bazaar crafting!',
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 14400000).toISOString(),
+  },
+];
+
+const INITIAL_STATIC_CHAT: StaticChatMessage[] = [
+  {
+    id: 'msg-welcome-owner',
+    userId: 'system-owner',
+    username: 'ClicketOwnerOfficial',
+    avatarBlookId: 'magician',
+    achievements: ['owner', 'developer', 'day_one'],
+    isOwner: true,
+    text: 'Welcome to CLICKET! Chat with players, collect Blooks, and trade across the Global Market!',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+];
+
 function loadStaticDb(): StaticDatabase {
   try {
     const raw = localStorage.getItem(STATIC_DB_KEY);
@@ -159,7 +262,14 @@ function loadStaticDb(): StaticDatabase {
         sessions: parsed.sessions || {},
         setStats: parsed.setStats || {},
         clans: parsed.clans || {},
-        chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
+        chatMessages:
+          Array.isArray(parsed.chatMessages) && parsed.chatMessages.length > 0
+            ? parsed.chatMessages
+            : [...INITIAL_STATIC_CHAT],
+        globalTrades:
+          Array.isArray(parsed.globalTrades) && parsed.globalTrades.length > 0
+            ? parsed.globalTrades
+            : [...INITIAL_STATIC_GLOBAL_TRADES],
       };
     }
   } catch {
@@ -170,7 +280,8 @@ function loadStaticDb(): StaticDatabase {
     sessions: {},
     setStats: {},
     clans: {},
-    chatMessages: [],
+    chatMessages: [...INITIAL_STATIC_CHAT],
+    globalTrades: [...INITIAL_STATIC_GLOBAL_TRADES],
   };
   saveStaticDb(initial);
   return initial;
@@ -1006,6 +1117,180 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
     saveStaticDb(db);
     notifyStaticChatUpdated();
     return jsonRes({ ok: true, messageId });
+  }
+
+  // GLOBAL TRADING: LIST / CREATE / FULFILL / CANCEL
+  if (url === '/api/trades/global' && method === 'GET') {
+    const openTrades = (db.globalTrades || []).filter((t) => t.status === 'OPEN');
+    return jsonRes({ trades: openTrades.slice(-80).reverse() });
+  }
+
+  if (url === '/api/trades/global/create' && method === 'POST') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    const { user } = auth;
+    const offeredBlookId = String(body.offeredBlookId || '').trim();
+    const requestedBlookId = body.requestedBlookId ? String(body.requestedBlookId).trim() : null;
+    const requestedRarity = body.requestedRarity ? String(body.requestedRarity).trim() : null;
+    const note = String(body.note || '').trim().slice(0, 80);
+
+    if (!offeredBlookId) {
+      return jsonRes({ error: 'Please choose a Blook to offer.' }, 400);
+    }
+    if ((user.inventory?.[offeredBlookId] || 0) < 1) {
+      return jsonRes({ error: 'You do not own that Blook.' }, 400);
+    }
+    if (!requestedBlookId && !requestedRarity) {
+      return jsonRes({ error: 'Please specify what Blook or rarity you want in return.' }, 400);
+    }
+
+    user.inventory[offeredBlookId] -= 1;
+    if (user.inventory[offeredBlookId] <= 0) delete user.inventory[offeredBlookId];
+    if (user.equippedBlookId === offeredBlookId && !user.inventory[offeredBlookId]) {
+      user.equippedBlookId = '';
+    }
+
+    const achievements = resolveAchievements(user);
+    const isOwner =
+      achievements.includes('owner') ||
+      OWNER_IDENTIFIERS.has((user.username || '').trim().toLowerCase());
+    const safeEquipped =
+      user.equippedBlookId && (user.inventory?.[user.equippedBlookId] || 0) > 0
+        ? user.equippedBlookId
+        : '';
+
+    const tradeListing: StaticGlobalTradeListing = {
+      id: `gt-${Date.now()}-${randomId().slice(0, 6)}`,
+      creatorId: user.id,
+      creatorUsername: user.username,
+      creatorAvatarBlookId: safeEquipped,
+      creatorAchievements: achievements,
+      creatorIsOwner: isOwner,
+      offeredBlookId,
+      requestedBlookId,
+      requestedRarity,
+      note,
+      status: 'OPEN',
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!Array.isArray(db.globalTrades)) db.globalTrades = [];
+    db.globalTrades.push(tradeListing);
+    saveStaticDb(db);
+    notifyStaticTradesUpdated();
+    return jsonRes({ ok: true, trade: tradeListing, user: sanitizeStaticUser(user) });
+  }
+
+  const tradeFulfillMatch = url.match(/^\/api\/trades\/global\/([^/]+)\/fulfill$/);
+  if (tradeFulfillMatch && method === 'POST') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    const { user } = auth;
+    const tradeId = decodeURIComponent(tradeFulfillMatch[1]);
+    if (!Array.isArray(db.globalTrades)) db.globalTrades = [];
+    const trade = db.globalTrades.find((t) => t.id === tradeId);
+
+    if (!trade || trade.status !== 'OPEN') {
+      return jsonRes({ error: 'This trade offer is no longer available.' }, 404);
+    }
+    if (trade.creatorId === user.id) {
+      return jsonRes({ error: 'You cannot fulfill your own trade offer.' }, 400);
+    }
+
+    const givenBlookId = String(body.givenBlookId || trade.requestedBlookId || '').trim();
+    if (!givenBlookId) {
+      return jsonRes({ error: 'Please choose which Blook you are giving.' }, 400);
+    }
+    if ((user.inventory?.[givenBlookId] || 0) < 1) {
+      return jsonRes({ error: 'You do not own that Blook.' }, 400);
+    }
+
+    if (trade.requestedBlookId && trade.requestedBlookId !== givenBlookId) {
+      return jsonRes({ error: 'That does not match the requested Blook.' }, 400);
+    }
+
+    if (trade.requestedRarity) {
+      const blookObj = ALL_BLOOKS.find((b) => b.id === givenBlookId);
+      if (!blookObj || blookObj.rarity !== trade.requestedRarity) {
+        return jsonRes({ error: `That Blook is not a ${trade.requestedRarity}.` }, 400);
+      }
+    }
+
+    user.inventory[givenBlookId] -= 1;
+    if (user.inventory[givenBlookId] <= 0) delete user.inventory[givenBlookId];
+    user.inventory[trade.offeredBlookId] = (user.inventory[trade.offeredBlookId] || 0) + 1;
+    if (user.equippedBlookId === givenBlookId && !user.inventory[givenBlookId]) {
+      user.equippedBlookId = '';
+    }
+
+    const creator = Object.values(db.users).find((u) => u.id === trade.creatorId);
+    const nowIso = new Date().toISOString();
+    const tradeRef = `gt-${Date.now()}-${randomId().slice(0, 6)}`;
+
+    const historyEntryFulfiller: StaticTradeHistoryEntry = {
+      id: `${tradeRef}-f`,
+      timestamp: nowIso,
+      partnerUsername: trade.creatorUsername,
+      gaveBlookId: givenBlookId,
+      receivedBlookId: trade.offeredBlookId,
+    };
+
+    user.tradeHistory = [historyEntryFulfiller, ...(user.tradeHistory || [])].slice(0, 50);
+    user.achievements = resolveAchievements(user);
+
+    if (creator) {
+      if (!creator.inventory) creator.inventory = {};
+      creator.inventory[givenBlookId] = (creator.inventory[givenBlookId] || 0) + 1;
+      const historyEntryCreator: StaticTradeHistoryEntry = {
+        id: `${tradeRef}-c`,
+        timestamp: nowIso,
+        partnerUsername: user.username,
+        gaveBlookId: trade.offeredBlookId,
+        receivedBlookId: givenBlookId,
+      };
+      creator.tradeHistory = [historyEntryCreator, ...(creator.tradeHistory || [])].slice(0, 50);
+      creator.achievements = resolveAchievements(creator);
+    }
+
+    trade.status = 'FULFILLED';
+    trade.fulfilledByUsername = user.username;
+    trade.fulfilledAt = nowIso;
+
+    saveStaticDb(db);
+    notifyStaticTradesUpdated();
+
+    return jsonRes({
+      ok: true,
+      trade,
+      user: sanitizeStaticUser(user),
+      receivedBlookId: trade.offeredBlookId,
+      gaveBlookId: givenBlookId,
+      partnerUsername: trade.creatorUsername,
+    });
+  }
+
+  const tradeCancelMatch = url.match(/^\/api\/trades\/global\/([^/]+)\/cancel$/);
+  if (tradeCancelMatch && method === 'POST') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    const { user } = auth;
+    const tradeId = decodeURIComponent(tradeCancelMatch[1]);
+    if (!Array.isArray(db.globalTrades)) db.globalTrades = [];
+    const trade = db.globalTrades.find((t) => t.id === tradeId);
+
+    if (!trade || trade.status !== 'OPEN') {
+      return jsonRes({ error: 'Trade not found or already closed.' }, 404);
+    }
+    if (trade.creatorId !== user.id) {
+      return jsonRes({ error: 'You can only cancel your own trade listings.' }, 403);
+    }
+
+    user.inventory[trade.offeredBlookId] = (user.inventory[trade.offeredBlookId] || 0) + 1;
+    trade.status = 'CANCELLED';
+
+    saveStaticDb(db);
+    notifyStaticTradesUpdated();
+    return jsonRes({ ok: true, user: sanitizeStaticUser(user) });
   }
 
   return jsonRes({ error: 'Endpoint unavailable in static mode.' }, 404);

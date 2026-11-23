@@ -76,5 +76,22 @@ service cloud.firestore {
         incoming().id == existing().id;
       allow delete: if isOwner(userId) || isSystemAdmin();
     }
+
+    // Global trading board public offers
+    match /global_trades/{tradeId} {
+      allow read: if true;
+      allow create: if isSignedIn() &&
+        isValidId(tradeId) &&
+        incoming().creatorId == request.auth.uid &&
+        incoming().status == 'OPEN';
+      allow update: if isSignedIn() && (
+        (resource.data.creatorId == request.auth.uid && incoming().status == 'CANCELLED') ||
+        incoming().status == 'FULFILLED'
+      );
+      allow delete: if isSignedIn() && (
+        resource.data.creatorId == request.auth.uid ||
+        isSystemAdmin()
+      );
+    }
   }
 }

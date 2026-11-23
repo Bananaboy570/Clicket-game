@@ -63,6 +63,7 @@ import {
 } from './components/HourlyTokenDropOverlay';
 import {
   TradingView,
+  GlobalTradeListing,
   OnlinePlayerSummary,
   LiveTradeSession,
   TradeCompletedNotice,
@@ -157,6 +158,10 @@ export default function App() {
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [tradeNotice, setTradeNotice] = useState<TradeCompletedNotice | null>(null);
   const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
+
+  // Global Market Trading state
+  const [globalTrades, setGlobalTrades] = useState<GlobalTradeListing[]>([]);
+  const [loadingGlobalTrades, setLoadingGlobalTrades] = useState<boolean>(false);
 
   // Real-time Online Chat state
   const [chatMessages, setChatMessages] = useState<OnlineChatMessage[]>([]);
@@ -470,6 +475,8 @@ export default function App() {
           } else if (msg.type === 'chat:error') {
             setChatError(msg.error || 'Chat error.');
             setTimeout(() => setChatError(null), 4000);
+          } else if (msg.type === 'trades:global_update') {
+            void fetchGlobalTrades();
           }
         } catch {
           // Ignore malformed WS messages
@@ -554,7 +561,7 @@ export default function App() {
   // HTTP fallback sync when viewing Chat tab if WebSocket /ws is unavailable or reconnecting
   useEffect(() => {
     if (!currentUser || activeTab !== 'Chat') return;
-    if (presenceConnected || isStaticMode()) return;
+    if (presenceConnected) return;
 
     void fetchChatHistory();
     const timer = setInterval(() => {
@@ -562,6 +569,64 @@ export default function App() {
     }, 3000);
     return () => clearInterval(timer);
   }, [currentUser, activeTab, presenceConnected, fetchChatHistory]);
+
+  const fetchGlobalTrades = useCallback(async () => {
+    setLoadingGlobalTrades(true);
+    try {
+      const res = await apiFetch('/api/trades/global');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.trades)) {
+          setGlobalTrades(data.trades);
+        }
+      }
+    } catch {
+      // Ignore transient trades load error
+    } finally {
+      setLoadingGlobalTrades(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    void fetchGlobalTrades();
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        channel = new BroadcastChannel('clicket_static_trades');
+        channel.onmessage = () => {
+          void fetchGlobalTrades();
+        };
+      }
+    } catch {
+      // Ignore BroadcastChannel unavailability
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'clicket_static_db_v1') {
+        void fetchGlobalTrades();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [currentUser?.id, fetchGlobalTrades]);
+
+  // Periodic refresh when on Trading tab if WebSocket is not connected
+  useEffect(() => {
+    if (!currentUser || activeTab !== 'Trading') return;
+    void fetchGlobalTrades();
+    if (presenceConnected) return;
+
+    const timer = setInterval(() => {
+      void fetchGlobalTrades();
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [currentUser, activeTab, presenceConnected, fetchGlobalTrades]);
 
   const sendPresenceWs = (payload: Record<string, unknown>) => {
     const ws = presenceWsRef.current;
@@ -628,6 +693,115 @@ export default function App() {
     } catch {
       setChatError('Could not delete message.');
       setTimeout(() => setChatError(null), 4000);
+    }
+  };
+
+  const handlePostGlobalTrade = async (data: {
+    offeredBlookId: string;
+    requestedBlookId: string | null;
+    requestedRarity: string | null;
+    note: string;
+  }): Promise<boolean> => {
+    try {
+      const res = await apiFetch('/api/trades/global/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
+        body: JSON.stringify(data),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setTradeError(result?.error || 'Failed to post trade listing.');
+        setTimeout(() => setTradeError(null), 4000);
+        return false;
+      }
+      if (result?.user) {
+        setCurrentUser(result.user);
+        setInventory(result.user.inventory || {});
+        setTokens(result.user.tokens ?? tokens);
+      }
+      setTradeError(null);
+      void fetchGlobalTrades();
+      return true;
+    } catch {
+      setTradeError('Network error posting trade.');
+      setTimeout(() => setTradeError(null), 4000);
+      return false;
+    }
+  };
+
+  const handleFulfillGlobalTrade = async (
+    tradeId: string,
+    givenBlookId: string
+  ): Promise<boolean> => {
+    try {
+      const res = await apiFetch(`/api/trades/global/${encodeURIComponent(tradeId)}/fulfill`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
+        body: JSON.stringify({ givenBlookId }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setTradeError(result?.error || 'Failed to complete trade.');
+        setTimeout(() => setTradeError(null), 4000);
+        return false;
+      }
+      if (result?.user) {
+        setCurrentUser(result.user);
+        setInventory(result.user.inventory || {});
+        setTokens(result.user.tokens ?? tokens);
+        if (Array.isArray(result.user.tradeHistory)) {
+          setTradeHistory(result.user.tradeHistory);
+        }
+      }
+      if (result?.receivedBlookId && result?.partnerUsername) {
+        setTradeNotice({
+          gaveBlookId: result.gaveBlookId || givenBlookId,
+          receivedBlookId: result.receivedBlookId,
+          partnerUsername: result.partnerUsername,
+        });
+      }
+      setTradeError(null);
+      void fetchGlobalTrades();
+      return true;
+    } catch {
+      setTradeError('Network error fulfilling trade.');
+      setTimeout(() => setTradeError(null), 4000);
+      return false;
+    }
+  };
+
+  const handleCancelGlobalTrade = async (tradeId: string): Promise<boolean> => {
+    try {
+      const res = await apiFetch(`/api/trades/global/${encodeURIComponent(tradeId)}/cancel`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setTradeError(result?.error || 'Failed to cancel trade.');
+        setTimeout(() => setTradeError(null), 4000);
+        return false;
+      }
+      if (result?.user) {
+        setCurrentUser(result.user);
+        setInventory(result.user.inventory || {});
+      }
+      setTradeError(null);
+      void fetchGlobalTrades();
+      return true;
+    } catch {
+      setTradeError('Network error cancelling trade.');
+      setTimeout(() => setTradeError(null), 4000);
+      return false;
     }
   };
 
@@ -1915,11 +2089,12 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3C: LIVE PLAYER-TO-PLAYER TRADING */}
+        {/* TAB 3C: GLOBAL MARKET & LIVE TRADING */}
         {activeTab === 'Trading' && (
           <TradingView
             myClientId={presenceClientId}
             myUserId={currentUser.id}
+            myUsername={username}
             wsConnected={presenceConnected}
             inventory={inventory}
             onlinePlayers={onlinePlayers}
@@ -1927,6 +2102,8 @@ export default function App() {
             tradeError={tradeError}
             tradeNotice={tradeNotice}
             tradeHistory={tradeHistory}
+            globalTrades={globalTrades}
+            loadingGlobalTrades={loadingGlobalTrades}
             onDismissNotice={() => setTradeNotice(null)}
             onInitiateTrade={(targetClientId) => {
               setTradeError(null);
@@ -1944,6 +2121,10 @@ export default function App() {
             onCancelTrade={(tradeId) => {
               sendPresenceWs({ type: 'trade:cancel', tradeId });
             }}
+            onPostGlobalTrade={handlePostGlobalTrade}
+            onFulfillGlobalTrade={handleFulfillGlobalTrade}
+            onCancelGlobalTrade={handleCancelGlobalTrade}
+            onRefreshGlobalTrades={fetchGlobalTrades}
           />
         )}
 

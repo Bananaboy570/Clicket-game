@@ -1197,5 +1197,8 @@ export function attachMultiplayerServer(
     broadcastChatDeleted: (messageId: string) => {
       broadcastChatPayload({ type: 'chat:deleted', messageId });
     },
+    broadcastGlobalTradesUpdated: () => {
+      broadcastChatPayload({ type: 'trades:global_update' });
+    },
   };
 }

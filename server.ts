@@ -68,6 +68,23 @@ export interface ClanRecord {
   createdAt: string;
 }
 
+export interface GlobalTradeListing {
+  id: string;
+  creatorId: string;
+  creatorUsername: string;
+  creatorAvatarBlookId: string;
+  creatorAchievements: string[];
+  creatorIsOwner: boolean;
+  offeredBlookId: string;
+  requestedBlookId: string | null;
+  requestedRarity: string | null;
+  note: string;
+  status: 'OPEN' | 'FULFILLED' | 'CANCELLED';
+  createdAt: string;
+  fulfilledByUsername?: string;
+  fulfilledAt?: string;
+}
+
 interface SetPlayStats {
   totalPlays: number;
   uniquePlayerIds: string[];
@@ -79,9 +96,82 @@ interface DatabaseSchema {
   setStats?: Record<string, SetPlayStats>;
   clans?: Record<string, ClanRecord>;
   chatMessages?: ChatMessageRecord[];
+  globalTrades?: GlobalTradeListing[];
 }
 
 let dbCache: DatabaseSchema | null = null;
+
+const SEED_GLOBAL_TRADES: GlobalTradeListing[] = [
+  {
+    id: 'gt-seed-1',
+    creatorId: 'seed-trader-1',
+    creatorUsername: 'CircusCollector',
+    creatorAvatarBlookId: 'magician',
+    creatorAchievements: ['day_one'],
+    creatorIsOwner: false,
+    offeredBlookId: 'cotton-candy',
+    requestedBlookId: 'popcorn',
+    requestedRarity: null,
+    note: 'Trading my Rare Cotton Candy for a Popcorn!',
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+  {
+    id: 'gt-seed-2',
+    creatorId: 'seed-trader-2',
+    creatorUsername: 'AthleteFan99',
+    creatorAvatarBlookId: 'athlete-soccer',
+    creatorAchievements: ['day_one'],
+    creatorIsOwner: false,
+    offeredBlookId: 'athlete-basketball',
+    requestedBlookId: 'tightrope-walker',
+    requestedRarity: null,
+    note: '1-to-1 Uncommon swap! Need Tightrope Walker.',
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 7200000).toISOString(),
+  },
+  {
+    id: 'gt-seed-3',
+    creatorId: 'seed-trader-3',
+    creatorUsername: 'BlookCollectorPro',
+    creatorAvatarBlookId: 'ring-lion',
+    creatorAchievements: ['day_one', 'legendary'],
+    creatorIsOwner: false,
+    offeredBlookId: 'circus-elephant',
+    requestedBlookId: null,
+    requestedRarity: 'Rare',
+    note: 'Offering Circus Elephant for ANY Rare Blook!',
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 10800000).toISOString(),
+  },
+  {
+    id: 'gt-seed-4',
+    creatorId: 'seed-trader-4',
+    creatorUsername: 'ClicketTrader',
+    creatorAvatarBlookId: 'jester',
+    creatorAchievements: ['day_one'],
+    creatorIsOwner: false,
+    offeredBlookId: 'magician',
+    requestedBlookId: 'jester',
+    requestedRarity: null,
+    note: 'Need an extra Jester for Bazaar crafting!',
+    status: 'OPEN',
+    createdAt: new Date(Date.now() - 14400000).toISOString(),
+  },
+];
+
+const SEED_CHAT_MESSAGES: ChatMessageRecord[] = [
+  {
+    id: 'msg-seed-owner-welcome',
+    userId: 'system-owner',
+    username: 'ClicketOwnerOfficial',
+    avatarBlookId: 'magician',
+    achievements: ['owner', 'developer', 'day_one'],
+    isOwner: true,
+    text: 'Welcome to CLICKET! Chat with players, collect Blooks, and trade across the Global Market!',
+    createdAt: new Date(Date.now() - 3600000).toISOString(),
+  },
+];
 
 async function loadDb(): Promise<DatabaseSchema> {
   if (dbCache) return dbCache;
@@ -91,10 +181,22 @@ async function loadDb(): Promise<DatabaseSchema> {
     const parsed = JSON.parse(raw) as DatabaseSchema;
     if (!parsed.setStats) parsed.setStats = {};
     if (!parsed.clans) parsed.clans = {};
-    if (!Array.isArray(parsed.chatMessages)) parsed.chatMessages = [];
+    if (!Array.isArray(parsed.chatMessages) || parsed.chatMessages.length === 0) {
+      parsed.chatMessages = [...SEED_CHAT_MESSAGES];
+    }
+    if (!Array.isArray(parsed.globalTrades) || parsed.globalTrades.length === 0) {
+      parsed.globalTrades = [...SEED_GLOBAL_TRADES];
+    }
     dbCache = parsed;
   } catch {
-    dbCache = { users: {}, sessions: {}, setStats: {}, clans: {}, chatMessages: [] };
+    dbCache = {
+      users: {},
+      sessions: {},
+      setStats: {},
+      clans: {},
+      chatMessages: [...SEED_CHAT_MESSAGES],
+      globalTrades: [...SEED_GLOBAL_TRADES],
+    };
     await saveDb(dbCache);
   }
   return dbCache;
@@ -947,6 +1049,231 @@ async function createServer() {
     }
   });
 
+  // Global Trade Listings: Browse, Create, Fulfill, Cancel
+  app.get('/api/trades/global', async (_req, res) => {
+    try {
+      const db = await loadDb();
+      const openTrades = (db.globalTrades || []).filter((t) => t.status === 'OPEN');
+      res.json({ trades: openTrades.slice(-80).reverse() });
+    } catch (err) {
+      console.error('List global trades error:', err);
+      res.status(500).json({ error: 'Failed to load global trades' });
+    }
+  });
+
+  app.post('/api/trades/global/create', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const offeredBlookId = String(req.body?.offeredBlookId || '').trim();
+      const requestedBlookId = req.body?.requestedBlookId
+        ? String(req.body.requestedBlookId).trim()
+        : null;
+      const requestedRarity = req.body?.requestedRarity
+        ? String(req.body.requestedRarity).trim()
+        : null;
+      const note = String(req.body?.note || '').trim().slice(0, 80);
+
+      if (!offeredBlookId) {
+        res.status(400).json({ error: 'Please choose a Blook to offer.' });
+        return;
+      }
+      if ((user.inventory?.[offeredBlookId] || 0) < 1) {
+        res.status(400).json({ error: 'You do not own that Blook.' });
+        return;
+      }
+      if (!requestedBlookId && !requestedRarity) {
+        res.status(400).json({ error: 'Please specify what Blook or rarity you want in return.' });
+        return;
+      }
+
+      // Deduct offered Blook into trade escrow
+      user.inventory[offeredBlookId] -= 1;
+      if (user.inventory[offeredBlookId] <= 0) delete user.inventory[offeredBlookId];
+      if (user.equippedBlookId === offeredBlookId && !user.inventory[offeredBlookId]) {
+        user.equippedBlookId = '';
+      }
+
+      const achievements = resolveUserAchievements(user);
+      const isOwner =
+        achievements.includes('owner') ||
+        OWNER_IDENTIFIERS.has((user.username || '').trim().toLowerCase());
+      const safeEquipped =
+        user.equippedBlookId && (user.inventory?.[user.equippedBlookId] || 0) > 0
+          ? user.equippedBlookId
+          : '';
+
+      const tradeListing: GlobalTradeListing = {
+        id: `gt-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`,
+        creatorId: user.id,
+        creatorUsername: user.username,
+        creatorAvatarBlookId: safeEquipped,
+        creatorAchievements: achievements,
+        creatorIsOwner: isOwner,
+        offeredBlookId,
+        requestedBlookId,
+        requestedRarity,
+        note,
+        status: 'OPEN',
+        createdAt: new Date().toISOString(),
+      };
+
+      if (!Array.isArray(db.globalTrades)) db.globalTrades = [];
+      db.globalTrades.push(tradeListing);
+      await saveDb(db);
+      multiplayerApi?.broadcastGlobalTradesUpdated();
+
+      res.json({ ok: true, trade: tradeListing, user: sanitizeUser(user) });
+    } catch (err) {
+      console.error('Create global trade error:', err);
+      res.status(500).json({ error: 'Failed to create global trade' });
+    }
+  });
+
+  app.post('/api/trades/global/:tradeId/fulfill', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const tradeId = String(req.params.tradeId || '').trim();
+      if (!Array.isArray(db.globalTrades)) db.globalTrades = [];
+      const trade = db.globalTrades.find((t) => t.id === tradeId);
+
+      if (!trade || trade.status !== 'OPEN') {
+        res.status(404).json({ error: 'This trade offer is no longer available.' });
+        return;
+      }
+      if (trade.creatorId === user.id) {
+        res.status(400).json({ error: 'You cannot fulfill your own trade offer.' });
+        return;
+      }
+
+      const givenBlookId = String(req.body?.givenBlookId || trade.requestedBlookId || '').trim();
+      if (!givenBlookId) {
+        res.status(400).json({ error: 'Please choose which Blook you are giving.' });
+        return;
+      }
+      if ((user.inventory?.[givenBlookId] || 0) < 1) {
+        res.status(400).json({ error: 'You do not own that Blook.' });
+        return;
+      }
+
+      // If trade requested a specific blook, ensure it matches
+      if (trade.requestedBlookId && trade.requestedBlookId !== givenBlookId) {
+        res.status(400).json({ error: 'That does not match the requested Blook.' });
+        return;
+      }
+
+      // If trade requested a rarity, ensure given blook matches rarity
+      if (trade.requestedRarity) {
+        const blookObj = ALL_BLOOKS.find((b) => b.id === givenBlookId);
+        if (!blookObj || blookObj.rarity !== trade.requestedRarity) {
+          res.status(400).json({ error: `That Blook is not a ${trade.requestedRarity}.` });
+          return;
+        }
+      }
+
+      // Deduct given Blook from fulfiller and give offered Blook
+      user.inventory[givenBlookId] -= 1;
+      if (user.inventory[givenBlookId] <= 0) delete user.inventory[givenBlookId];
+      user.inventory[trade.offeredBlookId] = (user.inventory[trade.offeredBlookId] || 0) + 1;
+      if (user.equippedBlookId === givenBlookId && !user.inventory[givenBlookId]) {
+        user.equippedBlookId = '';
+      }
+
+      // Give given Blook to creator (if found in db)
+      const creator = Object.values(db.users).find((u) => u.id === trade.creatorId);
+      const nowIso = new Date().toISOString();
+      const tradeRef = `gt-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
+
+      const historyEntryFulfiller: TradeHistoryEntry = {
+        id: `${tradeRef}-f`,
+        timestamp: nowIso,
+        partnerUsername: trade.creatorUsername,
+        gaveBlookId: givenBlookId,
+        receivedBlookId: trade.offeredBlookId,
+      };
+
+      user.tradeHistory = [historyEntryFulfiller, ...(user.tradeHistory || [])].slice(0, 50);
+      user.achievements = resolveUserAchievements(user);
+
+      if (creator) {
+        if (!creator.inventory) creator.inventory = {};
+        creator.inventory[givenBlookId] = (creator.inventory[givenBlookId] || 0) + 1;
+        const historyEntryCreator: TradeHistoryEntry = {
+          id: `${tradeRef}-c`,
+          timestamp: nowIso,
+          partnerUsername: user.username,
+          gaveBlookId: trade.offeredBlookId,
+          receivedBlookId: givenBlookId,
+        };
+        creator.tradeHistory = [historyEntryCreator, ...(creator.tradeHistory || [])].slice(0, 50);
+        creator.achievements = resolveUserAchievements(creator);
+      }
+
+      trade.status = 'FULFILLED';
+      trade.fulfilledByUsername = user.username;
+      trade.fulfilledAt = nowIso;
+
+      await saveDb(db);
+      multiplayerApi?.broadcastGlobalTradesUpdated();
+
+      res.json({
+        ok: true,
+        trade,
+        user: sanitizeUser(user),
+        receivedBlookId: trade.offeredBlookId,
+        gaveBlookId: givenBlookId,
+        partnerUsername: trade.creatorUsername,
+      });
+    } catch (err) {
+      console.error('Fulfill global trade error:', err);
+      res.status(500).json({ error: 'Failed to fulfill global trade' });
+    }
+  });
+
+  app.post('/api/trades/global/:tradeId/cancel', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const tradeId = String(req.params.tradeId || '').trim();
+      if (!Array.isArray(db.globalTrades)) db.globalTrades = [];
+      const trade = db.globalTrades.find((t) => t.id === tradeId);
+
+      if (!trade || trade.status !== 'OPEN') {
+        res.status(404).json({ error: 'Trade not found or already closed.' });
+        return;
+      }
+      if (trade.creatorId !== user.id) {
+        res.status(403).json({ error: 'You can only cancel your own trade listings.' });
+        return;
+      }
+
+      // Return offered Blook to user
+      user.inventory[trade.offeredBlookId] = (user.inventory[trade.offeredBlookId] || 0) + 1;
+      trade.status = 'CANCELLED';
+
+      await saveDb(db);
+      multiplayerApi?.broadcastGlobalTradesUpdated();
+
+      res.json({ ok: true, user: sanitizeUser(user) });
+    } catch (err) {
+      console.error('Cancel global trade error:', err);
+      res.status(500).json({ error: 'Failed to cancel trade' });
+    }
+  });
+
   const getAuthenticatedUser = async (req: express.Request) => {
     const authHeader = req.headers.authorization || '';
     const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
@@ -1715,11 +2042,8 @@ async function createServer() {
     }
   });
 
-  // Online Chat HTTP fallback endpoints (works even if WebSocket /ws is blocked or reconnecting)
-  let multiplayerApi: {
-    broadcastChatMessage: (message: ChatMessageRecord) => void;
-    broadcastChatDeleted: (messageId: string) => void;
-  } | null = null;
+  // Online Chat & Global Trades WebSocket broadcast instance
+  let multiplayerApi: ReturnType<typeof attachMultiplayerServer> | null = null;
 
   app.get('/api/chat/messages', async (_req, res) => {
     try {

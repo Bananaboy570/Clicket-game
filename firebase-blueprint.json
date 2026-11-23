@@ -92,6 +92,60 @@
         }
       },
       "required": ["id", "username", "tokens"]
+    "GlobalTrade": {
+      "title": "GlobalTrade",
+      "description": "Public global trade offer listed on the Global Trading Market",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique trade offer ID",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "creatorId": {
+          "type": "string",
+          "description": "User ID of the offer creator",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "creatorUsername": {
+          "type": "string",
+          "description": "Username of the offer creator",
+          "maxLength": 30
+        },
+        "offeredBlookId": {
+          "type": "string",
+          "description": "Blook ID offered by creator",
+          "maxLength": 64
+        },
+        "requestedBlookId": {
+          "type": "string",
+          "description": "Specific requested Blook ID (or empty)",
+          "maxLength": 64
+        },
+        "requestedRarity": {
+          "type": "string",
+          "description": "Requested Blook rarity tier (or empty)",
+          "maxLength": 32
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional note attached to trade",
+          "maxLength": 80
+        },
+        "status": {
+          "type": "string",
+          "enum": ["OPEN", "FULFILLED", "CANCELLED"],
+          "description": "Current status of the trade listing"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO date-time when trade was posted"
+        }
+      },
+      "required": ["id", "creatorId", "creatorUsername", "offeredBlookId", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -102,6 +156,10 @@
     "/users/{userId}": {
       "schema": "UserProfile",
       "description": "Individual player profiles indexed by user ID"
+    },
+    "/global_trades/{tradeId}": {
+      "schema": "GlobalTrade",
+      "description": "Global trading board public listings"
     }
   }
 }
