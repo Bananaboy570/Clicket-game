@@ -1,0 +1,107 @@
+{
+  "entities": {
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "A public chat message sent in the CLICKET Global Lobby",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier of the message",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "The UID of the user who authored the message",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "username": {
+          "type": "string",
+          "description": "Display name of the author",
+          "maxLength": 32
+        },
+        "avatarBlookId": {
+          "type": "string",
+          "description": "Equipped blook ID icon",
+          "maxLength": 64
+        },
+        "achievements": {
+          "type": "array",
+          "description": "List of unlocked achievements"
+        },
+        "isOwner": {
+          "type": "boolean",
+          "description": "Whether the author is the official Clicket Owner"
+        },
+        "text": {
+          "type": "string",
+          "description": "Text content of the message",
+          "maxLength": 300
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO timestamp when the message was posted"
+        }
+      },
+      "required": ["id", "userId", "username", "text", "createdAt"]
+    },
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Player account profile and inventory data",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique user ID",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "username": {
+          "type": "string",
+          "description": "Unique username chosen by the player",
+          "maxLength": 30
+        },
+        "tokens": {
+          "type": "number",
+          "description": "Player token balance"
+        },
+        "equippedBlookId": {
+          "type": "string",
+          "description": "Currently equipped blook ID",
+          "maxLength": 64
+        },
+        "clickUpgradeLevel": {
+          "type": "number",
+          "description": "Daily clicker upgrade level"
+        },
+        "bestDailyClicks": {
+          "type": "number",
+          "description": "Highest clicks record"
+        },
+        "achievements": {
+          "type": "array",
+          "description": "Array of achievement badge IDs"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "ISO date-time when account was created"
+        }
+      },
+      "required": ["id", "username", "tokens"]
+    }
+  },
+  "firestore": {
+    "/chat_messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Public lobby chat messages collection"
+    },
+    "/users/{userId}": {
+      "schema": "UserProfile",
+      "description": "Individual player profiles indexed by user ID"
+    }
+  }
+}

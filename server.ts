@@ -4,8 +4,8 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { attachMultiplayerServer, ChatMessageRecord } from './serverMultiplayer';
-import { ALL_BLOOKS } from './src/data/blooks';
+import { attachMultiplayerServer, type ChatMessageRecord } from './serverMultiplayer.ts';
+import { ALL_BLOOKS } from './src/data/blooks.ts';
 
 dotenv.config();
 
@@ -327,6 +327,18 @@ async function dispatchVerificationEmail(
 async function createServer() {
   const app = express();
   app.use(express.json({ limit: '2mb' }));
+
+  // Enable CORS for cross-origin frontend hosts (e.g. Vercel, GitHub Pages, custom domains)
+  app.use((req, res, next) => {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+    if (req.method === 'OPTIONS') {
+      res.sendStatus(204);
+      return;
+    }
+    next();
+  });
 
   // Sign Up: Username and Password only (no duplicate usernames allowed)
   app.post('/api/auth/signup', async (req, res) => {
@@ -1703,6 +1715,95 @@ async function createServer() {
     }
   });
 
+  // Online Chat HTTP fallback endpoints (works even if WebSocket /ws is blocked or reconnecting)
+  let multiplayerApi: {
+    broadcastChatMessage: (message: ChatMessageRecord) => void;
+    broadcastChatDeleted: (messageId: string) => void;
+  } | null = null;
+
+  app.get('/api/chat/messages', async (_req, res) => {
+    try {
+      const db = await loadDb();
+      res.json({ messages: (db.chatMessages || []).slice(-100) });
+    } catch (err) {
+      console.error('Load chat messages error:', err);
+      res.status(500).json({ error: 'Failed to load chat messages.' });
+    }
+  });
+
+  app.post('/api/chat/messages', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Sign in to send chat messages.' });
+        return;
+      }
+      const { db, user } = auth;
+      const cleanText = String(req.body?.text || '').trim().slice(0, 300);
+      if (!cleanText) {
+        res.status(400).json({ error: 'Message cannot be empty.' });
+        return;
+      }
+
+      const achievements = resolveUserAchievements(user);
+      const isOwner =
+        achievements.includes('owner') ||
+        OWNER_IDENTIFIERS.has((user.username || '').trim().toLowerCase());
+      const safeEquipped =
+        user.equippedBlookId && (user.inventory?.[user.equippedBlookId] || 0) > 0
+          ? user.equippedBlookId
+          : '';
+
+      const chatMessage: ChatMessageRecord = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        userId: user.id,
+        username: user.username,
+        avatarBlookId: safeEquipped,
+        achievements,
+        isOwner,
+        text: cleanText,
+        createdAt: new Date().toISOString(),
+      };
+
+      if (!Array.isArray(db.chatMessages)) db.chatMessages = [];
+      db.chatMessages.push(chatMessage);
+      if (db.chatMessages.length > 100) {
+        db.chatMessages = db.chatMessages.slice(-100);
+      }
+      await saveDb(db);
+      multiplayerApi?.broadcastChatMessage(chatMessage);
+
+      res.json({ ok: true, message: chatMessage });
+    } catch (err) {
+      console.error('Send chat message error:', err);
+      res.status(500).json({ error: 'Failed to send message.' });
+    }
+  });
+
+  app.delete('/api/chat/messages/:messageId', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db } = auth;
+      const messageId = String(req.params.messageId || '').trim();
+      if (!messageId) {
+        res.status(400).json({ error: 'Missing message ID.' });
+        return;
+      }
+      if (!Array.isArray(db.chatMessages)) db.chatMessages = [];
+      const before = db.chatMessages.length;
+      db.chatMessages = db.chatMessages.filter((m) => m.id !== messageId);
+      if (db.chatMessages.length !== before) {
+        await saveDb(db);
+        multiplayerApi?.broadcastChatDeleted(messageId);
+      }
+      res.json({ ok: true, messageId });
+    } catch (err) {
+      console.error('Delete chat message error:', err);
+      res.status(500).json({ error: 'Failed to delete message.' });
+    }
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({
@@ -1796,7 +1897,7 @@ async function createServer() {
   };
 
   const httpServer = http.createServer(app);
-  attachMultiplayerServer(httpServer, {
+  multiplayerApi = attachMultiplayerServer(httpServer, {
     onRecordSetPlay: recordSetPlay,
     onAwardTokens: awardUserTokens,
     onGetUserChatMeta: async (userId: string) => {

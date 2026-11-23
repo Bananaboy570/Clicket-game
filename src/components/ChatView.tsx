@@ -11,7 +11,6 @@ import {
 import { BlookArt } from './BlookArt';
 import { OwnerAchievementIcon, DeveloperAchievementIcon } from './AchievementsView';
 import type { OnlinePlayerSummary } from './TradingView';
-import { isStaticMode } from '../lib/apiClient';
 
 export interface OnlineChatMessage {
   id: string;
@@ -28,12 +27,15 @@ interface ChatViewProps {
   myUserId: string;
   myUsername: string;
   myIsOwner: boolean;
+  myAvatarBlookId?: string;
+  myUnlockedCount?: number;
+  myAchievements?: string[];
   wsConnected: boolean;
   messages: OnlineChatMessage[];
   onlinePlayers: OnlinePlayerSummary[];
   chatError: string | null;
-  onSendMessage: (text: string) => void;
-  onDeleteMessage: (messageId: string) => void;
+  onSendMessage: (text: string) => void | Promise<void>;
+  onDeleteMessage: (messageId: string) => void | Promise<void>;
 }
 
 const QUICK_EMOTES = ['👋', '🔥', '🎉', '💎', '👑', '🎪', '⚡', '🍀'];
@@ -42,6 +44,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
   myUserId,
   myUsername,
   myIsOwner,
+  myAvatarBlookId = '',
+  myUnlockedCount = 0,
+  myAchievements = [],
   wsConnected,
   messages,
   onlinePlayers,
@@ -66,10 +71,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = draft.trim();
-    if (!trimmed || !wsConnected) return;
-    onSendMessage(trimmed);
+    if (!trimmed) return;
     setDraft('');
     setShowEmotes(false);
+    void onSendMessage(trimmed);
   };
 
   const formatTime = (iso: string) => {
@@ -80,9 +85,28 @@ export const ChatView: React.FC<ChatViewProps> = ({
     }
   };
 
-  // Deduplicate online players by userId (keep latest client entry, sort Owner first then alphabetically)
+  // Deduplicate online players by userId (keep latest client entry, sort Owner first then alphabetically).
+  // When using HTTP/static fallback while signed in, include the current signed-in player.
+  const effectiveOnlineSource: OnlinePlayerSummary[] =
+    onlinePlayers.length > 0 || wsConnected
+      ? onlinePlayers
+      : myUserId
+      ? [
+          {
+            clientId: `local-${myUserId}`,
+            userId: myUserId,
+            username: myUsername,
+            avatarBlookId: myAvatarBlookId,
+            unlockedCount: myUnlockedCount,
+            inTrade: false,
+            achievements: myAchievements,
+            isOwner: myIsOwner,
+          },
+        ]
+      : [];
+
   const uniqueOnlinePlayers = Array.from(
-    onlinePlayers
+    effectiveOnlineSource
       .reduce((map, p) => {
         map.set(p.userId, p);
         return map;
@@ -116,12 +140,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
           </span>
         </div>
       </div>
-
-      {isStaticMode() && (
-        <div className="mb-4 rounded-2xl bg-amber-50 border-2 border-amber-300 px-4 py-3 text-amber-900 font-nunito font-bold text-sm shrink-0">
-          Live multi-player WebSocket chat requires the CLICKET server.
-        </div>
-      )}
 
       {chatError && (
         <div className="mb-4 rounded-2xl bg-rose-100 border-2 border-rose-300 px-4 py-2.5 text-rose-800 font-nunito font-extrabold text-sm shrink-0">
@@ -294,16 +312,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               maxLength={300}
-              disabled={!wsConnected}
-              placeholder={
-                wsConnected ? 'Type a message to everyone online...' : 'Connecting to chat...'
-              }
-              className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border-2 border-slate-200 font-nunito font-bold text-sm text-slate-800 focus:outline-none focus:border-[#dc2626] disabled:bg-slate-100"
+              placeholder="Type a message to everyone online..."
+              className="flex-1 min-w-0 px-4 py-2.5 rounded-xl border-2 border-slate-200 font-nunito font-bold text-sm text-slate-800 focus:outline-none focus:border-[#dc2626]"
             />
 
             <button
               type="submit"
-              disabled={!wsConnected || !draft.trim()}
+              disabled={!draft.trim()}
               className="px-5 py-2.5 rounded-xl bg-[#fbbf24] hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_4px_0_#b45309] text-amber-950 font-titan text-base flex items-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap shrink-0"
             >
               <Send className="w-4 h-4" />

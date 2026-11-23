@@ -1189,4 +1189,13 @@ export function attachMultiplayerServer(
       }
     });
   });
+
+  return {
+    broadcastChatMessage: (message: ChatMessageRecord) => {
+      broadcastChatPayload({ type: 'chat:message', message });
+    },
+    broadcastChatDeleted: (messageId: string) => {
+      broadcastChatPayload({ type: 'chat:deleted', messageId });
+    },
+  };
 }

@@ -75,7 +75,12 @@ import {
 } from './components/AchievementsView';
 import { AdminPanelView } from './components/AdminPanelView';
 import { ChatView, OnlineChatMessage } from './components/ChatView';
-import { apiFetch, isStaticMode, onStaticModeChange } from './lib/apiClient';
+import {
+  apiFetch,
+  getWebSocketUrl,
+  isStaticMode,
+  onStaticModeChange,
+} from './lib/apiClient';
 
 const OWNER_USERNAME = 'clicketownerofficial';
 
@@ -398,8 +403,7 @@ export default function App() {
 
     const connectPresence = () => {
       if (cancelled || isStaticMode()) return;
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      const ws = new WebSocket(getWebSocketUrl());
       presenceWsRef.current = ws;
 
       ws.onopen = () => {
@@ -505,6 +509,60 @@ export default function App() {
     );
   }, [currentUser, username, inventory, equippedBlookId]);
 
+  const fetchChatHistory = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/chat/messages');
+      if (!res.ok) return;
+      const data = await res.json();
+      if (Array.isArray(data?.messages)) {
+        setChatMessages(data.messages);
+      }
+    } catch {
+      // Ignore transient chat load error
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    void fetchChatHistory();
+
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== 'undefined') {
+        channel = new BroadcastChannel('clicket_static_chat');
+        channel.onmessage = () => {
+          void fetchChatHistory();
+        };
+      }
+    } catch {
+      // Ignore BroadcastChannel unavailability
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'clicket_static_db_v1') {
+        void fetchChatHistory();
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (channel) channel.close();
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, [currentUser?.id, fetchChatHistory]);
+
+  // HTTP fallback sync when viewing Chat tab if WebSocket /ws is unavailable or reconnecting
+  useEffect(() => {
+    if (!currentUser || activeTab !== 'Chat') return;
+    if (presenceConnected || isStaticMode()) return;
+
+    void fetchChatHistory();
+    const timer = setInterval(() => {
+      void fetchChatHistory();
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [currentUser, activeTab, presenceConnected, fetchChatHistory]);
+
   const sendPresenceWs = (payload: Record<string, unknown>) => {
     const ws = presenceWsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
@@ -514,12 +572,61 @@ export default function App() {
     }
   };
 
-  const sendChatWs = (payload: Record<string, unknown>) => {
+  const sendChatMessage = async (text: string) => {
+    const cleanText = text.trim();
+    if (!cleanText) return;
+
     const ws = presenceWsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify(payload));
-    } else {
-      setChatError('Connecting to live chat — please try again in a moment.');
+      ws.send(JSON.stringify({ type: 'chat:send', text: cleanText }));
+      return;
+    }
+
+    try {
+      const res = await apiFetch('/api/chat/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
+        },
+        body: JSON.stringify({ text: cleanText }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setChatError(data?.error || 'Could not send message.');
+        setTimeout(() => setChatError(null), 4000);
+        return;
+      }
+      if (data?.message) {
+        const incoming = data.message as OnlineChatMessage;
+        setChatMessages((prev) =>
+          prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming].slice(-100)
+        );
+      }
+      setChatError(null);
+    } catch {
+      setChatError('Could not send message. Please try again.');
+      setTimeout(() => setChatError(null), 4000);
+    }
+  };
+
+  const deleteChatMessage = async (messageId: string) => {
+    const ws = presenceWsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'chat:delete', messageId }));
+      return;
+    }
+
+    try {
+      const res = await apiFetch(`/api/chat/messages/${encodeURIComponent(messageId)}`, {
+        method: 'DELETE',
+        headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {},
+      });
+      if (res.ok) {
+        setChatMessages((prev) => prev.filter((m) => m.id !== messageId));
+      }
+    } catch {
+      setChatError('Could not delete message.');
       setTimeout(() => setChatError(null), 4000);
     }
   };
@@ -1856,14 +1963,17 @@ export default function App() {
             myUserId={currentUser.id}
             myUsername={username}
             myIsOwner={hasOwnerBadge || isOwnerAccount}
+            myAvatarBlookId={
+              equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : ''
+            }
+            myUnlockedCount={Object.values(inventory).filter((c) => Number(c) > 0).length}
+            myAchievements={userAchievements}
             wsConnected={presenceConnected}
             messages={chatMessages}
             onlinePlayers={onlinePlayers}
             chatError={chatError}
-            onSendMessage={(text) => sendChatWs({ type: 'chat:send', text })}
-            onDeleteMessage={(messageId) =>
-              sendChatWs({ type: 'chat:delete', messageId })
-            }
+            onSendMessage={sendChatMessage}
+            onDeleteMessage={deleteChatMessage}
           />
         )}
 

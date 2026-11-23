@@ -20,7 +20,7 @@ import { ALL_BLOOKS, RARITY_COLORS } from '../data/blooks';
 import { BlookArt, BlooketTokenIcon } from './BlookArt';
 import { GameModeLogo, MultiplayerGameMode } from './GameModeLogo';
 import { PlayTriviaView, TriviaQuestion } from './PlayTriviaView';
-import { isStaticMode } from '../lib/apiClient';
+import { getWebSocketUrl, isStaticMode } from '../lib/apiClient';
 
 type CurseType = 'scrambled_keys' | 'tax_collector' | 'fog_screen';
 
@@ -177,8 +177,7 @@ export const PlayLobbyAndGame: React.FC<PlayLobbyAndGameProps> = ({
     }
 
     return new Promise((resolve, reject) => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+      const ws = new WebSocket(getWebSocketUrl());
       wsRef.current = ws;
 
       ws.onopen = () => {

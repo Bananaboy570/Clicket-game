@@ -65,11 +65,61 @@ interface StaticSetStats {
   uniquePlayerIds: string[];
 }
 
+export interface StaticChatMessage {
+  id: string;
+  userId: string;
+  username: string;
+  avatarBlookId: string;
+  achievements: string[];
+  isOwner: boolean;
+  text: string;
+  createdAt: string;
+}
+
 interface StaticDatabase {
   users: Record<string, StaticStoredUser>;
   sessions: Record<string, string>;
   setStats: Record<string, StaticSetStats>;
   clans: Record<string, StaticClanRecord>;
+  chatMessages: StaticChatMessage[];
+}
+
+const STATIC_CHAT_CHANNEL = 'clicket_static_chat';
+
+function notifyStaticChatUpdated(): void {
+  try {
+    if (typeof BroadcastChannel !== 'undefined') {
+      const ch = new BroadcastChannel(STATIC_CHAT_CHANNEL);
+      ch.postMessage({ type: 'chat:updated' });
+      ch.close();
+    }
+  } catch {
+    // Ignore BroadcastChannel unavailability
+  }
+}
+
+export function getApiBaseUrl(): string {
+  const configured = String(
+    import.meta.env.VITE_BACKEND_URL || import.meta.env.VITE_API_URL || ''
+  ).trim();
+  return configured.replace(/\/+$/, '');
+}
+
+export function getWebSocketUrl(): string {
+  const configuredWs = String(import.meta.env.VITE_WS_URL || '').trim();
+  if (configuredWs) return configuredWs;
+  const base = getApiBaseUrl();
+  if (base) {
+    try {
+      const u = new URL(base);
+      const wsProto = u.protocol === 'https:' ? 'wss:' : 'ws:';
+      return `${wsProto}//${u.host}/ws`;
+    } catch {
+      // Fallback to window location below
+    }
+  }
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${window.location.host}/ws`;
 }
 
 let staticModeDetected = false;
@@ -109,12 +159,19 @@ function loadStaticDb(): StaticDatabase {
         sessions: parsed.sessions || {},
         setStats: parsed.setStats || {},
         clans: parsed.clans || {},
+        chatMessages: Array.isArray(parsed.chatMessages) ? parsed.chatMessages : [],
       };
     }
   } catch {
     // Ignore storage read error
   }
-  const initial: StaticDatabase = { users: {}, sessions: {}, setStats: {}, clans: {} };
+  const initial: StaticDatabase = {
+    users: {},
+    sessions: {},
+    setStats: {},
+    clans: {},
+    chatMessages: [],
+  };
   saveStaticDb(initial);
   return initial;
 }
@@ -895,6 +952,62 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
     }
   }
 
+  // ONLINE CHAT: LIST / SEND / DELETE
+  if (url === '/api/chat/messages' && method === 'GET') {
+    return jsonRes({ messages: (db.chatMessages || []).slice(-100) });
+  }
+
+  if (url === '/api/chat/messages' && method === 'POST') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Sign in to send chat messages.' }, 401);
+    const { user } = auth;
+    const cleanText = String(body.text || '').trim().slice(0, 300);
+    if (!cleanText) return jsonRes({ error: 'Message cannot be empty.' }, 400);
+
+    const achievements = resolveAchievements(user);
+    const isOwner =
+      achievements.includes('owner') ||
+      OWNER_IDENTIFIERS.has((user.username || '').trim().toLowerCase());
+    const safeEquipped =
+      user.equippedBlookId && (user.inventory?.[user.equippedBlookId] || 0) > 0
+        ? user.equippedBlookId
+        : '';
+
+    const message: StaticChatMessage = {
+      id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      userId: user.id,
+      username: user.username,
+      avatarBlookId: safeEquipped,
+      achievements,
+      isOwner,
+      text: cleanText,
+      createdAt: new Date().toISOString(),
+    };
+
+    if (!Array.isArray(db.chatMessages)) db.chatMessages = [];
+    db.chatMessages.push(message);
+    if (db.chatMessages.length > 100) {
+      db.chatMessages = db.chatMessages.slice(-100);
+    }
+    saveStaticDb(db);
+    notifyStaticChatUpdated();
+    return jsonRes({ ok: true, message });
+  }
+
+  const chatDeleteMatch = url.match(/^\/api\/chat\/messages\/([^/]+)$/);
+  if (chatDeleteMatch && method === 'DELETE') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    if (!resolveAchievements(auth.user).includes('owner')) {
+      return jsonRes({ error: 'Owner access required.' }, 403);
+    }
+    const messageId = decodeURIComponent(chatDeleteMatch[1]);
+    db.chatMessages = (db.chatMessages || []).filter((m) => m.id !== messageId);
+    saveStaticDb(db);
+    notifyStaticChatUpdated();
+    return jsonRes({ ok: true, messageId });
+  }
+
   return jsonRes({ error: 'Endpoint unavailable in static mode.' }, 404);
 }
 
@@ -903,8 +1016,11 @@ export async function apiFetch(input: string, init?: RequestInit): Promise<Respo
     return handleStaticApi(input, init);
   }
 
+  const base = getApiBaseUrl();
+  const targetUrl = base && input.startsWith('/') ? `${base}${input}` : input;
+
   try {
-    const res = await window.fetch(input, init);
+    const res = await window.fetch(targetUrl, init);
     const contentType = (res.headers.get('content-type') || '').toLowerCase();
     const isJsonResponse = contentType.includes('application/json');
 
