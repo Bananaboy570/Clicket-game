@@ -1,9 +1,13 @@
 // Unified API client that uses the live Express backend (/api/*) when available,
 // and seamlessly falls back to browser-local persistence when hosted as a static website (e.g. GitHub Pages).
 
+import { ALL_BLOOKS } from '../data/blooks';
+
 const STATIC_DB_KEY = 'clicket_static_db_v1';
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const OWNER_IDENTIFIERS = new Set(['clicketownerofficial']);
+const VALID_ACHIEVEMENTS = new Set(['owner', 'developer', 'day_one', 'legendary', 'chroma', 'op']);
+const BLOOK_RARITY_BY_ID = new Map(ALL_BLOOKS.map((b) => [b.id, b.rarity]));
 
 interface StaticTradeHistoryEntry {
   id: string;
@@ -30,6 +34,7 @@ interface StaticStoredUser {
   tradeHistory: StaticTradeHistoryEntry[];
   clanId: string | null;
   achievements: string[];
+  revokedAchievements?: string[];
   createdAt: string;
 }
 
@@ -158,6 +163,9 @@ async function verifyPasswordClient(password: string, stored: string): Promise<b
 }
 
 function resolveAchievements(u: StaticStoredUser): string[] {
+  const revoked = new Set<string>(
+    Array.isArray(u.revokedAchievements) ? u.revokedAchievements : []
+  );
   const set = new Set<string>(Array.isArray(u.achievements) ? u.achievements : []);
   const cleanEmail = (u.email || '').trim().toLowerCase();
   const cleanUser = (u.username || '').trim().toLowerCase();
@@ -165,7 +173,17 @@ function resolveAchievements(u: StaticStoredUser): string[] {
     set.add('owner');
     set.add('developer');
   }
-  return Array.from(set).filter((a) => a === 'owner' || a === 'developer');
+  if (!revoked.has('day_one')) {
+    set.add('day_one');
+  }
+  for (const [blookId, count] of Object.entries(u.inventory || {})) {
+    if (Number(count) <= 0) continue;
+    const rarity = BLOOK_RARITY_BY_ID.get(blookId);
+    if (rarity === 'Legendary' && !revoked.has('legendary')) set.add('legendary');
+    if (rarity === 'Chroma' && !revoked.has('chroma')) set.add('chroma');
+    if (rarity === 'Mystic' && !revoked.has('op')) set.add('op');
+  }
+  return Array.from(set).filter((a) => VALID_ACHIEVEMENTS.has(a));
 }
 
 function sanitizeStaticUser(u: StaticStoredUser) {
@@ -417,6 +435,7 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
     if (typeof body.lastWheelSpinAt === 'number' || body.lastWheelSpinAt === null) {
       user.lastWheelSpinAt = body.lastWheelSpinAt as number | null;
     }
+    user.achievements = resolveAchievements(user);
     saveStaticDb(db);
     return jsonRes({ ok: true, user: sanitizeStaticUser(user) });
   }
@@ -689,16 +708,25 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
     const targetUsername = String(body.username || '').trim();
     const achievementId = String(body.achievementId || '').trim();
     const grant = body.grant !== false;
-    if (achievementId !== 'owner' && achievementId !== 'developer') {
+    if (!VALID_ACHIEVEMENTS.has(achievementId)) {
       return jsonRes({ error: 'Invalid achievement ID.' }, 400);
     }
     const targetUser = findUserByUsername(db, targetUsername);
     if (!targetUser) {
       return jsonRes({ error: `No player found with username "${targetUsername}".` }, 404);
     }
+    const revoked = new Set<string>(
+      Array.isArray(targetUser.revokedAchievements) ? targetUser.revokedAchievements : []
+    );
     const current = new Set(resolveAchievements(targetUser));
-    if (grant) current.add(achievementId);
-    else current.delete(achievementId);
+    if (grant) {
+      revoked.delete(achievementId);
+      current.add(achievementId);
+    } else {
+      revoked.add(achievementId);
+      current.delete(achievementId);
+    }
+    targetUser.revokedAchievements = Array.from(revoked);
     targetUser.achievements = Array.from(current);
     saveStaticDb(db);
     return jsonRes({
@@ -809,6 +837,7 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
       } else {
         return jsonRes({ error: 'Missing Blook details.' }, 400);
       }
+      targetUser.achievements = resolveAchievements(targetUser);
       saveStaticDb(db);
       return jsonRes({
         ok: true,

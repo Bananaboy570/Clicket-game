@@ -26,6 +26,7 @@ import {
   Shield,
   Trophy,
   Crown,
+  MessageSquare,
 } from 'lucide-react';
 import {
   CIRCUS_PACK,
@@ -73,6 +74,7 @@ import {
   DeveloperAchievementIcon,
 } from './components/AchievementsView';
 import { AdminPanelView } from './components/AdminPanelView';
+import { ChatView, OnlineChatMessage } from './components/ChatView';
 import { apiFetch, isStaticMode, onStaticModeChange } from './lib/apiClient';
 
 const OWNER_USERNAME = 'clicketownerofficial';
@@ -85,6 +87,7 @@ type ActiveTab =
   | 'Bazaar'
   | 'Trading'
   | 'Clans'
+  | 'Chat'
   | 'Achievements'
   | 'Admin'
   | 'Discover'
@@ -149,6 +152,13 @@ export default function App() {
   const [tradeError, setTradeError] = useState<string | null>(null);
   const [tradeNotice, setTradeNotice] = useState<TradeCompletedNotice | null>(null);
   const [tradeHistory, setTradeHistory] = useState<TradeHistoryItem[]>([]);
+
+  // Real-time Online Chat state
+  const [chatMessages, setChatMessages] = useState<OnlineChatMessage[]>([]);
+  const [chatError, setChatError] = useState<string | null>(null);
+  const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
+  const activeTabRef = useRef<ActiveTab>(activeTab);
+  activeTabRef.current = activeTab;
 
   const [revealState, setRevealState] = useState<{
     pack: PackInfo;
@@ -315,9 +325,19 @@ export default function App() {
           lastDailyPlayAt,
           lastWheelSpinAt,
         }),
-      }).catch(() => {
-        // Ignore silent sync retry
-      });
+      })
+        .then(async (res) => {
+          if (!res.ok) return;
+          const data = await res.json();
+          if (Array.isArray(data?.user?.achievements)) {
+            setCurrentUser((prev) =>
+              prev ? { ...prev, achievements: data.user.achievements } : prev
+            );
+          }
+        })
+        .catch(() => {
+          // Ignore silent sync retry
+        });
     }, 250);
 
     return () => {
@@ -431,6 +451,21 @@ export default function App() {
                 [msg.historyEntry, ...prev.filter((t) => t.id !== msg.historyEntry.id)].slice(0, 50)
               );
             }
+          } else if (msg.type === 'chat:history') {
+            setChatMessages(Array.isArray(msg.messages) ? msg.messages : []);
+          } else if (msg.type === 'chat:message' && msg.message) {
+            const incoming = msg.message as OnlineChatMessage;
+            setChatMessages((prev) =>
+              prev.some((m) => m.id === incoming.id) ? prev : [...prev, incoming].slice(-100)
+            );
+            if (activeTabRef.current !== 'Chat' && incoming.userId !== currentUser?.id) {
+              setUnreadChatCount((c) => Math.min(99, c + 1));
+            }
+          } else if (msg.type === 'chat:deleted' && msg.messageId) {
+            setChatMessages((prev) => prev.filter((m) => m.id !== msg.messageId));
+          } else if (msg.type === 'chat:error') {
+            setChatError(msg.error || 'Chat error.');
+            setTimeout(() => setChatError(null), 4000);
           }
         } catch {
           // Ignore malformed WS messages
@@ -479,6 +514,16 @@ export default function App() {
     }
   };
 
+  const sendChatWs = (payload: Record<string, unknown>) => {
+    const ws = presenceWsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify(payload));
+    } else {
+      setChatError('Connecting to live chat — please try again in a moment.');
+      setTimeout(() => setChatError(null), 4000);
+    }
+  };
+
   const handleAuthenticated = (user: AuthenticatedUser, token: string) => {
     localStorage.setItem('clicket_session_token', token);
     setSessionToken(token);
@@ -499,6 +544,9 @@ export default function App() {
     setShowProfileMenu(false);
     setPullHistory([]);
     setTradeHistory([]);
+    setChatMessages([]);
+    setChatError(null);
+    setUnreadChatCount(0);
     setHourlyTokenBurst(null);
     setTokenDisplayOverride(null);
     setTokenPillPulse(false);
@@ -509,10 +557,23 @@ export default function App() {
     currentUser?.username?.trim().toLowerCase() === OWNER_USERNAME ||
     currentUser?.email?.trim().toLowerCase() === OWNER_USERNAME;
 
+  const hasLegendaryInInv = ALL_BLOOKS.some(
+    (b) => b.rarity === 'Legendary' && (inventory[b.id] || 0) > 0
+  );
+  const hasChromaInInv = ALL_BLOOKS.some(
+    (b) => b.rarity === 'Chroma' && (inventory[b.id] || 0) > 0
+  );
+  const hasMysticInInv = ALL_BLOOKS.some(
+    (b) => b.rarity === 'Mystic' && (inventory[b.id] || 0) > 0
+  );
+
   const userAchievements = Array.from(
     new Set([
       ...(Array.isArray(currentUser?.achievements) ? currentUser.achievements : []),
       ...(isOwnerAccount ? ['owner', 'developer'] : []),
+      ...(hasLegendaryInInv ? ['legendary'] : []),
+      ...(hasChromaInInv ? ['chroma'] : []),
+      ...(hasMysticInInv ? ['op'] : []),
     ])
   );
   const hasOwnerBadge = userAchievements.includes('owner');
@@ -669,6 +730,7 @@ export default function App() {
     { label: 'Bazaar', icon: <ArrowLeftRight className="w-5 h-5" /> },
     { label: 'Trading', icon: <Handshake className="w-5 h-5" /> },
     { label: 'Clans', icon: <Shield className="w-5 h-5" /> },
+    { label: 'Chat', icon: <MessageSquare className="w-5 h-5" /> },
     { label: 'Achievements', icon: <Trophy className="w-5 h-5" /> },
     ...(isPrivilegedTokenUser ? [{ label: 'Admin' as ActiveTab, icon: <Crown className="w-5 h-5" /> }] : []),
     { label: 'Discover', icon: <Compass className="w-5 h-5" /> },
@@ -741,19 +803,34 @@ export default function App() {
 
           {navItems.map((item) => {
             const isActive = activeTab === item.label;
+            const showUnreadChat =
+              item.label === 'Chat' && unreadChatCount > 0 && activeTab !== 'Chat';
             return (
               <div key={item.label} className="relative group">
                 <button
                   type="button"
                   aria-label={item.label}
-                  onClick={() => setActiveTab(item.label)}
-                  className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
+                  onClick={() => {
+                    setActiveTab(item.label);
+                    if (item.label === 'Chat') {
+                      setUnreadChatCount(0);
+                      if (presenceWsRef.current?.readyState === WebSocket.OPEN) {
+                        presenceWsRef.current.send(JSON.stringify({ type: 'chat:sync' }));
+                      }
+                    }
+                  }}
+                  className={`relative w-10 h-10 rounded-xl flex items-center justify-center transition-all cursor-pointer ${
                     isActive
                       ? 'bg-white text-[#dc2626] shadow-sm scale-105'
                       : 'text-white/95 hover:bg-white/15'
                   }`}
                 >
                   {item.icon}
+                  {showUnreadChat && (
+                    <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#fbbf24] text-amber-950 font-nunito font-black text-[10px] flex items-center justify-center border-2 border-[#dc2626] shadow">
+                      {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                    </span>
+                  )}
                 </button>
                 <span
                   style={{ fontFamily: "'Lexend Deca', sans-serif" }}
@@ -1773,7 +1850,24 @@ export default function App() {
           />
         )}
 
-        {/* TAB 3E: ACHIEVEMENTS AREA (OWNER & DEVELOPER) */}
+        {/* TAB 3D-2: ONLINE CHAT AREA */}
+        {activeTab === 'Chat' && (
+          <ChatView
+            myUserId={currentUser.id}
+            myUsername={username}
+            myIsOwner={hasOwnerBadge || isOwnerAccount}
+            wsConnected={presenceConnected}
+            messages={chatMessages}
+            onlinePlayers={onlinePlayers}
+            chatError={chatError}
+            onSendMessage={(text) => sendChatWs({ type: 'chat:send', text })}
+            onDeleteMessage={(messageId) =>
+              sendChatWs({ type: 'chat:delete', messageId })
+            }
+          />
+        )}
+
+        {/* TAB 3E: ACHIEVEMENTS AREA */}
         {activeTab === 'Achievements' && (
           <AchievementsView
             unlockedIds={userAchievements}

@@ -141,8 +141,142 @@ export const DeveloperAchievementIcon: React.FC<{ className?: string }> = ({
   </svg>
 );
 
+export const DayOneAchievementIcon: React.FC<{ className?: string }> = ({
+  className = 'w-20 h-20',
+}) => (
+  <svg viewBox="0 0 120 120" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="dayOneMedalGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fde047" />
+        <stop offset="50%" stopColor="#f59e0b" />
+        <stop offset="100%" stopColor="#d97706" />
+      </linearGradient>
+      <linearGradient id="dayOneRibbonGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#ef4444" />
+        <stop offset="100%" stopColor="#991b1b" />
+      </linearGradient>
+    </defs>
+    {/* Medal Ribbons */}
+    <path d="M36 68 L26 110 L46 98 L54 112 L58 72 Z" fill="url(#dayOneRibbonGrad)" stroke="#7f1d1d" strokeWidth="2.5" strokeLinejoin="round" />
+    <path d="M84 68 L94 110 L74 98 L66 112 L62 72 Z" fill="url(#dayOneRibbonGrad)" stroke="#7f1d1d" strokeWidth="2.5" strokeLinejoin="round" />
+    {/* Sunburst Medal Disc */}
+    <circle cx="60" cy="50" r="38" fill="url(#dayOneMedalGrad)" stroke="#fef08a" strokeWidth="4.5" />
+    <circle cx="60" cy="50" r="29" fill="#b45309" stroke="#fde047" strokeWidth="2" />
+    {/* Bold "#1" Emblem */}
+    <path
+      d="M57 32 H65 V68 H56 V43 L48 48 L45 40 L57 32 Z"
+      fill="#fef9c3"
+      stroke="#78350f"
+      strokeWidth="2.5"
+      strokeLinejoin="round"
+    />
+    {/* Star Sparkles */}
+    <path d="M20 26 L22 30 L26 32 L22 34 L20 38 L18 34 L14 32 L18 30 Z" fill="#fef08a" />
+    <path d="M100 26 L102 30 L106 32 L102 34 L100 38 L98 34 L94 32 L98 30 Z" fill="#fef08a" />
+  </svg>
+);
+
+export const LegendaryAchievementIcon: React.FC<{ className?: string }> = ({
+  className = 'w-20 h-20',
+}) => (
+  <svg viewBox="0 0 120 120" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="legendShieldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#fbbf24" />
+        <stop offset="55%" stopColor="#f97316" />
+        <stop offset="100%" stopColor="#c2410c" />
+      </linearGradient>
+    </defs>
+    {/* Flaming Crest */}
+    <polygon
+      points="60,8 98,28 106,74 60,112 14,74 22,28"
+      fill="url(#legendShieldGrad)"
+      stroke="#fef08a"
+      strokeWidth="4.5"
+      strokeLinejoin="round"
+    />
+    <polygon
+      points="60,22 70,46 96,49 76,66 82,92 60,78 38,92 44,66 24,49 50,46"
+      fill="#fef3c7"
+      stroke="#9a3412"
+      strokeWidth="3"
+      strokeLinejoin="round"
+    />
+    <circle cx="60" cy="60" r="10" fill="#ff910f" stroke="#7c2d12" strokeWidth="2.5" />
+  </svg>
+);
+
+export const ChromaAchievementIcon: React.FC<{ className?: string }> = ({
+  className = 'w-20 h-20',
+}) => (
+  <svg viewBox="0 0 120 120" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="chromaPrismGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#67e8f9" />
+        <stop offset="50%" stopColor="#00ccff" />
+        <stop offset="100%" stopColor="#2563eb" />
+      </linearGradient>
+    </defs>
+    {/* Crystalline Diamond */}
+    <polygon
+      points="60,8 108,48 60,112 12,48"
+      fill="url(#chromaPrismGrad)"
+      stroke="#e0f2fe"
+      strokeWidth="4.5"
+      strokeLinejoin="round"
+    />
+    <polygon points="60,8 84,48 60,112 36,48" fill="rgba(255,255,255,0.22)" />
+    <line x1="12" y1="48" x2="108" y2="48" stroke="#e0f2fe" strokeWidth="3" />
+    <polygon points="36,48 60,22 84,48 60,90" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinejoin="round" />
+    <path d="M92 16 L94 21 L99 23 L94 25 L92 30 L90 25 L85 23 L90 21 Z" fill="#ffffff" />
+  </svg>
+);
+
+export const OpAchievementIcon: React.FC<{ className?: string }> = ({
+  className = 'w-20 h-20',
+}) => (
+  <svg viewBox="0 0 120 120" className={className} fill="none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="opMysticGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#e879f9" />
+        <stop offset="50%" stopColor="#9900ff" />
+        <stop offset="100%" stopColor="#4c1d95" />
+      </linearGradient>
+    </defs>
+    {/* Mystic Star-Burst Crest */}
+    <circle cx="60" cy="60" r="48" fill="url(#opMysticGrad)" stroke="#fde047" strokeWidth="4.5" />
+    <circle cx="60" cy="60" r="38" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="2" strokeDasharray="6 4" />
+    {/* Bold OP Emblem */}
+    <text
+      x="60"
+      y="72"
+      textAnchor="middle"
+      fill="#fef08a"
+      stroke="#4c1d95"
+      strokeWidth="4"
+      paintOrder="stroke fill"
+      fontFamily="'Titan One', cursive, sans-serif"
+      fontSize="36"
+      fontWeight="bold"
+    >
+      OP
+    </text>
+    {/* Sparkles */}
+    <path d="M26 24 L28 29 L33 31 L28 33 L26 38 L24 33 L19 31 L24 29 Z" fill="#fef08a" />
+    <path d="M94 82 L96 86 L100 88 L96 90 L94 94 L92 90 L88 88 L92 86 Z" fill="#fef08a" />
+  </svg>
+);
+
+export type AchievementId =
+  | 'owner'
+  | 'developer'
+  | 'day_one'
+  | 'legendary'
+  | 'chroma'
+  | 'op';
+
 export interface AchievementDefinition {
-  id: 'owner' | 'developer';
+  id: AchievementId;
   name: string;
   tierLabel: string;
   accentColor: string;
@@ -153,10 +287,46 @@ export interface AchievementDefinition {
 
 export const ACHIEVEMENTS_LIST: AchievementDefinition[] = [
   {
+    id: 'day_one',
+    name: 'Day One',
+    tierLabel: 'FOUNDING PLAYER',
+    accentColor: '#f59e0b',
+    bgGradient: 'from-yellow-400 via-amber-500 to-orange-600',
+    description: "You've been with us since day one!",
+    howToUnlock: 'Awarded to players who joined CLICKET since Day One.',
+  },
+  {
+    id: 'legendary',
+    name: 'Legendary',
+    tierLabel: 'LEGENDARY DROP',
+    accentColor: '#ff910f',
+    bgGradient: 'from-amber-400 via-orange-500 to-red-600',
+    description: 'Obtained a Legendary Blook!',
+    howToUnlock: 'Unlock any Legendary Blook from a Pack, Bazaar, or Trade.',
+  },
+  {
+    id: 'chroma',
+    name: 'Chroma',
+    tierLabel: 'CHROMA DROP',
+    accentColor: '#00ccff',
+    bgGradient: 'from-cyan-400 via-sky-500 to-blue-700',
+    description: 'Obtained an ultra-rare Chroma Blook!',
+    howToUnlock: 'Unlock any Chroma Blook from a Pack, Bazaar, or Trade.',
+  },
+  {
+    id: 'op',
+    name: 'OP',
+    tierLabel: 'MYSTICAL DROP',
+    accentColor: '#9900ff',
+    bgGradient: 'from-fuchsia-500 via-purple-600 to-indigo-900',
+    description: 'Obtained a Mystical Blook — unstoppable luck!',
+    howToUnlock: 'Unlock any Mystical Blook from a Pack, Bazaar, or Trade.',
+  },
+  {
     id: 'owner',
     name: 'Owner',
     tierLabel: 'FOUNDER BADGE',
-    accentColor: '#f59e0b',
+    accentColor: '#dc2626',
     bgGradient: 'from-amber-500 via-red-600 to-rose-800',
     description: 'Awarded exclusively to the Creator & Owner of CLICKET.',
     howToUnlock: 'Granted to the official Clicket owner account.',
@@ -172,6 +342,23 @@ export const ACHIEVEMENTS_LIST: AchievementDefinition[] = [
   },
 ];
 
+export const renderAchievementIcon = (id: AchievementId, className = 'w-20 h-20') => {
+  switch (id) {
+    case 'owner':
+      return <OwnerAchievementIcon className={className} />;
+    case 'developer':
+      return <DeveloperAchievementIcon className={className} />;
+    case 'day_one':
+      return <DayOneAchievementIcon className={className} />;
+    case 'legendary':
+      return <LegendaryAchievementIcon className={className} />;
+    case 'chroma':
+      return <ChromaAchievementIcon className={className} />;
+    case 'op':
+      return <OpAchievementIcon className={className} />;
+  }
+};
+
 interface AchievementsViewProps {
   unlockedIds: string[];
   sessionToken: string | null;
@@ -185,7 +372,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
 }) => {
   const isOwner = unlockedIds.includes('owner');
   const [targetUsername, setTargetUsername] = useState('');
-  const [selectedAch, setSelectedAch] = useState<'owner' | 'developer'>('developer');
+  const [selectedAch, setSelectedAch] = useState<AchievementId>('developer');
   const [grantMode, setGrantMode] = useState<boolean>(true);
   const [statusMsg, setStatusMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -214,11 +401,10 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
       if (!res.ok) {
         setStatusMsg({ ok: false, text: data.error || 'Could not update achievement.' });
       } else {
+        const achDef = ACHIEVEMENTS_LIST.find((a) => a.id === selectedAch);
         setStatusMsg({
           ok: true,
-          text: `${grantMode ? 'Granted' : 'Removed'} ${
-            selectedAch === 'owner' ? 'Owner' : 'Developer'
-          } badge for ${data.targetUsername}!`,
+          text: `${grantMode ? 'Granted' : 'Removed'} ${achDef?.name || selectedAch} badge for ${data.targetUsername}!`,
         });
         setTargetUsername('');
         await onRefreshUser();
@@ -238,7 +424,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
             Achievements
           </h1>
           <p className="font-nunito font-extrabold text-white/90 text-sm mt-1">
-            Special CLICKET badges & creator honors
+            Special CLICKET milestones, rarity drops & creator honors
           </p>
         </div>
 
@@ -250,7 +436,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
         </div>
       </div>
 
-      {/* The 2 Achievements: Owner & Developer */}
+      {/* Achievements Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {ACHIEVEMENTS_LIST.map((ach) => {
           const isUnlocked = unlockedIds.includes(ach.id);
@@ -276,11 +462,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
                     className="w-full h-full flex items-center justify-center"
                     style={!isUnlocked ? { filter: 'grayscale(1) opacity(0.55)' } : undefined}
                   >
-                    {ach.id === 'owner' ? (
-                      <OwnerAchievementIcon className="w-20 h-20 drop-shadow-md" />
-                    ) : (
-                      <DeveloperAchievementIcon className="w-20 h-20 drop-shadow-md" />
-                    )}
+                    {renderAchievementIcon(ach.id, 'w-20 h-20 drop-shadow-md')}
                   </div>
 
                   {!isUnlocked && (
@@ -339,7 +521,7 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
             <h3 className="font-titan text-2xl text-[#dc2626]">Owner Badge Controls</h3>
           </div>
           <p className="font-nunito font-bold text-xs text-slate-500 mb-4">
-            As the Clicket Owner, you can grant or revoke the Owner or Developer achievement for any player username.
+            As the Clicket Owner, you can grant or revoke any achievement badge for any player username.
           </p>
 
           {statusMsg && (
@@ -365,11 +547,14 @@ export const AchievementsView: React.FC<AchievementsViewProps> = ({
 
             <select
               value={selectedAch}
-              onChange={(e) => setSelectedAch(e.target.value as 'owner' | 'developer')}
+              onChange={(e) => setSelectedAch(e.target.value as AchievementId)}
               className="px-3.5 py-2.5 rounded-xl border-2 border-slate-200 font-nunito font-extrabold text-sm text-slate-700 bg-white cursor-pointer"
             >
-              <option value="developer">Developer</option>
-              <option value="owner">Owner</option>
+              {ACHIEVEMENTS_LIST.map((ach) => (
+                <option key={ach.id} value={ach.id}>
+                  {ach.name}
+                </option>
+              ))}
             </select>
 
             <select

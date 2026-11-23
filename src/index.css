@@ -352,3 +352,44 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.55);
 }
+
+/* Owner Rainbow Glowing Name in Online Chat */
+@keyframes rainbowNameGlow {
+  0% {
+    background-position: 0% 50%;
+    filter: drop-shadow(0 0 5px rgba(255, 59, 59, 0.8)) drop-shadow(0 0 11px rgba(250, 204, 21, 0.55));
+  }
+  33% {
+    background-position: 50% 50%;
+    filter: drop-shadow(0 0 6px rgba(34, 197, 94, 0.8)) drop-shadow(0 0 12px rgba(6, 182, 212, 0.65));
+  }
+  66% {
+    background-position: 100% 50%;
+    filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.85)) drop-shadow(0 0 12px rgba(236, 72, 153, 0.65));
+  }
+  100% {
+    background-position: 0% 50%;
+    filter: drop-shadow(0 0 5px rgba(255, 59, 59, 0.8)) drop-shadow(0 0 11px rgba(250, 204, 21, 0.55));
+  }
+}
+
+.owner-rainbow-glow {
+  background-image: linear-gradient(
+    90deg,
+    #ff3b3b,
+    #ff9f1c,
+    #facc15,
+    #22c55e,
+    #06b6d4,
+    #3b82f6,
+    #a855f7,
+    #ec4899,
+    #ff3b3b
+  );
+  background-size: 240% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: rainbowNameGlow 3s linear infinite;
+}
+

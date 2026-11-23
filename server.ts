@@ -4,7 +4,8 @@ import fs from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { attachMultiplayerServer } from './serverMultiplayer';
+import { attachMultiplayerServer, ChatMessageRecord } from './serverMultiplayer';
+import { ALL_BLOOKS } from './src/data/blooks';
 
 dotenv.config();
 
@@ -41,6 +42,7 @@ interface StoredUser {
   tradeHistory?: TradeHistoryEntry[];
   clanId?: string | null;
   achievements?: string[];
+  revokedAchievements?: string[];
   createdAt: string;
 }
 
@@ -76,6 +78,7 @@ interface DatabaseSchema {
   sessions: Record<string, string>; // sessionToken -> lowercased email
   setStats?: Record<string, SetPlayStats>;
   clans?: Record<string, ClanRecord>;
+  chatMessages?: ChatMessageRecord[];
 }
 
 let dbCache: DatabaseSchema | null = null;
@@ -88,9 +91,10 @@ async function loadDb(): Promise<DatabaseSchema> {
     const parsed = JSON.parse(raw) as DatabaseSchema;
     if (!parsed.setStats) parsed.setStats = {};
     if (!parsed.clans) parsed.clans = {};
+    if (!Array.isArray(parsed.chatMessages)) parsed.chatMessages = [];
     dbCache = parsed;
   } catch {
-    dbCache = { users: {}, sessions: {}, setStats: {}, clans: {} };
+    dbCache = { users: {}, sessions: {}, setStats: {}, clans: {}, chatMessages: [] };
     await saveDb(dbCache);
   }
   return dbCache;
@@ -122,8 +126,20 @@ function generateSixDigitCode(): string {
 }
 
 const OWNER_IDENTIFIERS = new Set(['clicketownerofficial']);
+const VALID_ACHIEVEMENT_IDS = new Set([
+  'owner',
+  'developer',
+  'day_one',
+  'legendary',
+  'chroma',
+  'op',
+]);
+const BLOOK_RARITY_BY_ID = new Map(ALL_BLOOKS.map((b) => [b.id, b.rarity]));
 
 function resolveUserAchievements(u: StoredUser): string[] {
+  const revoked = new Set<string>(
+    Array.isArray(u.revokedAchievements) ? u.revokedAchievements : []
+  );
   const set = new Set<string>(Array.isArray(u.achievements) ? u.achievements : []);
   const cleanEmail = (u.email || '').trim().toLowerCase();
   const cleanUser = (u.username || '').trim().toLowerCase();
@@ -131,7 +147,17 @@ function resolveUserAchievements(u: StoredUser): string[] {
     set.add('owner');
     set.add('developer');
   }
-  return Array.from(set).filter((a) => a === 'owner' || a === 'developer');
+  if (!revoked.has('day_one')) {
+    set.add('day_one');
+  }
+  for (const [blookId, count] of Object.entries(u.inventory || {})) {
+    if (Number(count) <= 0) continue;
+    const rarity = BLOOK_RARITY_BY_ID.get(blookId);
+    if (rarity === 'Legendary' && !revoked.has('legendary')) set.add('legendary');
+    if (rarity === 'Chroma' && !revoked.has('chroma')) set.add('chroma');
+    if (rarity === 'Mystic' && !revoked.has('op')) set.add('op');
+  }
+  return Array.from(set).filter((a) => VALID_ACHIEVEMENT_IDS.has(a));
 }
 
 function sanitizeUser(u: StoredUser) {
@@ -720,6 +746,7 @@ async function createServer() {
         user.lastWheelSpinAt = Math.max(user.lastWheelSpinAt ?? 0, lastWheelSpinAt);
       }
 
+      user.achievements = resolveUserAchievements(user);
       await saveDb(db);
       res.json({ ok: true, user: sanitizeUser(user) });
     } catch (err) {
@@ -1335,7 +1362,7 @@ async function createServer() {
       const achievementId = String(req.body?.achievementId || '').trim();
       const grant = req.body?.grant !== false;
 
-      if (achievementId !== 'owner' && achievementId !== 'developer') {
+      if (!VALID_ACHIEVEMENT_IDS.has(achievementId)) {
         res.status(400).json({ error: 'Invalid achievement ID.' });
         return;
       }
@@ -1346,12 +1373,18 @@ async function createServer() {
         return;
       }
 
+      const revoked = new Set<string>(
+        Array.isArray(targetUser.revokedAchievements) ? targetUser.revokedAchievements : []
+      );
       const current = new Set(resolveUserAchievements(targetUser));
       if (grant) {
+        revoked.delete(achievementId);
         current.add(achievementId);
       } else {
+        revoked.add(achievementId);
         current.delete(achievementId);
       }
+      targetUser.revokedAchievements = Array.from(revoked);
       targetUser.achievements = Array.from(current);
       await saveDb(db);
 
@@ -1561,6 +1594,7 @@ async function createServer() {
         return;
       }
 
+      targetUser.achievements = resolveUserAchievements(targetUser);
       await saveDb(db);
       res.json({
         ok: true,
@@ -1746,6 +1780,8 @@ async function createServer() {
 
     userA.tradeHistory = [historyEntryA, ...(userA.tradeHistory || [])].slice(0, 50);
     userB.tradeHistory = [historyEntryB, ...(userB.tradeHistory || [])].slice(0, 50);
+    userA.achievements = resolveUserAchievements(userA);
+    userB.achievements = resolveUserAchievements(userB);
 
     await saveDb(db);
     return {
@@ -1763,6 +1799,47 @@ async function createServer() {
   attachMultiplayerServer(httpServer, {
     onRecordSetPlay: recordSetPlay,
     onAwardTokens: awardUserTokens,
+    onGetUserChatMeta: async (userId: string) => {
+      const db = await loadDb();
+      const found = Object.values(db.users).find((u) => u.id === userId);
+      if (!found) return null;
+      const achievements = resolveUserAchievements(found);
+      const isOwner =
+        achievements.includes('owner') ||
+        OWNER_IDENTIFIERS.has((found.username || '').trim().toLowerCase());
+      const safeEquipped =
+        found.equippedBlookId && (found.inventory?.[found.equippedBlookId] || 0) > 0
+          ? found.equippedBlookId
+          : '';
+      return {
+        username: found.username,
+        avatarBlookId: safeEquipped,
+        achievements,
+        isOwner,
+      };
+    },
+    onLoadChatMessages: async () => {
+      const db = await loadDb();
+      return (db.chatMessages || []).slice(-100);
+    },
+    onAppendChatMessage: async (message: ChatMessageRecord) => {
+      const db = await loadDb();
+      if (!Array.isArray(db.chatMessages)) db.chatMessages = [];
+      db.chatMessages.push(message);
+      if (db.chatMessages.length > 100) {
+        db.chatMessages = db.chatMessages.slice(-100);
+      }
+      await saveDb(db);
+    },
+    onDeleteChatMessage: async (messageId: string) => {
+      const db = await loadDb();
+      if (!Array.isArray(db.chatMessages)) return false;
+      const before = db.chatMessages.length;
+      db.chatMessages = db.chatMessages.filter((m) => m.id !== messageId);
+      if (db.chatMessages.length === before) return false;
+      await saveDb(db);
+      return true;
+    },
     onExecuteBlookTrade: executeBlookTrade,
   });
 

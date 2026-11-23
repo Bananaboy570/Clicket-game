@@ -23,6 +23,8 @@ export interface OnlinePlayerSummary {
   avatarBlookId: string;
   unlockedCount: number;
   inTrade: boolean;
+  achievements?: string[];
+  isOwner?: boolean;
 }
 
 export interface LiveTradeParticipant {

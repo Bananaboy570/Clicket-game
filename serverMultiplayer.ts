@@ -77,7 +77,20 @@ export interface OnlineClient {
   avatarBlookId: string;
   unlockedCount: number;
   inventory: Record<string, number>;
+  achievements: string[];
+  isOwner: boolean;
   activeTradeId: string | null;
+}
+
+export interface ChatMessageRecord {
+  id: string;
+  userId: string;
+  username: string;
+  avatarBlookId: string;
+  achievements: string[];
+  isOwner: boolean;
+  text: string;
+  createdAt: string;
 }
 
 export interface TradeSession {
@@ -92,6 +105,15 @@ export interface TradeSession {
 export interface MultiplayerDeps {
   onRecordSetPlay: (setId: string, userId?: string) => Promise<void>;
   onAwardTokens: (userId: string, amount: number) => Promise<void>;
+  onGetUserChatMeta: (userId: string) => Promise<{
+    username: string;
+    avatarBlookId: string;
+    achievements: string[];
+    isOwner: boolean;
+  } | null>;
+  onLoadChatMessages: () => Promise<ChatMessageRecord[]>;
+  onAppendChatMessage: (message: ChatMessageRecord) => Promise<void>;
+  onDeleteChatMessage: (messageId: string) => Promise<boolean>;
   onExecuteBlookTrade: (
     userIdA: string,
     blookIdA: string,
@@ -225,11 +247,22 @@ export function attachMultiplayerServer(
       avatarBlookId: c.avatarBlookId,
       unlockedCount: c.unlockedCount,
       inTrade: Boolean(c.activeTradeId),
+      achievements: c.achievements,
+      isOwner: c.isOwner,
     }));
     const payload = JSON.stringify({ type: 'presence:list', players });
     for (const c of onlineClients.values()) {
       if (c.ws.readyState === WebSocket.OPEN) {
         c.ws.send(payload);
+      }
+    }
+  };
+
+  const broadcastChatPayload = (data: Record<string, unknown>) => {
+    const payload = JSON.stringify(data);
+    for (const client of wss.clients) {
+      if (client.readyState === WebSocket.OPEN) {
+        client.send(payload);
       }
     }
   };
@@ -772,25 +805,118 @@ export function attachMultiplayerServer(
         case 'presence:register':
         case 'presence:update': {
           const userId = String(msg.userId || '').trim();
-          const username = String(msg.username || '').trim();
-          if (!userId || !username) return;
+          const fallbackUsername = String(msg.username || '').trim();
+          if (!userId || !fallbackUsername) return;
           const inv =
             msg.inventory && typeof msg.inventory === 'object'
               ? (msg.inventory as Record<string, number>)
               : {};
           const unlockedCount = Object.values(inv).filter((c) => Number(c) > 0).length;
           const existing = onlineClients.get(meta.clientId);
+          const serverProfile = await deps.onGetUserChatMeta(userId).catch(() => null);
+          meta.userId = userId;
           onlineClients.set(meta.clientId, {
             clientId: meta.clientId,
             ws,
             userId,
-            username,
-            avatarBlookId: String(msg.avatarBlookId || ''),
+            username: serverProfile?.username || fallbackUsername,
+            avatarBlookId: String(msg.avatarBlookId || serverProfile?.avatarBlookId || ''),
             unlockedCount,
             inventory: inv,
+            achievements: serverProfile?.achievements || [],
+            isOwner: Boolean(serverProfile?.isOwner),
             activeTradeId: existing?.activeTradeId ?? null,
           });
           broadcastPresence();
+          if (msg.type === 'presence:register' && ws.readyState === WebSocket.OPEN) {
+            const history = await deps.onLoadChatMessages().catch(() => []);
+            ws.send(JSON.stringify({ type: 'chat:history', messages: history }));
+          }
+          break;
+        }
+
+        case 'chat:sync': {
+          if (ws.readyState === WebSocket.OPEN) {
+            const history = await deps.onLoadChatMessages().catch(() => []);
+            ws.send(JSON.stringify({ type: 'chat:history', messages: history }));
+          }
+          break;
+        }
+
+        case 'chat:send': {
+          const sender = onlineClients.get(meta.clientId);
+          const targetUserId = sender?.userId || meta.userId;
+          if (!targetUserId) {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: 'chat:error',
+                  error: 'You must be signed in to send chat messages.',
+                })
+              );
+            }
+            return;
+          }
+          const cleanText = String(msg.text || '').trim().slice(0, 300);
+          if (!cleanText) return;
+
+          const serverProfile = await deps.onGetUserChatMeta(targetUserId).catch(() => null);
+          if (!serverProfile) {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: 'chat:error',
+                  error: 'Could not verify your account for chat.',
+                })
+              );
+            }
+            return;
+          }
+
+          if (sender) {
+            sender.username = serverProfile.username;
+            sender.achievements = serverProfile.achievements;
+            sender.isOwner = serverProfile.isOwner;
+          }
+
+          const chatMessage: ChatMessageRecord = {
+            id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+            userId: targetUserId,
+            username: serverProfile.username,
+            avatarBlookId: sender?.avatarBlookId || serverProfile.avatarBlookId || '',
+            achievements: serverProfile.achievements,
+            isOwner: serverProfile.isOwner,
+            text: cleanText,
+            createdAt: new Date().toISOString(),
+          };
+
+          await deps.onAppendChatMessage(chatMessage).catch(() => {});
+          broadcastChatPayload({ type: 'chat:message', message: chatMessage });
+          break;
+        }
+
+        case 'chat:delete': {
+          const sender = onlineClients.get(meta.clientId);
+          const targetUserId = sender?.userId || meta.userId;
+          if (!targetUserId) return;
+          const serverProfile = await deps.onGetUserChatMeta(targetUserId).catch(() => null);
+          if (!serverProfile?.isOwner) {
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(
+                JSON.stringify({
+                  type: 'chat:error',
+                  error: 'Only the CLICKET Owner can delete chat messages.',
+                })
+              );
+            }
+            return;
+          }
+          const messageId = String(msg.messageId || '').trim();
+          if (!messageId) return;
+          const deleted = await deps.onDeleteChatMessage(messageId).catch(() => false);
+          if (deleted) {
+            broadcastChatPayload({ type: 'chat:deleted', messageId });
+          }
           break;
         }
 
