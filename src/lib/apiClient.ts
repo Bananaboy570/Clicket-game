@@ -709,6 +709,163 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
     });
   }
 
+  // ADMIN PANEL ENDPOINTS (Owner only)
+  if (url.startsWith('/api/admin/')) {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    if (!resolveAchievements(auth.user).includes('owner')) {
+      return jsonRes({ error: 'Owner access required.' }, 403);
+    }
+
+    if (url === '/api/admin/overview' && method === 'GET') {
+      const allUsers = Object.values(db.users)
+        .map((u) => {
+          const inv = u.inventory || {};
+          const uniqueBlooksCount = Object.values(inv).filter((c) => c > 0).length;
+          const totalBlooksCount = Object.values(inv).reduce((s, c) => s + (c > 0 ? c : 0), 0);
+          const safeEquipped =
+            u.equippedBlookId && (inv[u.equippedBlookId] || 0) > 0 ? u.equippedBlookId : '';
+          return {
+            id: u.id,
+            username: u.username,
+            tokens: u.tokens || 0,
+            uniqueBlooksCount,
+            totalBlooksCount,
+            equippedBlookId: safeEquipped,
+            achievements: resolveAchievements(u),
+            clanId: u.clanId ?? null,
+            bestDailyClicks: u.bestDailyClicks || 0,
+            clickUpgradeLevel: u.clickUpgradeLevel || 0,
+            createdAt: u.createdAt,
+            inventory: inv,
+          };
+        })
+        .sort((a, b) => b.tokens - a.tokens);
+
+      const clans = Object.values(db.clans || {}).map((c) => {
+        const s = buildStaticClanSummary(c, db);
+        return {
+          id: s.id,
+          name: s.name,
+          tag: s.tag,
+          memberCount: s.memberCount,
+          powerScore: s.powerScore,
+          leaderUsername: s.leaderUsername,
+        };
+      });
+
+      const totalTokens = allUsers.reduce((sum, u) => sum + u.tokens, 0);
+      return jsonRes({
+        stats: {
+          totalUsers: allUsers.length,
+          totalTokens,
+          totalClans: clans.length,
+          activeSessions: Object.keys(db.sessions || {}).length,
+        },
+        users: allUsers,
+        clans,
+      });
+    }
+
+    if (url === '/api/admin/user/tokens' && method === 'POST') {
+      const targetUserId = String(body.userId || '').trim();
+      const mode = body.mode === 'set' ? 'set' : 'add';
+      const amount = Math.floor(Number(body.amount ?? 0));
+      const targetUser = Object.values(db.users).find((u) => u.id === targetUserId);
+      if (!targetUser) return jsonRes({ error: 'Player not found.' }, 404);
+      targetUser.tokens =
+        mode === 'set' ? Math.max(0, amount) : Math.max(0, (targetUser.tokens || 0) + amount);
+      saveStaticDb(db);
+      return jsonRes({
+        ok: true,
+        targetUser: sanitizeStaticUser(targetUser),
+        selfUser: targetUser.id === auth.user.id ? sanitizeStaticUser(targetUser) : undefined,
+      });
+    }
+
+    if (url === '/api/admin/user/blook' && method === 'POST') {
+      const targetUserId = String(body.userId || '').trim();
+      const unlockAll = Boolean(body.unlockAll);
+      const blookId = String(body.blookId || '').trim();
+      const quantity = Math.floor(Number(body.quantity ?? 1));
+      const targetUser = Object.values(db.users).find((u) => u.id === targetUserId);
+      if (!targetUser) return jsonRes({ error: 'Player not found.' }, 404);
+      if (!targetUser.inventory) targetUser.inventory = {};
+
+      if (unlockAll && Array.isArray(body.allBlookIds)) {
+        for (const id of body.allBlookIds) {
+          const clean = String(id || '').trim();
+          if (clean) {
+            targetUser.inventory[clean] = Math.max(1, targetUser.inventory[clean] || 0);
+          }
+        }
+      } else if (blookId && Number.isFinite(quantity)) {
+        const nextCount = (targetUser.inventory[blookId] || 0) + quantity;
+        if (nextCount <= 0) delete targetUser.inventory[blookId];
+        else targetUser.inventory[blookId] = nextCount;
+        if (targetUser.equippedBlookId === blookId && !targetUser.inventory[blookId]) {
+          targetUser.equippedBlookId = '';
+        }
+      } else {
+        return jsonRes({ error: 'Missing Blook details.' }, 400);
+      }
+      saveStaticDb(db);
+      return jsonRes({
+        ok: true,
+        targetUser: sanitizeStaticUser(targetUser),
+        selfUser: targetUser.id === auth.user.id ? sanitizeStaticUser(targetUser) : undefined,
+      });
+    }
+
+    if (url === '/api/admin/user/reset-cooldowns' && method === 'POST') {
+      const targetUserId = String(body.userId || '').trim();
+      const targetUser = Object.values(db.users).find((u) => u.id === targetUserId);
+      if (!targetUser) return jsonRes({ error: 'Player not found.' }, 404);
+      targetUser.lastDailyPlayAt = null;
+      targetUser.lastWheelSpinAt = null;
+      targetUser.lastHourlyClaimAt = null;
+      saveStaticDb(db);
+      return jsonRes({
+        ok: true,
+        targetUsername: targetUser.username,
+        selfUser: targetUser.id === auth.user.id ? sanitizeStaticUser(targetUser) : undefined,
+      });
+    }
+
+    if (url === '/api/admin/user/delete' && method === 'POST') {
+      const targetUserId = String(body.userId || '').trim();
+      const entry = Object.entries(db.users).find(([, u]) => u.id === targetUserId);
+      if (!entry) return jsonRes({ error: 'Player not found.' }, 404);
+      const [userKey, targetUser] = entry;
+      if (
+        targetUser.id === auth.user.id ||
+        OWNER_IDENTIFIERS.has(targetUser.username.trim().toLowerCase())
+      ) {
+        return jsonRes({ error: 'Cannot delete the Owner account.' }, 400);
+      }
+      for (const [tok, key] of Object.entries(db.sessions)) {
+        if (key === userKey) delete db.sessions[tok];
+      }
+      const deletedUsername = targetUser.username;
+      delete db.users[userKey];
+      saveStaticDb(db);
+      return jsonRes({ ok: true, deletedUsername });
+    }
+
+    if (url === '/api/admin/clan/delete' && method === 'POST') {
+      const clanId = String(body.clanId || '').trim();
+      const clan = db.clans?.[clanId];
+      if (!clan) return jsonRes({ error: 'Clan not found.' }, 404);
+      for (const u of Object.values(db.users)) {
+        if (u.clanId === clanId) u.clanId = null;
+      }
+      const deletedClanName = clan.name;
+      delete db.clans[clanId];
+      saveStaticDb(db);
+      return jsonRes({ ok: true, deletedClanName });
+    }
+  }
+
   return jsonRes({ error: 'Endpoint unavailable in static mode.' }, 404);
 }
 

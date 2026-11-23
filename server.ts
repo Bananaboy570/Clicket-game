@@ -1409,6 +1409,266 @@ async function createServer() {
     }
   });
 
+  // Owner-only Admin Panel APIs
+  const requireOwner = async (req: express.Request, res: express.Response) => {
+    const auth = await getAuthenticatedUser(req);
+    if (!auth) {
+      res.status(401).json({ error: 'Not authenticated' });
+      return null;
+    }
+    const callerAchievements = resolveUserAchievements(auth.user);
+    if (!callerAchievements.includes('owner')) {
+      res.status(403).json({ error: 'Owner access required.' });
+      return null;
+    }
+    return auth;
+  };
+
+  app.get('/api/admin/overview', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db } = auth;
+
+      const allUsers = Object.values(db.users).map((u) => {
+        const inv = u.inventory || {};
+        const uniqueBlooksCount = Object.values(inv).filter((c) => c > 0).length;
+        const totalBlooksCount = Object.values(inv).reduce((s, c) => s + (c > 0 ? c : 0), 0);
+        const safeEquipped =
+          u.equippedBlookId && (inv[u.equippedBlookId] || 0) > 0 ? u.equippedBlookId : '';
+        return {
+          id: u.id,
+          username: u.username,
+          tokens: u.tokens || 0,
+          uniqueBlooksCount,
+          totalBlooksCount,
+          equippedBlookId: safeEquipped,
+          achievements: resolveUserAchievements(u),
+          clanId: u.clanId ?? null,
+          bestDailyClicks: u.bestDailyClicks || 0,
+          clickUpgradeLevel: u.clickUpgradeLevel || 0,
+          createdAt: u.createdAt,
+          inventory: inv,
+        };
+      });
+
+      allUsers.sort((a, b) => {
+        const aOwner = a.achievements.includes('owner') ? 1 : 0;
+        const bOwner = b.achievements.includes('owner') ? 1 : 0;
+        if (aOwner !== bOwner) return bOwner - aOwner;
+        return b.tokens - a.tokens;
+      });
+
+      const clans = Object.values(db.clans || {}).map((c) => {
+        const summary = buildClanSummary(c, db);
+        return {
+          id: summary.id,
+          name: summary.name,
+          tag: summary.tag,
+          memberCount: summary.memberCount,
+          powerScore: summary.powerScore,
+          leaderUsername: summary.leaderUsername,
+        };
+      });
+
+      const totalTokens = allUsers.reduce((sum, u) => sum + u.tokens, 0);
+      res.json({
+        stats: {
+          totalUsers: allUsers.length,
+          totalTokens,
+          totalClans: clans.length,
+          activeSessions: Object.keys(db.sessions || {}).length,
+        },
+        users: allUsers,
+        clans,
+      });
+    } catch (err) {
+      console.error('Admin overview error:', err);
+      res.status(500).json({ error: 'Failed to load admin overview.' });
+    }
+  });
+
+  app.post('/api/admin/user/tokens', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db, user } = auth;
+      const targetUserId = String(req.body?.userId || '').trim();
+      const mode = req.body?.mode === 'set' ? 'set' : 'add';
+      const amount = Math.floor(Number(req.body?.amount ?? 0));
+      if (!Number.isFinite(amount)) {
+        res.status(400).json({ error: 'Invalid token amount.' });
+        return;
+      }
+      const targetUser = Object.values(db.users).find((u) => u.id === targetUserId);
+      if (!targetUser) {
+        res.status(404).json({ error: 'Player not found.' });
+        return;
+      }
+      if (mode === 'set') {
+        targetUser.tokens = Math.max(0, amount);
+      } else {
+        targetUser.tokens = Math.max(0, (targetUser.tokens || 0) + amount);
+      }
+      await saveDb(db);
+      res.json({
+        ok: true,
+        targetUser: sanitizeUser(targetUser),
+        selfUser: targetUser.id === user.id ? sanitizeUser(targetUser) : undefined,
+      });
+    } catch (err) {
+      console.error('Admin token update error:', err);
+      res.status(500).json({ error: 'Failed to update tokens.' });
+    }
+  });
+
+  app.post('/api/admin/user/blook', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db, user } = auth;
+      const targetUserId = String(req.body?.userId || '').trim();
+      const unlockAll = Boolean(req.body?.unlockAll);
+      const blookId = String(req.body?.blookId || '').trim();
+      const quantity = Math.floor(Number(req.body?.quantity ?? 1));
+
+      const targetUser = Object.values(db.users).find((u) => u.id === targetUserId);
+      if (!targetUser) {
+        res.status(404).json({ error: 'Player not found.' });
+        return;
+      }
+      if (!targetUser.inventory) targetUser.inventory = {};
+
+      if (unlockAll && Array.isArray(req.body?.allBlookIds)) {
+        for (const id of req.body.allBlookIds) {
+          const clean = String(id || '').trim();
+          if (clean) {
+            targetUser.inventory[clean] = Math.max(1, targetUser.inventory[clean] || 0);
+          }
+        }
+      } else if (blookId && Number.isFinite(quantity)) {
+        const nextCount = (targetUser.inventory[blookId] || 0) + quantity;
+        if (nextCount <= 0) {
+          delete targetUser.inventory[blookId];
+        } else {
+          targetUser.inventory[blookId] = nextCount;
+        }
+        if (targetUser.equippedBlookId === blookId && !targetUser.inventory[blookId]) {
+          targetUser.equippedBlookId = '';
+        }
+      } else {
+        res.status(400).json({ error: 'Missing Blook details.' });
+        return;
+      }
+
+      await saveDb(db);
+      res.json({
+        ok: true,
+        targetUser: sanitizeUser(targetUser),
+        selfUser: targetUser.id === user.id ? sanitizeUser(targetUser) : undefined,
+      });
+    } catch (err) {
+      console.error('Admin blook update error:', err);
+      res.status(500).json({ error: 'Failed to update Blook inventory.' });
+    }
+  });
+
+  app.post('/api/admin/user/reset-cooldowns', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db, user } = auth;
+      const targetUserId = String(req.body?.userId || '').trim();
+      const targetUser = Object.values(db.users).find((u) => u.id === targetUserId);
+      if (!targetUser) {
+        res.status(404).json({ error: 'Player not found.' });
+        return;
+      }
+      targetUser.lastDailyPlayAt = null;
+      targetUser.lastWheelSpinAt = null;
+      targetUser.lastHourlyClaimAt = null;
+      await saveDb(db);
+      res.json({
+        ok: true,
+        targetUsername: targetUser.username,
+        selfUser: targetUser.id === user.id ? sanitizeUser(targetUser) : undefined,
+      });
+    } catch (err) {
+      console.error('Admin reset cooldowns error:', err);
+      res.status(500).json({ error: 'Failed to reset cooldowns.' });
+    }
+  });
+
+  app.post('/api/admin/user/delete', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db, user } = auth;
+      const targetUserId = String(req.body?.userId || '').trim();
+      const entry = Object.entries(db.users).find(([, u]) => u.id === targetUserId);
+      if (!entry) {
+        res.status(404).json({ error: 'Player not found.' });
+        return;
+      }
+      const [userKey, targetUser] = entry;
+      if (
+        targetUser.id === user.id ||
+        OWNER_IDENTIFIERS.has(targetUser.username.trim().toLowerCase())
+      ) {
+        res.status(400).json({ error: 'Cannot delete the Owner account.' });
+        return;
+      }
+
+      if (targetUser.clanId && db.clans?.[targetUser.clanId]) {
+        const clan = db.clans[targetUser.clanId];
+        clan.memberIds = clan.memberIds.filter((id) => id !== targetUser.id);
+        clan.officerIds = clan.officerIds.filter((id) => id !== targetUser.id);
+        if (clan.memberIds.length === 0) {
+          delete db.clans[targetUser.clanId];
+        } else if (clan.leaderId === targetUser.id) {
+          clan.leaderId = clan.officerIds[0] || clan.memberIds[0];
+        }
+      }
+
+      for (const [tok, key] of Object.entries(db.sessions)) {
+        if (key === userKey) delete db.sessions[tok];
+      }
+      const deletedUsername = targetUser.username;
+      delete db.users[userKey];
+      await saveDb(db);
+      res.json({ ok: true, deletedUsername });
+    } catch (err) {
+      console.error('Admin delete user error:', err);
+      res.status(500).json({ error: 'Failed to delete player.' });
+    }
+  });
+
+  app.post('/api/admin/clan/delete', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db } = auth;
+      const clanId = String(req.body?.clanId || '').trim();
+      const clan = db.clans?.[clanId];
+      if (!db.clans || !clan) {
+        res.status(404).json({ error: 'Clan not found.' });
+        return;
+      }
+      for (const u of Object.values(db.users)) {
+        if (u.clanId === clanId) {
+          u.clanId = null;
+        }
+      }
+      const deletedClanName = clan.name;
+      delete db.clans[clanId];
+      await saveDb(db);
+      res.json({ ok: true, deletedClanName });
+    } catch (err) {
+      console.error('Admin delete clan error:', err);
+      res.status(500).json({ error: 'Failed to disband clan.' });
+    }
+  });
+
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
     const vite = await createViteServer({

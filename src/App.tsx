@@ -25,6 +25,7 @@ import {
   X,
   Shield,
   Trophy,
+  Crown,
 } from 'lucide-react';
 import {
   CIRCUS_PACK,
@@ -71,6 +72,7 @@ import {
   OwnerAchievementIcon,
   DeveloperAchievementIcon,
 } from './components/AchievementsView';
+import { AdminPanelView } from './components/AdminPanelView';
 import { apiFetch, isStaticMode, onStaticModeChange } from './lib/apiClient';
 
 const OWNER_USERNAME = 'clicketownerofficial';
@@ -84,6 +86,7 @@ type ActiveTab =
   | 'Trading'
   | 'Clans'
   | 'Achievements'
+  | 'Admin'
   | 'Discover'
   | 'Set Creator'
   | 'My Sets'
@@ -667,6 +670,7 @@ export default function App() {
     { label: 'Trading', icon: <Handshake className="w-5 h-5" /> },
     { label: 'Clans', icon: <Shield className="w-5 h-5" /> },
     { label: 'Achievements', icon: <Trophy className="w-5 h-5" /> },
+    ...(isPrivilegedTokenUser ? [{ label: 'Admin' as ActiveTab, icon: <Crown className="w-5 h-5" /> }] : []),
     { label: 'Discover', icon: <Compass className="w-5 h-5" /> },
     { label: 'Set Creator', icon: <PenSquare className="w-5 h-5" /> },
     { label: 'My Sets', icon: <List className="w-5 h-5" /> },
@@ -972,9 +976,19 @@ export default function App() {
                     <PenSquare className="w-4 h-4" />
                   </button>
 
-                  {/* Token buttons strictly restricted to ClicketOwnerOfficial */}
+                  {/* Admin & Token controls strictly restricted to ClicketOwnerOfficial */}
                   {isPrivilegedTokenUser && (
                     <>
+                      <button
+                        onClick={() => {
+                          setActiveTab('Admin');
+                          setShowProfileMenu(false);
+                        }}
+                        className="w-full text-left px-3 py-2 rounded-xl bg-gradient-to-r from-[#dc2626] to-[#b91c1c] hover:brightness-105 text-white font-nunito font-black text-sm flex items-center justify-between cursor-pointer shadow-sm"
+                      >
+                        <span>Open Admin Panel</span>
+                        <Crown className="w-4 h-4 text-amber-300" />
+                      </button>
                       <button
                         onClick={() => {
                           setTokens((t) => t + 100);
@@ -1292,18 +1306,21 @@ export default function App() {
                         >
                           <div
                             className="w-full h-full flex items-center justify-center"
-                            style={!isUnlocked ? { filter: 'brightness(0) invert(72%)' } : undefined}
+                            style={!isUnlocked ? { filter: 'brightness(0)' } : undefined}
                           >
                             <BlookArt
                               id={blook.id}
-                              animated={isUnlocked}
+                              animated
                               className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
                             />
                           </div>
 
                           {!isUnlocked && (
-                            <div className="absolute -bottom-1 -left-1 bg-slate-700/90 text-white w-6 h-6 rounded-full flex items-center justify-center border-2 border-white/80 shadow-sm">
-                              <Lock className="w-3 h-3" />
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                              <Lock
+                                className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]"
+                                strokeWidth={2.6}
+                              />
                             </div>
                           )}
 
@@ -1358,18 +1375,21 @@ export default function App() {
                         >
                           <div
                             className="w-full h-full flex items-center justify-center"
-                            style={!isUnlocked ? { filter: 'brightness(0) invert(72%)' } : undefined}
+                            style={!isUnlocked ? { filter: 'brightness(0)' } : undefined}
                           >
                             <BlookArt
                               id={blook.id}
-                              animated={isUnlocked}
+                              animated
                               className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
                             />
                           </div>
 
                           {!isUnlocked && (
-                            <div className="absolute -bottom-1 -left-1 bg-slate-700/90 text-white w-6 h-6 rounded-full flex items-center justify-center border-2 border-white/80 shadow-sm">
-                              <Lock className="w-3 h-3" />
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                              <Lock
+                                className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]"
+                                strokeWidth={2.6}
+                              />
                             </div>
                           )}
 
@@ -1389,7 +1409,11 @@ export default function App() {
               </div>
 
               <div className="w-full lg:w-[340px] shrink-0 flex flex-col items-center bg-white/95 rounded-3xl p-5 shadow-[0_8px_0_rgba(0,0,0,0.18)]">
-                <div className="relative w-full h-[270px] bg-black rounded-[28px] p-3 flex flex-col items-center justify-between overflow-hidden shadow-lg">
+                <div className="relative w-full h-[270px] bg-[#ff3d3d] rounded-[28px] p-3 flex flex-col items-center justify-between overflow-hidden shadow-lg">
+                  {(inventory[selectedBlook.id] || 0) <= 0 && (
+                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.28)_0%,rgba(255,255,255,0.08)_42%,transparent_72%)]" />
+                  )}
+
                   <div className="z-10 text-center pt-1">
                     <h3
                       className="font-titan text-white text-2xl tracking-wide"
@@ -1405,19 +1429,29 @@ export default function App() {
                     </span>
                   </div>
 
-                  <div
-                    className="z-10 w-28 h-28 flex items-center justify-center my-auto"
-                    style={
-                      (inventory[selectedBlook.id] || 0) <= 0
-                        ? { filter: 'brightness(0) invert(65%)' }
-                        : undefined
-                    }
-                  >
-                    <BlookArt
-                      id={selectedBlook.id}
-                      animated={(inventory[selectedBlook.id] || 0) > 0}
-                      className="w-full h-full"
-                    />
+                  <div className="relative z-10 w-28 h-28 flex items-center justify-center my-auto">
+                    <div
+                      className="w-full h-full flex items-center justify-center"
+                      style={
+                        (inventory[selectedBlook.id] || 0) <= 0
+                          ? { filter: 'brightness(0)' }
+                          : undefined
+                      }
+                    >
+                      <BlookArt
+                        id={selectedBlook.id}
+                        animated
+                        className="w-full h-full"
+                      />
+                    </div>
+                    {(inventory[selectedBlook.id] || 0) <= 0 && (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                        <Lock
+                          className="w-9 h-9 text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]"
+                          strokeWidth={2.6}
+                        />
+                      </div>
+                    )}
                   </div>
 
                   <div className="z-10 pb-1">
@@ -1744,6 +1778,19 @@ export default function App() {
           <AchievementsView
             unlockedIds={userAchievements}
             sessionToken={sessionToken}
+            onRefreshUser={refreshUserFromServer}
+          />
+        )}
+
+        {/* TAB 3F: ADMIN PANEL (OWNER ONLY) */}
+        {activeTab === 'Admin' && isPrivilegedTokenUser && (
+          <AdminPanelView
+            currentUser={currentUser}
+            sessionToken={sessionToken}
+            luckMultiplier={luckMultiplier}
+            onChangeLuckMultiplier={setLuckMultiplier}
+            onAddSelfTokens={(amt) => setTokens((t) => t + amt)}
+            onSyncSelfUser={hydrateFromUser}
             onRefreshUser={refreshUserFromServer}
           />
         )}
