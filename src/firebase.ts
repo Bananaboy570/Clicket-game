@@ -9,7 +9,19 @@ import {
   updateProfile,
   signOut,
 } from 'firebase/auth';
-import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
+import {
+  getFirestore,
+  doc,
+  getDocFromServer,
+  collection,
+  query,
+  orderBy,
+  limit,
+  onSnapshot,
+  setDoc,
+  updateDoc,
+  deleteDoc,
+} from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
 const app = getApps().length > 0 ? getApps()[0] : initializeApp(firebaseConfig);
@@ -17,6 +29,58 @@ export const auth = getAuth(app);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  authInfo: {
+    userId?: string | null;
+    email?: string | null;
+    emailVerified?: boolean | null;
+    isAnonymous?: boolean | null;
+    tenantId?: string | null;
+    providerInfo?: {
+      providerId?: string | null;
+      email?: string | null;
+    }[];
+  };
+}
+
+export function handleFirestoreError(
+  error: unknown,
+  operationType: OperationType,
+  path: string | null
+): never {
+  const errInfo: FirestoreErrorInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo:
+        auth.currentUser?.providerData?.map((provider) => ({
+          providerId: provider.providerId,
+          email: provider.email,
+        })) || [],
+    },
+    operationType,
+    path,
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  throw new Error(JSON.stringify(errInfo));
+}
 
 export async function testConnection(): Promise<boolean> {
   try {
@@ -29,6 +93,296 @@ export async function testConnection(): Promise<boolean> {
     return false;
   }
 }
+
+// -------------------------------------------------------------
+// REAL-TIME FIRESTORE TYPES & HELPERS
+// -------------------------------------------------------------
+
+export interface FirestoreChatMessage {
+  id: string;
+  userId: string;
+  username: string;
+  avatarBlookId?: string;
+  achievements?: string[];
+  isOwner?: boolean;
+  text: string;
+  createdAt: string;
+}
+
+export interface FirestorePlayerPresence {
+  id: string;
+  userId: string;
+  username: string;
+  avatarBlookId?: string;
+  unlockedCount?: number;
+  isOwner?: boolean;
+  achievements?: string[];
+  lastSeen: number;
+}
+
+export interface FirestoreGlobalTrade {
+  id: string;
+  creatorId: string;
+  creatorUsername: string;
+  creatorAvatarBlookId?: string;
+  creatorAchievements?: string[];
+  creatorIsOwner?: boolean;
+  offeredBlookId: string;
+  requestedBlookId?: string | null;
+  requestedRarity?: string | null;
+  note?: string;
+  status: 'OPEN' | 'FULFILLED' | 'CANCELLED';
+  createdAt: string;
+  fulfilledByUsername?: string;
+  fulfilledAt?: string;
+}
+
+/**
+ * Real-time listener for public lobby chat messages
+ */
+export function subscribeFirestoreChat(
+  onMessages: (messages: FirestoreChatMessage[]) => void
+): () => void {
+  const chatPath = 'chat_messages';
+  const q = query(collection(db, chatPath), orderBy('createdAt', 'asc'), limit(100));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const msgs: FirestoreChatMessage[] = [];
+      snapshot.forEach((d) => {
+        const data = d.data();
+        msgs.push({
+          id: d.id,
+          userId: data.userId || '',
+          username: data.username || 'Player',
+          avatarBlookId: data.avatarBlookId || '',
+          achievements: Array.isArray(data.achievements) ? data.achievements : [],
+          isOwner: Boolean(data.isOwner),
+          text: data.text || '',
+          createdAt: data.createdAt || new Date().toISOString(),
+        });
+      });
+      onMessages(msgs);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.GET, chatPath);
+    }
+  );
+}
+
+/**
+ * Send a new chat message to Firestore
+ */
+export async function sendFirestoreChatMessage(message: FirestoreChatMessage): Promise<void> {
+  const docPath = `chat_messages/${message.id}`;
+  try {
+    await setDoc(doc(db, 'chat_messages', message.id), {
+      id: message.id,
+      userId: message.userId,
+      username: message.username,
+      avatarBlookId: message.avatarBlookId || '',
+      achievements: message.achievements || [],
+      isOwner: Boolean(message.isOwner),
+      text: message.text,
+      createdAt: message.createdAt || new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, docPath);
+  }
+}
+
+/**
+ * Delete a chat message from Firestore (owner or system admin)
+ */
+export async function deleteFirestoreChatMessage(messageId: string): Promise<void> {
+  const docPath = `chat_messages/${messageId}`;
+  try {
+    await deleteDoc(doc(db, 'chat_messages', messageId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.DELETE, docPath);
+  }
+}
+
+/**
+ * Real-time listener for online presence heartbeats
+ */
+export function subscribeFirestorePresence(
+  onPlayers: (players: FirestorePlayerPresence[]) => void
+): () => void {
+  const presencePath = 'presence';
+  const presenceCol = collection(db, presencePath);
+
+  return onSnapshot(
+    presenceCol,
+    (snapshot) => {
+      const now = Date.now();
+      const cutoff = now - 60000; // Active within the last 60 seconds
+      const list: FirestorePlayerPresence[] = [];
+
+      snapshot.forEach((d) => {
+        const data = d.data();
+        const lastSeen = Number(data.lastSeen) || 0;
+        if (lastSeen > cutoff) {
+          list.push({
+            id: d.id,
+            userId: data.userId || d.id,
+            username: data.username || 'Player',
+            avatarBlookId: data.avatarBlookId || '',
+            unlockedCount: Number(data.unlockedCount) || 0,
+            isOwner: Boolean(data.isOwner),
+            achievements: Array.isArray(data.achievements) ? data.achievements : [],
+            lastSeen,
+          });
+        }
+      });
+      onPlayers(list);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.GET, presencePath);
+    }
+  );
+}
+
+/**
+ * Update player's real-time heartbeat in Firestore
+ */
+export async function updateFirestorePresence(
+  playerId: string,
+  presence: Omit<FirestorePlayerPresence, 'id' | 'lastSeen'>
+): Promise<void> {
+  const docPath = `presence/${playerId}`;
+  try {
+    await setDoc(doc(db, 'presence', playerId), {
+      id: playerId,
+      userId: presence.userId,
+      username: presence.username,
+      avatarBlookId: presence.avatarBlookId || '',
+      unlockedCount: presence.unlockedCount || 0,
+      isOwner: Boolean(presence.isOwner),
+      achievements: presence.achievements || [],
+      lastSeen: Date.now(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, docPath);
+  }
+}
+
+/**
+ * Remove player presence on disconnect/logout
+ */
+export async function removeFirestorePresence(playerId: string): Promise<void> {
+  const docPath = `presence/${playerId}`;
+  try {
+    await deleteDoc(doc(db, 'presence', playerId));
+  } catch {
+    // Non-fatal if presence removal fails on page close
+  }
+}
+
+/**
+ * Real-time listener for Global Trade listings
+ */
+export function subscribeFirestoreTrades(
+  onTrades: (trades: FirestoreGlobalTrade[]) => void
+): () => void {
+  const tradesPath = 'global_trades';
+  const q = query(collection(db, tradesPath), orderBy('createdAt', 'desc'), limit(100));
+
+  return onSnapshot(
+    q,
+    (snapshot) => {
+      const trades: FirestoreGlobalTrade[] = [];
+      snapshot.forEach((d) => {
+        const data = d.data();
+        if (data.status === 'OPEN') {
+          trades.push({
+            id: d.id,
+            creatorId: data.creatorId || '',
+            creatorUsername: data.creatorUsername || 'Trader',
+            creatorAvatarBlookId: data.creatorAvatarBlookId || '',
+            creatorAchievements: Array.isArray(data.creatorAchievements) ? data.creatorAchievements : [],
+            creatorIsOwner: Boolean(data.creatorIsOwner),
+            offeredBlookId: data.offeredBlookId || '',
+            requestedBlookId: data.requestedBlookId || null,
+            requestedRarity: data.requestedRarity || null,
+            note: data.note || '',
+            status: data.status || 'OPEN',
+            createdAt: data.createdAt || new Date().toISOString(),
+            fulfilledByUsername: data.fulfilledByUsername,
+            fulfilledAt: data.fulfilledAt,
+          });
+        }
+      });
+      onTrades(trades);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.GET, tradesPath);
+    }
+  );
+}
+
+/**
+ * Create a new global trade listing in Firestore
+ */
+export async function createFirestoreTrade(trade: FirestoreGlobalTrade): Promise<void> {
+  const docPath = `global_trades/${trade.id}`;
+  try {
+    await setDoc(doc(db, 'global_trades', trade.id), {
+      id: trade.id,
+      creatorId: trade.creatorId,
+      creatorUsername: trade.creatorUsername,
+      creatorAvatarBlookId: trade.creatorAvatarBlookId || '',
+      creatorAchievements: trade.creatorAchievements || [],
+      creatorIsOwner: Boolean(trade.creatorIsOwner),
+      offeredBlookId: trade.offeredBlookId,
+      requestedBlookId: trade.requestedBlookId || null,
+      requestedRarity: trade.requestedRarity || null,
+      note: trade.note || '',
+      status: 'OPEN',
+      createdAt: trade.createdAt || new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, docPath);
+  }
+}
+
+/**
+ * Fulfill a global trade in Firestore
+ */
+export async function fulfillFirestoreTrade(
+  tradeId: string,
+  fulfillerUsername: string
+): Promise<void> {
+  const docPath = `global_trades/${tradeId}`;
+  try {
+    await updateDoc(doc(db, 'global_trades', tradeId), {
+      status: 'FULFILLED',
+      fulfilledByUsername: fulfillerUsername,
+      fulfilledAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, docPath);
+  }
+}
+
+/**
+ * Cancel a global trade in Firestore
+ */
+export async function cancelFirestoreTrade(tradeId: string): Promise<void> {
+  const docPath = `global_trades/${tradeId}`;
+  try {
+    await updateDoc(doc(db, 'global_trades', tradeId), {
+      status: 'CANCELLED',
+    });
+  } catch (error) {
+    handleFirestoreError(error, OperationType.UPDATE, docPath);
+  }
+}
+
+// -------------------------------------------------------------
+// AUTH METHODS
+// -------------------------------------------------------------
 
 export async function signInWithGooglePopup(): Promise<{
   idToken: string;
@@ -69,7 +423,6 @@ export async function signUpWithEmailConfirmation(
         : '';
 
     if (code === 'auth/email-already-in-use') {
-      // If the user previously started signup and never confirmed, let them re-send confirmation
       const cred = await signInWithEmailAndPassword(auth, cleanEmail, password);
       await cred.user.reload();
       if (!cred.user.emailVerified) {

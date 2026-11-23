@@ -82,6 +82,20 @@ import {
   isStaticMode,
   onStaticModeChange,
 } from './lib/apiClient';
+import {
+  testConnection,
+  subscribeFirestoreChat,
+  sendFirestoreChatMessage,
+  deleteFirestoreChatMessage,
+  subscribeFirestorePresence,
+  updateFirestorePresence,
+  removeFirestorePresence,
+  subscribeFirestoreTrades,
+  createFirestoreTrade,
+  fulfillFirestoreTrade,
+  cancelFirestoreTrade,
+  type FirestoreChatMessage,
+} from './firebase';
 
 const OWNER_USERNAME = 'clicketownerofficial';
 
@@ -366,6 +380,41 @@ export default function App() {
     lastWheelSpinAt,
   ]);
 
+  // Real-time online players tracking (combines WebSocket and Cloud Firestore presence)
+  const wsPlayersRef = useRef<OnlinePlayerSummary[]>([]);
+  const fsPlayersRef = useRef<OnlinePlayerSummary[]>([]);
+
+  const mergeOnlinePlayers = useCallback(() => {
+    const map = new Map<string, OnlinePlayerSummary>();
+    // 1. Cloud Firestore presence (syncs cross-device worldwide)
+    fsPlayersRef.current.forEach((p) => map.set(p.userId, p));
+    // 2. Overlay live WebSocket connections
+    wsPlayersRef.current.forEach((p) => map.set(p.userId, p));
+
+    // 3. Ensure self is in the online players list if logged in
+    if (currentUser) {
+      const myId = currentUser.id;
+      const myIsOwner =
+        currentUser.username?.trim().toLowerCase() === OWNER_USERNAME ||
+        currentUser.email?.trim().toLowerCase() === OWNER_USERNAME;
+      const myAchievements = Array.isArray(currentUser.achievements) ? currentUser.achievements : [];
+      if (!map.has(myId)) {
+        map.set(myId, {
+          clientId: presenceClientId || `presence-${myId}`,
+          userId: myId,
+          username,
+          avatarBlookId: equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '',
+          unlockedCount: Object.values(inventory).filter((c) => Number(c) > 0).length,
+          inTrade: Boolean(activeTrade),
+          achievements: myAchievements,
+          isOwner: myIsOwner,
+        });
+      }
+    }
+
+    setOnlinePlayers(Array.from(map.values()));
+  }, [currentUser, username, equippedBlookId, inventory, activeTrade, presenceClientId]);
+
   // Persistent live WebSocket connection for online players & 1-to-1 Blook trading
   const presencePayloadRef = useRef({
     userId: '',
@@ -380,6 +429,54 @@ export default function App() {
     inventory,
   };
 
+  // Real-time Cloud Firestore Presence Heartbeat
+  useEffect(() => {
+    if (!currentUser) {
+      fsPlayersRef.current = [];
+      setOnlinePlayers([]);
+      return;
+    }
+
+    const unsubPresence = subscribeFirestorePresence((fsList) => {
+      fsPlayersRef.current = fsList.map((p) => ({
+        clientId: p.id,
+        userId: p.userId,
+        username: p.username,
+        avatarBlookId: p.avatarBlookId || '',
+        unlockedCount: p.unlockedCount || 0,
+        inTrade: false,
+        achievements: p.achievements || [],
+        isOwner: p.isOwner,
+      }));
+      mergeOnlinePlayers();
+    });
+
+    const myPresenceId = currentUser.id;
+    const isOwner =
+      currentUser.username?.trim().toLowerCase() === OWNER_USERNAME ||
+      currentUser.email?.trim().toLowerCase() === OWNER_USERNAME;
+
+    const sendHeartbeat = () => {
+      updateFirestorePresence(myPresenceId, {
+        userId: currentUser.id,
+        username,
+        avatarBlookId: equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '',
+        unlockedCount: Object.values(inventory).filter((c) => Number(c) > 0).length,
+        isOwner,
+        achievements: Array.isArray(currentUser.achievements) ? currentUser.achievements : [],
+      }).catch(() => {});
+    };
+
+    sendHeartbeat();
+    const heartbeatTimer = setInterval(sendHeartbeat, 15000);
+
+    return () => {
+      unsubPresence();
+      clearInterval(heartbeatTimer);
+      removeFirestorePresence(myPresenceId).catch(() => {});
+    };
+  }, [currentUser?.id, username, equippedBlookId, inventory, mergeOnlinePlayers]);
+
   useEffect(() => {
     if (!currentUser || isStaticMode()) {
       if (presenceWsRef.current) {
@@ -388,7 +485,8 @@ export default function App() {
       }
       setPresenceConnected(false);
       setPresenceClientId(null);
-      setOnlinePlayers([]);
+      wsPlayersRef.current = [];
+      mergeOnlinePlayers();
       setActiveTrade(null);
       return;
     }
@@ -431,7 +529,8 @@ export default function App() {
           if (msg.type === 'ws:connected') {
             setPresenceClientId(msg.clientId || null);
           } else if (msg.type === 'presence:list') {
-            setOnlinePlayers(Array.isArray(msg.players) ? msg.players : []);
+            wsPlayersRef.current = Array.isArray(msg.players) ? msg.players : [];
+            mergeOnlinePlayers();
           } else if (msg.type === 'trade:incoming' || msg.type === 'trade:state') {
             setActiveTrade(msg.trade || null);
             setTradeError(null);
@@ -558,6 +657,32 @@ export default function App() {
     };
   }, [currentUser?.id, fetchChatHistory]);
 
+  // Real-time Cloud Firestore Chat Sync (cross-device worldwide)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeFirestoreChat((fsMessages) => {
+        setChatMessages((prev) => {
+          const map = new Map<string, OnlineChatMessage>();
+          prev.forEach((m) => map.set(m.id, m));
+          fsMessages.forEach((m) => map.set(m.id, m as OnlineChatMessage));
+          const list = Array.from(map.values()).sort(
+            (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+          );
+          return list.slice(-100);
+        });
+      });
+    } catch {
+      // Ignore if Firestore is unavailable
+    }
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [currentUser?.id]);
+
   // HTTP fallback sync when viewing Chat tab if WebSocket /ws is unavailable or reconnecting
   useEffect(() => {
     if (!currentUser || activeTab !== 'Chat') return;
@@ -577,7 +702,14 @@ export default function App() {
       if (res.ok) {
         const data = await res.json();
         if (Array.isArray(data?.trades)) {
-          setGlobalTrades(data.trades);
+          setGlobalTrades((prev) => {
+            const map = new Map<string, GlobalTradeListing>();
+            prev.forEach((t) => map.set(t.id, t));
+            data.trades.forEach((t: GlobalTradeListing) => map.set(t.id, t));
+            return Array.from(map.values())
+              .filter((t) => t.status === 'OPEN')
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+          });
         }
       }
     } catch {
@@ -586,6 +718,31 @@ export default function App() {
       setLoadingGlobalTrades(false);
     }
   }, []);
+
+  // Real-time Cloud Firestore Global Trades Sync (cross-device worldwide)
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let unsub: (() => void) | null = null;
+    try {
+      unsub = subscribeFirestoreTrades((fsTrades) => {
+        setGlobalTrades((prev) => {
+          const map = new Map<string, GlobalTradeListing>();
+          prev.forEach((t) => map.set(t.id, t));
+          fsTrades.forEach((t) => map.set(t.id, t as GlobalTradeListing));
+          return Array.from(map.values())
+            .filter((t) => t.status === 'OPEN')
+            .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        });
+      });
+    } catch {
+      // Ignore if Firestore is unavailable
+    }
+
+    return () => {
+      if (unsub) unsub();
+    };
+  }, [currentUser?.id]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -639,14 +796,34 @@ export default function App() {
 
   const sendChatMessage = async (text: string) => {
     const cleanText = text.trim();
-    if (!cleanText) return;
+    if (!cleanText || !currentUser) return;
 
+    const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const safeEquipped =
+      equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '';
+
+    const newChatMessage: FirestoreChatMessage = {
+      id: msgId,
+      userId: currentUser.id,
+      username,
+      avatarBlookId: safeEquipped,
+      achievements: userAchievements,
+      isOwner: hasOwnerBadge || isOwnerAccount,
+      text: cleanText,
+      createdAt: new Date().toISOString(),
+    };
+
+    // 1. Broadcast to Firestore (visible to all players worldwide on Vercel/Cloud in real time)
+    sendFirestoreChatMessage(newChatMessage).catch(() => {});
+
+    // 2. Also send via live WebSocket if open
     const ws = presenceWsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'chat:send', text: cleanText }));
       return;
     }
 
+    // 3. Fallback to HTTP backend / static storage
     try {
       const res = await apiFetch('/api/chat/messages', {
         method: 'POST',
@@ -676,6 +853,7 @@ export default function App() {
   };
 
   const deleteChatMessage = async (messageId: string) => {
+    deleteFirestoreChatMessage(messageId).catch(() => {});
     const ws = presenceWsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({ type: 'chat:delete', messageId }));
@@ -722,6 +900,10 @@ export default function App() {
         setInventory(result.user.inventory || {});
         setTokens(result.user.tokens ?? tokens);
       }
+      if (result?.trade) {
+        // Broadcast trade to Cloud Firestore so all players across the world see it instantly
+        createFirestoreTrade(result.trade).catch(() => {});
+      }
       setTradeError(null);
       void fetchGlobalTrades();
       return true;
@@ -766,6 +948,8 @@ export default function App() {
           partnerUsername: result.partnerUsername,
         });
       }
+      // Update Cloud Firestore so listing is marked fulfilled for all players
+      fulfillFirestoreTrade(tradeId, username).catch(() => {});
       setTradeError(null);
       void fetchGlobalTrades();
       return true;
@@ -795,6 +979,8 @@ export default function App() {
         setCurrentUser(result.user);
         setInventory(result.user.inventory || {});
       }
+      // Update Cloud Firestore so listing is marked cancelled
+      cancelFirestoreTrade(tradeId).catch(() => {});
       setTradeError(null);
       void fetchGlobalTrades();
       return true;

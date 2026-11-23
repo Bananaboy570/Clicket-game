@@ -92,6 +92,7 @@
         }
       },
       "required": ["id", "username", "tokens"]
+    },
     "GlobalTrade": {
       "title": "GlobalTrade",
       "description": "Public global trade offer listed on the Global Trading Market",
@@ -146,12 +147,62 @@
         }
       },
       "required": ["id", "creatorId", "creatorUsername", "offeredBlookId", "status", "createdAt"]
+    },
+    "PlayerPresence": {
+      "title": "PlayerPresence",
+      "description": "Real-time online heartbeat presence for active players",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Player presence ID or client ID",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "userId": {
+          "type": "string",
+          "description": "User ID of the player",
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "maxLength": 128
+        },
+        "username": {
+          "type": "string",
+          "description": "Username of the player",
+          "maxLength": 32
+        },
+        "avatarBlookId": {
+          "type": "string",
+          "description": "Currently equipped Blook ID",
+          "maxLength": 64
+        },
+        "unlockedCount": {
+          "type": "number",
+          "description": "Number of unique blooks unlocked"
+        },
+        "isOwner": {
+          "type": "boolean",
+          "description": "Whether player is official owner"
+        },
+        "achievements": {
+          "type": "array",
+          "description": "Array of achievement IDs"
+        },
+        "lastSeen": {
+          "type": "number",
+          "description": "Epoch timestamp of last activity heartbeat"
+        }
+      },
+      "required": ["id", "userId", "username", "lastSeen"]
     }
   },
   "firestore": {
     "/chat_messages/{messageId}": {
       "schema": "ChatMessage",
       "description": "Public lobby chat messages collection"
+    },
+    "/presence/{playerId}": {
+      "schema": "PlayerPresence",
+      "description": "Real-time presence collection tracking online players"
     },
     "/users/{userId}": {
       "schema": "UserProfile",

@@ -22,10 +22,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
     function isSystemAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'alexr.t.1157@gmail.com' ||
@@ -38,8 +34,28 @@ service cloud.firestore {
         data.keys().hasOnly(['id', 'userId', 'username', 'avatarBlookId', 'achievements', 'isOwner', 'text', 'createdAt']) &&
         data.id is string && data.id.size() <= 128 &&
         data.userId is string && data.userId.size() <= 128 &&
-        data.username is string && data.username.size() <= 32 &&
+        data.username is string && data.username.size() >= 1 && data.username.size() <= 32 &&
         data.text is string && data.text.size() > 0 && data.text.size() <= 300 &&
+        data.createdAt is string && data.createdAt.size() <= 64;
+    }
+
+    function isValidPresence(data) {
+      return data.keys().hasAll(['id', 'userId', 'username', 'lastSeen']) &&
+        data.keys().hasOnly(['id', 'userId', 'username', 'avatarBlookId', 'unlockedCount', 'isOwner', 'achievements', 'lastSeen']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.userId is string && data.userId.size() <= 128 &&
+        data.username is string && data.username.size() <= 32 &&
+        data.lastSeen is number;
+    }
+
+    function isValidTrade(data) {
+      return data.keys().hasAll(['id', 'creatorId', 'creatorUsername', 'offeredBlookId', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['id', 'creatorId', 'creatorUsername', 'creatorAvatarBlookId', 'creatorAchievements', 'creatorIsOwner', 'offeredBlookId', 'requestedBlookId', 'requestedRarity', 'note', 'status', 'createdAt', 'fulfilledByUsername', 'fulfilledAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.creatorId is string && data.creatorId.size() <= 128 &&
+        data.creatorUsername is string && data.creatorUsername.size() <= 32 &&
+        data.offeredBlookId is string && data.offeredBlookId.size() <= 64 &&
+        (data.status == 'OPEN' || data.status == 'FULFILLED' || data.status == 'CANCELLED') &&
         data.createdAt is string && data.createdAt.size() <= 64;
     }
 
@@ -50,48 +66,34 @@ service cloud.firestore {
         data.tokens is number && data.tokens >= 0;
     }
 
-    // Public lobby chat messages
+    // Public lobby chat messages (Real-time Global Chat)
     match /chat_messages/{messageId} {
       allow read: if true;
-      allow create: if isSignedIn() &&
-        isValidId(messageId) &&
-        isValidChatMessage(incoming()) &&
-        incoming().userId == request.auth.uid;
+      allow create: if isValidId(messageId) && isValidChatMessage(incoming());
       allow update: if false;
-      allow delete: if isSignedIn() && (
-        resource.data.userId == request.auth.uid ||
-        isSystemAdmin()
-      );
+      allow delete: if isSystemAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    // Live online players presence heartbeat
+    match /presence/{playerId} {
+      allow read: if true;
+      allow create, update: if isValidId(playerId) && isValidPresence(incoming());
+      allow delete: if isSystemAdmin();
+    }
+
+    // Global trading board public offers (Real-time Global Market)
+    match /global_trades/{tradeId} {
+      allow read: if true;
+      allow create: if isValidId(tradeId) && isValidTrade(incoming()) && incoming().status == 'OPEN';
+      allow update: if isValidId(tradeId) && isValidTrade(incoming()) && (incoming().status == 'FULFILLED' || incoming().status == 'CANCELLED');
+      allow delete: if isSystemAdmin();
     }
 
     // User account profiles
     match /users/{userId} {
-      allow read: if isSignedIn();
-      allow create: if isOwner(userId) &&
-        isValidId(userId) &&
-        isValidUserProfile(incoming()) &&
-        incoming().id == userId;
-      allow update: if isOwner(userId) &&
-        isValidUserProfile(incoming()) &&
-        incoming().id == existing().id;
-      allow delete: if isOwner(userId) || isSystemAdmin();
-    }
-
-    // Global trading board public offers
-    match /global_trades/{tradeId} {
       allow read: if true;
-      allow create: if isSignedIn() &&
-        isValidId(tradeId) &&
-        incoming().creatorId == request.auth.uid &&
-        incoming().status == 'OPEN';
-      allow update: if isSignedIn() && (
-        (resource.data.creatorId == request.auth.uid && incoming().status == 'CANCELLED') ||
-        incoming().status == 'FULFILLED'
-      );
-      allow delete: if isSignedIn() && (
-        resource.data.creatorId == request.auth.uid ||
-        isSystemAdmin()
-      );
+      allow create, update: if isValidId(userId) && isValidUserProfile(incoming());
+      allow delete: if isSystemAdmin();
     }
   }
 }
