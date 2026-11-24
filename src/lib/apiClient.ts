@@ -2,6 +2,12 @@
 // and seamlessly falls back to browser-local persistence when hosted as a static website (e.g. GitHub Pages).
 
 import { ALL_BLOOKS } from '../data/blooks';
+import {
+  BUILTIN_PROMO_CODES,
+  type CustomPromoCodeRecord,
+  type PromoCodeDefinition,
+  type RedeemedCodeRecord,
+} from '../data/codes';
 
 const STATIC_DB_KEY = 'clicket_static_db_v1';
 const ONE_HOUR_MS = 60 * 60 * 1000;
@@ -35,6 +41,7 @@ interface StaticStoredUser {
   clanId: string | null;
   achievements: string[];
   revokedAchievements?: string[];
+  redeemedCodes?: RedeemedCodeRecord[];
   createdAt: string;
 }
 
@@ -106,6 +113,7 @@ interface StaticDatabase {
   clans: Record<string, StaticClanRecord>;
   chatMessages: StaticChatMessage[];
   globalTrades: StaticGlobalTradeListing[];
+  promoCodes?: Record<string, CustomPromoCodeRecord>;
 }
 
 const STATIC_CHAT_CHANNEL = 'clicket_static_chat';
@@ -223,6 +231,7 @@ function loadStaticDb(): StaticDatabase {
             ? parsed.chatMessages
             : [...INITIAL_STATIC_CHAT],
         globalTrades: cleanedTrades,
+        promoCodes: parsed.promoCodes || {},
       };
       if (cleanedTrades.length !== rawTrades.length) {
         saveStaticDb(db);
@@ -239,6 +248,7 @@ function loadStaticDb(): StaticDatabase {
     clans: {},
     chatMessages: [...INITIAL_STATIC_CHAT],
     globalTrades: [],
+    promoCodes: {},
   };
   saveStaticDb(initial);
   return initial;
@@ -332,6 +342,7 @@ function sanitizeStaticUser(u: StaticStoredUser) {
     tradeHistory: (u.tradeHistory || []).slice(0, 50),
     clanId: u.clanId ?? null,
     achievements: resolveAchievements(u),
+    redeemedCodes: (u.redeemedCodes || []).slice(0, 100),
   };
 }
 
@@ -592,6 +603,197 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
       tokens: auth.user.tokens,
       lastHourlyClaimAt: now,
     });
+  }
+
+  // PROMO CODES AREA
+  if (url === '/api/codes' && method === 'GET') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    const redeemedSet = new Set(
+      (auth.user.redeemedCodes || []).map((r) => String(r.code || '').toUpperCase())
+    );
+    const customCodes = Object.values(db.promoCodes || {});
+    const allDefs: PromoCodeDefinition[] = [...BUILTIN_PROMO_CODES, ...customCodes];
+    const publicCodes = allDefs
+      .filter((c) => {
+        if (!c.active || !c.isPublic) return false;
+        if (!c.isBuiltIn) {
+          const custom = c as CustomPromoCodeRecord;
+          if (custom.maxUses != null && custom.usesCount >= custom.maxUses) {
+            return redeemedSet.has(c.code.toUpperCase());
+          }
+        }
+        return true;
+      })
+      .map((c) => ({
+        code: c.code.toUpperCase(),
+        title: c.title,
+        description: c.description,
+        tokens: c.tokens,
+        blookId: c.blookId,
+        blookQty: c.blookQty || (c.blookId ? 1 : undefined),
+        alreadyRedeemed: redeemedSet.has(c.code.toUpperCase()),
+        isBuiltIn: Boolean(c.isBuiltIn),
+      }));
+
+    const isOwner = resolveAchievements(auth.user).includes('owner');
+    return jsonRes({
+      publicCodes,
+      redeemedCodes: (auth.user.redeemedCodes || []).slice(0, 100),
+      ...(isOwner
+        ? {
+            customCodes: customCodes.sort(
+              (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+            ),
+          }
+        : {}),
+    });
+  }
+
+  if (url === '/api/codes/redeem' && method === 'POST') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    const rawCode = String(body.code || '').trim().toUpperCase();
+    if (!rawCode || !/^[A-Z0-9_-]{3,24}$/.test(rawCode)) {
+      return jsonRes(
+        { error: 'Please enter a valid code (3–24 letters, numbers, dashes, or underscores).' },
+        400
+      );
+    }
+
+    const customPromo = db.promoCodes?.[rawCode];
+    const builtInPromo = BUILTIN_PROMO_CODES.find((c) => c.code.toUpperCase() === rawCode);
+    const promo: PromoCodeDefinition | undefined = customPromo || builtInPromo;
+    if (!promo) {
+      return jsonRes(
+        { error: "That code doesn't exist. Double-check the spelling and try again." },
+        404
+      );
+    }
+    if (!promo.active) {
+      return jsonRes({ error: 'This code has expired or is currently disabled.' }, 400);
+    }
+    if (!auth.user.redeemedCodes) auth.user.redeemedCodes = [];
+    if (auth.user.redeemedCodes.some((r) => String(r.code || '').toUpperCase() === rawCode)) {
+      return jsonRes({ error: "You've already redeemed this code!" }, 409);
+    }
+    if (customPromo && customPromo.maxUses != null && customPromo.usesCount >= customPromo.maxUses) {
+      return jsonRes(
+        { error: 'This code has reached its maximum number of redemptions.' },
+        400
+      );
+    }
+
+    const grantedTokens = Math.max(0, Math.floor(promo.tokens || 0));
+    const grantedBlookId =
+      promo.blookId && BLOOK_RARITY_BY_ID.has(promo.blookId) ? promo.blookId : undefined;
+    const grantedBlookQty = grantedBlookId ? Math.max(1, Math.floor(promo.blookQty || 1)) : 0;
+
+    auth.user.tokens = (auth.user.tokens || 0) + grantedTokens;
+    if (grantedBlookId && grantedBlookQty > 0) {
+      if (!auth.user.inventory) auth.user.inventory = {};
+      auth.user.inventory[grantedBlookId] =
+        (auth.user.inventory[grantedBlookId] || 0) + grantedBlookQty;
+    }
+    const redeemedEntry: RedeemedCodeRecord = {
+      code: rawCode,
+      title: promo.title,
+      tokens: grantedTokens,
+      ...(grantedBlookId ? { blookId: grantedBlookId, blookQty: grantedBlookQty } : {}),
+      redeemedAt: new Date().toISOString(),
+    };
+    auth.user.redeemedCodes = [redeemedEntry, ...auth.user.redeemedCodes].slice(0, 100);
+    auth.user.achievements = resolveAchievements(auth.user);
+    if (customPromo) customPromo.usesCount = (customPromo.usesCount || 0) + 1;
+    saveStaticDb(db);
+    return jsonRes({
+      ok: true,
+      reward: redeemedEntry,
+      user: sanitizeStaticUser(auth.user),
+    });
+  }
+
+  if (url === '/api/codes/create' && method === 'POST') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    if (!resolveAchievements(auth.user).includes('owner')) {
+      return jsonRes({ error: 'Owner access required.' }, 403);
+    }
+    const rawCode = String(body.code || '').trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{3,24}$/.test(rawCode)) {
+      return jsonRes(
+        { error: 'Code must be 3–24 characters using letters, numbers, dashes, or underscores.' },
+        400
+      );
+    }
+    if (
+      BUILTIN_PROMO_CODES.some((c) => c.code.toUpperCase() === rawCode) ||
+      db.promoCodes?.[rawCode]
+    ) {
+      return jsonRes({ error: `Code "${rawCode}" already exists.` }, 409);
+    }
+    const title = String(body.title || '').trim().slice(0, 48) || rawCode;
+    const description =
+      String(body.description || '').trim().slice(0, 120) || 'Custom CLICKET reward code.';
+    const tokens = Math.max(0, Math.min(1000000, Math.floor(Number(body.tokens ?? 0))));
+    const rawBlookId = String(body.blookId || '').trim();
+    const blookId = rawBlookId && BLOOK_RARITY_BY_ID.has(rawBlookId) ? rawBlookId : undefined;
+    const blookQty = blookId
+      ? Math.max(1, Math.min(25, Math.floor(Number(body.blookQty ?? 1))))
+      : undefined;
+    if (tokens <= 0 && !blookId) {
+      return jsonRes({ error: 'Code must grant at least 1 token or a Blook.' }, 400);
+    }
+    const rawMaxUses = body.maxUses;
+    const maxUses =
+      rawMaxUses !== null && rawMaxUses !== undefined && rawMaxUses !== ''
+        ? Math.max(1, Math.floor(Number(rawMaxUses)))
+        : null;
+    if (!db.promoCodes) db.promoCodes = {};
+    const record: CustomPromoCodeRecord = {
+      code: rawCode,
+      title,
+      description,
+      tokens,
+      ...(blookId ? { blookId, blookQty } : {}),
+      isPublic: Boolean(body.isPublic),
+      maxUses,
+      active: true,
+      isBuiltIn: false,
+      usesCount: 0,
+      createdBy: auth.user.username,
+      createdAt: new Date().toISOString(),
+    };
+    db.promoCodes[rawCode] = record;
+    saveStaticDb(db);
+    return jsonRes({ ok: true, promoCode: record });
+  }
+
+  if (url === '/api/codes/toggle' && method === 'POST') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    if (!resolveAchievements(auth.user).includes('owner')) {
+      return jsonRes({ error: 'Owner access required.' }, 403);
+    }
+    const rawCode = String(body.code || '').trim().toUpperCase();
+    const record = db.promoCodes?.[rawCode];
+    if (!record) return jsonRes({ error: 'Custom code not found.' }, 404);
+    record.active = !record.active;
+    saveStaticDb(db);
+    return jsonRes({ ok: true, promoCode: record });
+  }
+
+  if (url === '/api/codes/delete' && method === 'POST') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    if (!resolveAchievements(auth.user).includes('owner')) {
+      return jsonRes({ error: 'Owner access required.' }, 403);
+    }
+    const rawCode = String(body.code || '').trim().toUpperCase();
+    if (!db.promoCodes?.[rawCode]) return jsonRes({ error: 'Custom code not found.' }, 404);
+    delete db.promoCodes[rawCode];
+    saveStaticDb(db);
+    return jsonRes({ ok: true });
   }
 
   // SETS: STATS

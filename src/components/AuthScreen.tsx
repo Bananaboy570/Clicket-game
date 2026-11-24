@@ -3,6 +3,7 @@ import { Lock, User, Eye, EyeOff } from 'lucide-react';
 import { BlookArt } from './BlookArt';
 import { BlookBackground } from './BlookBackground';
 import { apiFetch } from '../lib/apiClient';
+import type { RedeemedCodeRecord } from '../data/codes';
 
 export interface TradeHistoryItem {
   id: string;
@@ -28,6 +29,7 @@ export interface AuthenticatedUser {
   tradeHistory?: TradeHistoryItem[];
   clanId?: string | null;
   achievements?: string[];
+  redeemedCodes?: RedeemedCodeRecord[];
 }
 
 interface AuthScreenProps {

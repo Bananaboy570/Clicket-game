@@ -27,6 +27,7 @@ import {
   Trophy,
   Crown,
   MessageSquare,
+  Ticket,
 } from 'lucide-react';
 import {
   CIRCUS_PACK,
@@ -80,6 +81,7 @@ import {
   DeveloperAchievementIcon,
 } from './components/AchievementsView';
 import { AdminPanelView } from './components/AdminPanelView';
+import { CodesView } from './components/CodesView';
 import { ChatView, OnlineChatMessage, ChatReplyTarget } from './components/ChatView';
 import {
   apiFetch,
@@ -115,6 +117,7 @@ type ActiveTab =
   | 'Clans'
   | 'Chat'
   | 'Achievements'
+  | 'Codes'
   | 'Admin'
   | 'Discover'
   | 'Set Creator'
@@ -1387,6 +1390,7 @@ export default function App() {
     { label: 'Clans', icon: <Shield className="w-5 h-5" /> },
     { label: 'Chat', icon: <MessageSquare className="w-5 h-5" /> },
     { label: 'Achievements', icon: <Trophy className="w-5 h-5" /> },
+    { label: 'Codes', icon: <Ticket className="w-5 h-5" /> },
     ...(isPrivilegedTokenUser ? [{ label: 'Admin' as ActiveTab, icon: <Crown className="w-5 h-5" /> }] : []),
     { label: 'Discover', icon: <Compass className="w-5 h-5" /> },
     { label: 'Set Creator', icon: <PenSquare className="w-5 h-5" /> },
@@ -2859,6 +2863,16 @@ export default function App() {
             unlockedIds={userAchievements}
             sessionToken={sessionToken}
             onRefreshUser={refreshUserFromServer}
+          />
+        )}
+
+        {/* TAB 3E-2: CODES AREA */}
+        {activeTab === 'Codes' && (
+          <CodesView
+            currentUser={currentUser}
+            sessionToken={sessionToken}
+            isOwner={isPrivilegedTokenUser}
+            onSyncUser={hydrateFromUser}
           />
         )}
 

@@ -6,6 +6,12 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 import { attachMultiplayerServer, type ChatMessageRecord } from './serverMultiplayer.ts';
 import { ALL_BLOOKS } from './src/data/blooks.ts';
+import {
+  BUILTIN_PROMO_CODES,
+  type CustomPromoCodeRecord,
+  type PromoCodeDefinition,
+  type RedeemedCodeRecord,
+} from './src/data/codes.ts';
 
 dotenv.config();
 
@@ -43,6 +49,7 @@ interface StoredUser {
   clanId?: string | null;
   achievements?: string[];
   revokedAchievements?: string[];
+  redeemedCodes?: RedeemedCodeRecord[];
   createdAt: string;
 }
 
@@ -97,6 +104,7 @@ interface DatabaseSchema {
   clans?: Record<string, ClanRecord>;
   chatMessages?: ChatMessageRecord[];
   globalTrades?: GlobalTradeListing[];
+  promoCodes?: Record<string, CustomPromoCodeRecord>;
 }
 
 let dbCache: DatabaseSchema | null = null;
@@ -129,6 +137,7 @@ async function loadDb(): Promise<DatabaseSchema> {
     const parsed = JSON.parse(raw) as DatabaseSchema;
     if (!parsed.setStats) parsed.setStats = {};
     if (!parsed.clans) parsed.clans = {};
+    if (!parsed.promoCodes) parsed.promoCodes = {};
     if (!Array.isArray(parsed.chatMessages) || parsed.chatMessages.length === 0) {
       parsed.chatMessages = [...SEED_CHAT_MESSAGES];
     }
@@ -149,6 +158,7 @@ async function loadDb(): Promise<DatabaseSchema> {
       clans: {},
       chatMessages: [...SEED_CHAT_MESSAGES],
       globalTrades: [],
+      promoCodes: {},
     };
     await saveDb(dbCache);
   }
@@ -236,6 +246,7 @@ function sanitizeUser(u: StoredUser) {
     tradeHistory: (u.tradeHistory || []).slice(0, 50),
     clanId: u.clanId ?? null,
     achievements: resolveUserAchievements(u),
+    redeemedCodes: (u.redeemedCodes || []).slice(0, 100),
   };
 }
 
@@ -1736,7 +1747,7 @@ async function createServer() {
     }
   });
 
-  // Owner-only Admin Panel APIs
+  // Owner-only helper
   const requireOwner = async (req: express.Request, res: express.Response) => {
     const auth = await getAuthenticatedUser(req);
     if (!auth) {
@@ -1750,6 +1761,251 @@ async function createServer() {
     }
     return auth;
   };
+
+  // Promo Codes Area APIs
+  const BUILTIN_CODE_MAP = new Map<string, PromoCodeDefinition>(
+    BUILTIN_PROMO_CODES.map((c) => [c.code.toUpperCase(), c])
+  );
+
+  app.get('/api/codes', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const redeemedSet = new Set(
+        (user.redeemedCodes || []).map((r) => String(r.code || '').toUpperCase())
+      );
+      const customCodes = Object.values(db.promoCodes || {});
+      const allDefs: PromoCodeDefinition[] = [...BUILTIN_PROMO_CODES, ...customCodes];
+
+      const publicCodes = allDefs
+        .filter((c) => {
+          if (!c.active || !c.isPublic) return false;
+          if (!c.isBuiltIn) {
+            const custom = c as CustomPromoCodeRecord;
+            if (custom.maxUses != null && custom.usesCount >= custom.maxUses) {
+              return redeemedSet.has(c.code.toUpperCase());
+            }
+          }
+          return true;
+        })
+        .map((c) => ({
+          code: c.code.toUpperCase(),
+          title: c.title,
+          description: c.description,
+          tokens: c.tokens,
+          blookId: c.blookId,
+          blookQty: c.blookQty || (c.blookId ? 1 : undefined),
+          alreadyRedeemed: redeemedSet.has(c.code.toUpperCase()),
+          isBuiltIn: Boolean(c.isBuiltIn),
+        }));
+
+      const isOwner = resolveUserAchievements(user).includes('owner');
+      res.json({
+        publicCodes,
+        redeemedCodes: (user.redeemedCodes || []).slice(0, 100),
+        ...(isOwner
+          ? {
+              customCodes: customCodes.sort(
+                (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+              ),
+            }
+          : {}),
+      });
+    } catch (err) {
+      console.error('Get codes error:', err);
+      res.status(500).json({ error: 'Failed to load promo codes.' });
+    }
+  });
+
+  app.post('/api/codes/redeem', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const rawCode = String(req.body?.code || '').trim().toUpperCase();
+      if (!rawCode || !/^[A-Z0-9_-]{3,24}$/.test(rawCode)) {
+        res.status(400).json({
+          error: 'Please enter a valid code (3–24 letters, numbers, dashes, or underscores).',
+        });
+        return;
+      }
+
+      const customPromo = db.promoCodes?.[rawCode];
+      const builtInPromo = BUILTIN_CODE_MAP.get(rawCode);
+      const promo: PromoCodeDefinition | undefined = customPromo || builtInPromo;
+
+      if (!promo) {
+        res.status(404).json({
+          error: "That code doesn't exist. Double-check the spelling and try again.",
+        });
+        return;
+      }
+
+      if (!promo.active) {
+        res.status(400).json({ error: 'This code has expired or is currently disabled.' });
+        return;
+      }
+
+      if (!user.redeemedCodes) user.redeemedCodes = [];
+      const alreadyRedeemed = user.redeemedCodes.some(
+        (r) => String(r.code || '').toUpperCase() === rawCode
+      );
+      if (alreadyRedeemed) {
+        res.status(409).json({ error: "You've already redeemed this code!" });
+        return;
+      }
+
+      if (customPromo && customPromo.maxUses != null && customPromo.usesCount >= customPromo.maxUses) {
+        res.status(400).json({ error: 'This code has reached its maximum number of redemptions.' });
+        return;
+      }
+
+      const grantedTokens = Math.max(0, Math.floor(promo.tokens || 0));
+      const grantedBlookId =
+        promo.blookId && BLOOK_RARITY_BY_ID.has(promo.blookId) ? promo.blookId : undefined;
+      const grantedBlookQty = grantedBlookId ? Math.max(1, Math.floor(promo.blookQty || 1)) : 0;
+
+      user.tokens = (user.tokens || 0) + grantedTokens;
+      if (grantedBlookId && grantedBlookQty > 0) {
+        if (!user.inventory) user.inventory = {};
+        user.inventory[grantedBlookId] = (user.inventory[grantedBlookId] || 0) + grantedBlookQty;
+      }
+
+      const redeemedEntry: RedeemedCodeRecord = {
+        code: rawCode,
+        title: promo.title,
+        tokens: grantedTokens,
+        ...(grantedBlookId ? { blookId: grantedBlookId, blookQty: grantedBlookQty } : {}),
+        redeemedAt: new Date().toISOString(),
+      };
+      user.redeemedCodes = [redeemedEntry, ...user.redeemedCodes].slice(0, 100);
+      user.achievements = resolveUserAchievements(user);
+
+      if (customPromo) {
+        customPromo.usesCount = (customPromo.usesCount || 0) + 1;
+      }
+
+      await saveDb(db);
+      res.json({
+        ok: true,
+        reward: redeemedEntry,
+        user: sanitizeUser(user),
+      });
+    } catch (err) {
+      console.error('Redeem code error:', err);
+      res.status(500).json({ error: 'Failed to redeem code.' });
+    }
+  });
+
+  app.post('/api/codes/create', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db, user } = auth;
+
+      const rawCode = String(req.body?.code || '').trim().toUpperCase();
+      if (!/^[A-Z0-9_-]{3,24}$/.test(rawCode)) {
+        res.status(400).json({
+          error: 'Code must be 3–24 characters using letters, numbers, dashes, or underscores.',
+        });
+        return;
+      }
+      if (BUILTIN_CODE_MAP.has(rawCode) || db.promoCodes?.[rawCode]) {
+        res.status(409).json({ error: `Code "${rawCode}" already exists.` });
+        return;
+      }
+
+      const title = String(req.body?.title || '').trim().slice(0, 48) || rawCode;
+      const description =
+        String(req.body?.description || '').trim().slice(0, 120) || 'Custom CLICKET reward code.';
+      const tokens = Math.max(0, Math.min(1000000, Math.floor(Number(req.body?.tokens ?? 0))));
+      const rawBlookId = String(req.body?.blookId || '').trim();
+      const blookId = rawBlookId && BLOOK_RARITY_BY_ID.has(rawBlookId) ? rawBlookId : undefined;
+      const blookQty = blookId
+        ? Math.max(1, Math.min(25, Math.floor(Number(req.body?.blookQty ?? 1))))
+        : undefined;
+
+      if (tokens <= 0 && !blookId) {
+        res.status(400).json({ error: 'Code must grant at least 1 token or a Blook.' });
+        return;
+      }
+
+      const rawMaxUses = req.body?.maxUses;
+      const maxUses =
+        rawMaxUses !== null && rawMaxUses !== undefined && rawMaxUses !== ''
+          ? Math.max(1, Math.floor(Number(rawMaxUses)))
+          : null;
+      const isPublic = Boolean(req.body?.isPublic);
+
+      if (!db.promoCodes) db.promoCodes = {};
+      const record: CustomPromoCodeRecord = {
+        code: rawCode,
+        title,
+        description,
+        tokens,
+        ...(blookId ? { blookId, blookQty } : {}),
+        isPublic,
+        maxUses,
+        active: true,
+        isBuiltIn: false,
+        usesCount: 0,
+        createdBy: user.username,
+        createdAt: new Date().toISOString(),
+      };
+      db.promoCodes[rawCode] = record;
+      await saveDb(db);
+      res.json({ ok: true, promoCode: record });
+    } catch (err) {
+      console.error('Create code error:', err);
+      res.status(500).json({ error: 'Failed to create promo code.' });
+    }
+  });
+
+  app.post('/api/codes/toggle', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db } = auth;
+      const rawCode = String(req.body?.code || '').trim().toUpperCase();
+      const record = db.promoCodes?.[rawCode];
+      if (!record) {
+        res.status(404).json({ error: 'Custom code not found.' });
+        return;
+      }
+      record.active = !record.active;
+      await saveDb(db);
+      res.json({ ok: true, promoCode: record });
+    } catch (err) {
+      console.error('Toggle code error:', err);
+      res.status(500).json({ error: 'Failed to update code status.' });
+    }
+  });
+
+  app.post('/api/codes/delete', async (req, res) => {
+    try {
+      const auth = await requireOwner(req, res);
+      if (!auth) return;
+      const { db } = auth;
+      const rawCode = String(req.body?.code || '').trim().toUpperCase();
+      if (!db.promoCodes?.[rawCode]) {
+        res.status(404).json({ error: 'Custom code not found.' });
+        return;
+      }
+      delete db.promoCodes[rawCode];
+      await saveDb(db);
+      res.json({ ok: true });
+    } catch (err) {
+      console.error('Delete code error:', err);
+      res.status(500).json({ error: 'Failed to delete code.' });
+    }
+  });
 
   app.get('/api/admin/overview', async (req, res) => {
     try {
