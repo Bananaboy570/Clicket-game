@@ -1979,7 +1979,7 @@ export default function App() {
               <div className="w-full max-w-[310px]">
                 <div
                   onClick={() => openPackPurchaseModal(CHESS_PACK)}
-                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] ml-[924px] w-[282.992px] pl-0 pr-0 -mt-[320px]"
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] ml-[924px] w-[282.992px] pl-0 pr-0 -mt-[333px]"
                   style={{
                     backgroundColor: CHESS_PACK.bgColor,
                     borderColor: CHESS_PACK.borderColor,
