@@ -56,11 +56,47 @@ export interface FirestoreErrorInfo {
   };
 }
 
+let firestoreQuotaExceeded = false;
+let quotaWarnedOnce = false;
+
+export function isFirestoreQuotaExceeded(): boolean {
+  return firestoreQuotaExceeded;
+}
+
+export function isQuotaExceededError(error: unknown): boolean {
+  if (!error) return false;
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code?: unknown }).code).toLowerCase()
+      : '';
+  const msg = (error instanceof Error ? error.message : String(error)).toLowerCase();
+  return (
+    code === 'resource-exhausted' ||
+    code.includes('resource-exhausted') ||
+    msg.includes('quota exceeded') ||
+    msg.includes('quota limit exceeded') ||
+    msg.includes('resource-exhausted')
+  );
+}
+
+function markFirestoreQuotaExceeded(path: string | null): void {
+  firestoreQuotaExceeded = true;
+  if (!quotaWarnedOnce) {
+    quotaWarnedOnce = true;
+    console.warn(
+      `Firestore daily quota exceeded (triggered at ${path || 'firestore'}). Falling back to local/WebSocket sync until quota resets.`
+    );
+  }
+}
+
 export function handleFirestoreError(
   error: unknown,
   operationType: OperationType,
   path: string | null
 ): never {
+  if (isQuotaExceededError(error)) {
+    markFirestoreQuotaExceeded(path);
+  }
   const errInfo: FirestoreErrorInfo = {
     error: error instanceof Error ? error.message : String(error),
     authInfo: {
@@ -150,10 +186,12 @@ export interface FirestoreGlobalTrade {
 export function subscribeFirestoreChat(
   onMessages: (messages: FirestoreChatMessage[]) => void
 ): () => void {
+  if (firestoreQuotaExceeded) return () => {};
   const chatPath = 'chat_messages';
   const q = query(collection(db, chatPath), orderBy('createdAt', 'asc'), limit(100));
 
-  return onSnapshot(
+  let unsub: (() => void) | null = null;
+  unsub = onSnapshot(
     q,
     (snapshot) => {
       const msgs: FirestoreChatMessage[] = [];
@@ -179,15 +217,30 @@ export function subscribeFirestoreChat(
       onMessages(msgs);
     },
     (error) => {
+      if (isQuotaExceededError(error)) {
+        markFirestoreQuotaExceeded(chatPath);
+        if (unsub) {
+          try {
+            unsub();
+          } catch {
+            // Ignore unsubscribe error
+          }
+        }
+        return;
+      }
       handleFirestoreError(error, OperationType.GET, chatPath);
     }
   );
+  return () => {
+    if (unsub) unsub();
+  };
 }
 
 /**
  * Send a new chat message to Firestore
  */
 export async function sendFirestoreChatMessage(message: FirestoreChatMessage): Promise<void> {
+  if (firestoreQuotaExceeded) return;
   const docPath = `chat_messages/${message.id}`;
   try {
     const payload: Record<string, unknown> = {
@@ -209,6 +262,10 @@ export async function sendFirestoreChatMessage(message: FirestoreChatMessage): P
 
     await setDoc(doc(db, 'chat_messages', message.id), payload);
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markFirestoreQuotaExceeded(docPath);
+      return;
+    }
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }
 }
@@ -217,10 +274,15 @@ export async function sendFirestoreChatMessage(message: FirestoreChatMessage): P
  * Delete a chat message from Firestore (owner or system admin)
  */
 export async function deleteFirestoreChatMessage(messageId: string): Promise<void> {
+  if (firestoreQuotaExceeded) return;
   const docPath = `chat_messages/${messageId}`;
   try {
     await deleteDoc(doc(db, 'chat_messages', messageId));
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markFirestoreQuotaExceeded(docPath);
+      return;
+    }
     handleFirestoreError(error, OperationType.DELETE, docPath);
   }
 }
@@ -231,14 +293,16 @@ export async function deleteFirestoreChatMessage(messageId: string): Promise<voi
 export function subscribeFirestorePresence(
   onPlayers: (players: FirestorePlayerPresence[]) => void
 ): () => void {
+  if (firestoreQuotaExceeded) return () => {};
   const presencePath = 'presence';
   const presenceCol = collection(db, presencePath);
 
-  return onSnapshot(
+  let unsub: (() => void) | null = null;
+  unsub = onSnapshot(
     presenceCol,
     (snapshot) => {
       const now = Date.now();
-      const cutoff = now - 60000; // Active within the last 60 seconds
+      const cutoff = now - 90000; // Active within the last 90 seconds
       const list: FirestorePlayerPresence[] = [];
 
       snapshot.forEach((d) => {
@@ -261,9 +325,23 @@ export function subscribeFirestorePresence(
       onPlayers(list);
     },
     (error) => {
+      if (isQuotaExceededError(error)) {
+        markFirestoreQuotaExceeded(presencePath);
+        if (unsub) {
+          try {
+            unsub();
+          } catch {
+            // Ignore unsubscribe error
+          }
+        }
+        return;
+      }
       handleFirestoreError(error, OperationType.GET, presencePath);
     }
   );
+  return () => {
+    if (unsub) unsub();
+  };
 }
 
 /**
@@ -273,6 +351,7 @@ export async function updateFirestorePresence(
   playerId: string,
   presence: Omit<FirestorePlayerPresence, 'id' | 'lastSeen'>
 ): Promise<void> {
+  if (firestoreQuotaExceeded) return;
   const docPath = `presence/${playerId}`;
   try {
     await setDoc(doc(db, 'presence', playerId), {
@@ -287,6 +366,10 @@ export async function updateFirestorePresence(
       typingUntil: Number(presence.typingUntil) || 0,
     });
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markFirestoreQuotaExceeded(docPath);
+      return;
+    }
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }
 }
@@ -295,6 +378,7 @@ export async function updateFirestorePresence(
  * Remove player presence on disconnect/logout
  */
 export async function removeFirestorePresence(playerId: string): Promise<void> {
+  if (firestoreQuotaExceeded) return;
   const docPath = `presence/${playerId}`;
   try {
     await deleteDoc(doc(db, 'presence', playerId));
@@ -309,10 +393,12 @@ export async function removeFirestorePresence(playerId: string): Promise<void> {
 export function subscribeFirestoreTrades(
   onTrades: (trades: FirestoreGlobalTrade[]) => void
 ): () => void {
+  if (firestoreQuotaExceeded) return () => {};
   const tradesPath = 'global_trades';
   const q = query(collection(db, tradesPath), orderBy('createdAt', 'desc'), limit(100));
 
-  return onSnapshot(
+  let unsub: (() => void) | null = null;
+  unsub = onSnapshot(
     q,
     (snapshot) => {
       const trades: FirestoreGlobalTrade[] = [];
@@ -342,15 +428,30 @@ export function subscribeFirestoreTrades(
       onTrades(trades);
     },
     (error) => {
+      if (isQuotaExceededError(error)) {
+        markFirestoreQuotaExceeded(tradesPath);
+        if (unsub) {
+          try {
+            unsub();
+          } catch {
+            // Ignore unsubscribe error
+          }
+        }
+        return;
+      }
       handleFirestoreError(error, OperationType.GET, tradesPath);
     }
   );
+  return () => {
+    if (unsub) unsub();
+  };
 }
 
 /**
  * Create a new global trade listing in Firestore
  */
 export async function createFirestoreTrade(trade: FirestoreGlobalTrade): Promise<void> {
+  if (firestoreQuotaExceeded) return;
   const docPath = `global_trades/${trade.id}`;
   try {
     await setDoc(doc(db, 'global_trades', trade.id), {
@@ -368,6 +469,10 @@ export async function createFirestoreTrade(trade: FirestoreGlobalTrade): Promise
       createdAt: trade.createdAt || new Date().toISOString(),
     });
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markFirestoreQuotaExceeded(docPath);
+      return;
+    }
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }
 }
@@ -379,6 +484,7 @@ export async function fulfillFirestoreTrade(
   tradeId: string,
   fulfillerUsername: string
 ): Promise<void> {
+  if (firestoreQuotaExceeded) return;
   const docPath = `global_trades/${tradeId}`;
   try {
     await updateDoc(doc(db, 'global_trades', tradeId), {
@@ -387,6 +493,10 @@ export async function fulfillFirestoreTrade(
       fulfilledAt: new Date().toISOString(),
     });
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markFirestoreQuotaExceeded(docPath);
+      return;
+    }
     handleFirestoreError(error, OperationType.UPDATE, docPath);
   }
 }
@@ -395,12 +505,17 @@ export async function fulfillFirestoreTrade(
  * Cancel a global trade in Firestore
  */
 export async function cancelFirestoreTrade(tradeId: string): Promise<void> {
+  if (firestoreQuotaExceeded) return;
   const docPath = `global_trades/${tradeId}`;
   try {
     await updateDoc(doc(db, 'global_trades', tradeId), {
       status: 'CANCELLED',
     });
   } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markFirestoreQuotaExceeded(docPath);
+      return;
+    }
     handleFirestoreError(error, OperationType.UPDATE, docPath);
   }
 }

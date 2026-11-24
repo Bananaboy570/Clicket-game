@@ -494,6 +494,26 @@ export default function App() {
     inventory,
   };
 
+  const fsPresenceMetaRef = useRef({
+    userId: '',
+    username: '',
+    avatarBlookId: '',
+    unlockedCount: 0,
+    isOwner: false,
+    achievements: [] as string[],
+  });
+  fsPresenceMetaRef.current = {
+    userId: currentUser?.id || '',
+    username,
+    avatarBlookId: equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '',
+    unlockedCount: Object.values(inventory).filter((c) => Number(c) > 0).length,
+    isOwner:
+      Boolean(currentUser) &&
+      (currentUser!.username?.trim().toLowerCase() === OWNER_USERNAME ||
+        currentUser!.email?.trim().toLowerCase() === OWNER_USERNAME),
+    achievements: Array.isArray(currentUser?.achievements) ? currentUser!.achievements : [],
+  };
+
   // Real-time Cloud Firestore Presence Heartbeat
   useEffect(() => {
     if (!currentUser) {
@@ -518,30 +538,32 @@ export default function App() {
     });
 
     const myPresenceId = currentUser.id;
-    const isOwner =
-      currentUser.username?.trim().toLowerCase() === OWNER_USERNAME ||
-      currentUser.email?.trim().toLowerCase() === OWNER_USERNAME;
 
-    const sendHeartbeat = () => {
+    const sendHeartbeat = (force = false) => {
+      if (!force && typeof document !== 'undefined' && document.visibilityState === 'hidden') {
+        return;
+      }
+      const meta = fsPresenceMetaRef.current;
+      if (!meta.userId) return;
       updateFirestorePresence(myPresenceId, {
-        userId: currentUser.id,
-        username,
-        avatarBlookId: equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '',
-        unlockedCount: Object.values(inventory).filter((c) => Number(c) > 0).length,
-        isOwner,
-        achievements: Array.isArray(currentUser.achievements) ? currentUser.achievements : [],
+        userId: meta.userId,
+        username: meta.username,
+        avatarBlookId: meta.avatarBlookId,
+        unlockedCount: meta.unlockedCount,
+        isOwner: meta.isOwner,
+        achievements: meta.achievements,
       }).catch(() => {});
     };
 
-    sendHeartbeat();
-    const heartbeatTimer = setInterval(sendHeartbeat, 15000);
+    sendHeartbeat(true);
+    const heartbeatTimer = setInterval(() => sendHeartbeat(false), 45000);
 
     return () => {
       unsubPresence();
       clearInterval(heartbeatTimer);
       removeFirestorePresence(myPresenceId).catch(() => {});
     };
-  }, [currentUser?.id, username, equippedBlookId, inventory, mergeOnlinePlayers]);
+  }, [currentUser?.id, mergeOnlinePlayers]);
 
   useEffect(() => {
     if (!currentUser || isStaticMode()) {
@@ -874,7 +896,8 @@ export default function App() {
     (isTyping: boolean) => {
       if (!currentUser) return;
       const ws = presenceWsRef.current;
-      if (ws && ws.readyState === WebSocket.OPEN) {
+      const wsOpen = Boolean(ws && ws.readyState === WebSocket.OPEN);
+      if (wsOpen && ws) {
         ws.send(JSON.stringify({ type: 'chat:typing', isTyping }));
       }
 
@@ -883,49 +906,48 @@ export default function App() {
         typingExpiryTimerRef.current = null;
       }
 
-      const now = Date.now();
-      const shouldSyncFs = !isTyping || now - lastFsTypingSyncRef.current >= 1500;
-      if (shouldSyncFs) {
-        lastFsTypingSyncRef.current = isTyping ? now : 0;
-        const isOwnerFlag =
-          currentUser.username?.trim().toLowerCase() === OWNER_USERNAME ||
-          currentUser.email?.trim().toLowerCase() === OWNER_USERNAME;
-        updateFirestorePresence(currentUser.id, {
-          userId: currentUser.id,
-          username,
-          avatarBlookId:
-            equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '',
-          unlockedCount: Object.values(inventory).filter((c) => Number(c) > 0).length,
-          isOwner: isOwnerFlag,
-          achievements: Array.isArray(currentUser.achievements) ? currentUser.achievements : [],
-          typingUntil: isTyping ? now + 4000 : 0,
-        }).catch(() => {});
+      // Only write typing indicators to Firestore when WebSocket is unavailable
+      if (!wsOpen) {
+        const now = Date.now();
+        const shouldSyncFs = !isTyping || now - lastFsTypingSyncRef.current >= 3000;
+        if (shouldSyncFs) {
+          lastFsTypingSyncRef.current = isTyping ? now : 0;
+          const meta = fsPresenceMetaRef.current;
+          updateFirestorePresence(currentUser.id, {
+            userId: currentUser.id,
+            username: meta.username,
+            avatarBlookId: meta.avatarBlookId,
+            unlockedCount: meta.unlockedCount,
+            isOwner: meta.isOwner,
+            achievements: meta.achievements,
+            typingUntil: isTyping ? now + 4000 : 0,
+          }).catch(() => {});
+        }
       }
 
       if (isTyping) {
         typingExpiryTimerRef.current = setTimeout(() => {
           lastFsTypingSyncRef.current = 0;
           const wsCurr = presenceWsRef.current;
-          if (wsCurr && wsCurr.readyState === WebSocket.OPEN) {
+          const wsCurrOpen = Boolean(wsCurr && wsCurr.readyState === WebSocket.OPEN);
+          if (wsCurrOpen && wsCurr) {
             wsCurr.send(JSON.stringify({ type: 'chat:typing', isTyping: false }));
+          } else {
+            const meta = fsPresenceMetaRef.current;
+            updateFirestorePresence(currentUser.id, {
+              userId: currentUser.id,
+              username: meta.username,
+              avatarBlookId: meta.avatarBlookId,
+              unlockedCount: meta.unlockedCount,
+              isOwner: meta.isOwner,
+              achievements: meta.achievements,
+              typingUntil: 0,
+            }).catch(() => {});
           }
-          const isOwnerFlag =
-            currentUser.username?.trim().toLowerCase() === OWNER_USERNAME ||
-            currentUser.email?.trim().toLowerCase() === OWNER_USERNAME;
-          updateFirestorePresence(currentUser.id, {
-            userId: currentUser.id,
-            username,
-            avatarBlookId:
-              equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '',
-            unlockedCount: Object.values(inventory).filter((c) => Number(c) > 0).length,
-            isOwner: isOwnerFlag,
-            achievements: Array.isArray(currentUser.achievements) ? currentUser.achievements : [],
-            typingUntil: 0,
-          }).catch(() => {});
         }, 4000);
       }
     },
-    [currentUser, username, equippedBlookId, inventory]
+    [currentUser]
   );
 
   const sendChatMessage = async (text: string, replyTo?: ChatReplyTarget | null) => {
