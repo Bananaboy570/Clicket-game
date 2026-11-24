@@ -80,6 +80,7 @@ export interface OnlineClient {
   achievements: string[];
   isOwner: boolean;
   activeTradeId: string | null;
+  typingUntil?: number;
 }
 
 export interface ChatMessageRecord {
@@ -91,6 +92,12 @@ export interface ChatMessageRecord {
   isOwner: boolean;
   text: string;
   createdAt: string;
+  clanTag?: string;
+  clanColor?: string;
+  replyToId?: string;
+  replyToUsername?: string;
+  replyToAvatar?: string;
+  replyToText?: string;
 }
 
 export interface TradeSession {
@@ -110,6 +117,8 @@ export interface MultiplayerDeps {
     avatarBlookId: string;
     achievements: string[];
     isOwner: boolean;
+    clanTag?: string;
+    clanColor?: string;
   } | null>;
   onLoadChatMessages: () => Promise<ChatMessageRecord[]>;
   onAppendChatMessage: (message: ChatMessageRecord) => Promise<void>;
@@ -249,6 +258,7 @@ export function attachMultiplayerServer(
       inTrade: Boolean(c.activeTradeId),
       achievements: c.achievements,
       isOwner: c.isOwner,
+      typingUntil: c.typingUntil || 0,
     }));
     const payload = JSON.stringify({ type: 'presence:list', players });
     for (const c of onlineClients.values()) {
@@ -877,7 +887,13 @@ export function attachMultiplayerServer(
             sender.username = serverProfile.username;
             sender.achievements = serverProfile.achievements;
             sender.isOwner = serverProfile.isOwner;
+            sender.typingUntil = 0;
           }
+
+          const replyToId = msg.replyToId ? String(msg.replyToId).trim().slice(0, 128) : '';
+          const replyToUsername = msg.replyToUsername ? String(msg.replyToUsername).trim().slice(0, 32) : '';
+          const replyToAvatar = msg.replyToAvatar ? String(msg.replyToAvatar).trim().slice(0, 64) : '';
+          const replyToText = msg.replyToText ? String(msg.replyToText).trim().slice(0, 120) : '';
 
           const chatMessage: ChatMessageRecord = {
             id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -888,10 +904,26 @@ export function attachMultiplayerServer(
             isOwner: serverProfile.isOwner,
             text: cleanText,
             createdAt: new Date().toISOString(),
+            ...(serverProfile.clanTag ? { clanTag: serverProfile.clanTag } : {}),
+            ...(serverProfile.clanColor ? { clanColor: serverProfile.clanColor } : {}),
+            ...(replyToId ? { replyToId } : {}),
+            ...(replyToUsername ? { replyToUsername } : {}),
+            ...(replyToAvatar ? { replyToAvatar } : {}),
+            ...(replyToText ? { replyToText } : {}),
           };
 
           await deps.onAppendChatMessage(chatMessage).catch(() => {});
           broadcastChatPayload({ type: 'chat:message', message: chatMessage });
+          broadcastPresence();
+          break;
+        }
+
+        case 'chat:typing': {
+          const sender = onlineClients.get(meta.clientId);
+          if (!sender) return;
+          const isTyping = Boolean(msg.isTyping);
+          sender.typingUntil = isTyping ? Date.now() + 4000 : 0;
+          broadcastPresence();
           break;
         }
 

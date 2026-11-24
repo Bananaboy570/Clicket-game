@@ -93,7 +93,9 @@ export const BlookArt: React.FC<BlookArtProps> = ({
   const meta = ALL_BLOOKS.find((b) => b.id === id);
   const isChroma = meta?.rarity === 'Chroma';
   const isMystic = meta?.rarity === 'Mystic';
-  const shouldAnimateSpecial = animated && (isChroma || isMystic);
+  const isClicked = meta?.rarity === 'Clicked';
+  const isGodly = meta?.rarity === 'Godly';
+  const shouldAnimateSpecial = animated && (isChroma || isMystic || isClicked || isGodly);
 
   // Special animated Cyborg Coach (blinks + looks around + Chroma float & shine)
   if (id === 'athlete-cyborg') {
@@ -716,6 +718,1021 @@ export const BlookArt: React.FC<BlookArtProps> = ({
               </path>
               <path d="M126 76 L128 80 L132 82 L128 84 L126 88 L124 84 L120 82 L124 80 Z" fill="#fef9c3">
                 <animate attributeName="opacity" values="1;0.2;1" dur="1.8s" repeatCount="indefinite" />
+              </path>
+            </>
+          )}
+        </svg>
+      );
+    }
+
+    case 'fruit-apple': {
+      const gradId = `appleGrad-${uid}`;
+      const deepGradId = `appleDeep-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="15%" y1="10%" x2="90%" y2="95%">
+              <stop offset="0%" stopColor="#ef4444" />
+              <stop offset="55%" stopColor="#dc2626" />
+              <stop offset="100%" stopColor="#991b1b" />
+            </linearGradient>
+            <linearGradient id={deepGradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f87171" stopOpacity="0.85" />
+              <stop offset="100%" stopColor="#ef4444" stopOpacity="0.1" />
+            </linearGradient>
+          </defs>
+          {/* Apple Contour Silhouette */}
+          <path
+            d="M60 28 C44 17 16 23 14 54 C12 87 31 107 49 105 C55 104 57 102 60 102 C63 102 65 104 71 105 C89 107 108 87 106 54 C104 23 76 17 60 28 Z"
+            fill={`url(#${gradId})`}
+          />
+          {/* Deep Left & Bottom Contour Shadow */}
+          <path
+            d="M60 102 C63 102 65 104 71 105 C89 107 108 87 106 54 C104 33 90 23 76 23 C91 34 96 68 78 90 C68 100 62 100 60 102 Z"
+            fill="#7f1d1d"
+            opacity="0.45"
+          />
+          {/* Layered Glossy Wave Highlights */}
+          <path
+            d="M25 38 C22 52 24 68 38 72 C52 76 58 64 52 46 C46 31 31 28 25 38 Z"
+            fill={`url(#${deepGradId})`}
+          />
+          <ellipse cx="32" cy="46" rx="7.5" ry="15" transform="rotate(-14 32 46)" fill="#fca5a5" opacity="0.72" />
+          <path d="M27 83 Q53 86 73 70 Q58 92 27 83 Z" fill="#f87171" opacity="0.55" />
+          {/* Top Dimple & Curved Brown Stem */}
+          <path d="M47 28 Q60 36 73 28 Q60 32 47 28 Z" fill="#7f1d1d" opacity="0.65" />
+          <path d="M60 31 Q61 17 67 12" stroke="#78350f" strokeWidth="5.2" strokeLinecap="round" fill="none" />
+          <path d="M60 31 Q62 18 66 13" stroke="#b45309" strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        </svg>
+      );
+    }
+
+    case 'fruit-pear': {
+      const gradId = `pearGrad-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="25%" y1="10%" x2="85%" y2="95%">
+              <stop offset="0%" stopColor="#86efac" />
+              <stop offset="45%" stopColor="#4ade80" />
+              <stop offset="100%" stopColor="#16a34a" />
+            </linearGradient>
+          </defs>
+          {/* Teardrop Pear Silhouette */}
+          <path
+            d="M60 18 C72 18 78 36 87 55 C99 80 91 108 60 108 C29 108 21 80 33 55 C42 36 48 18 60 18 Z"
+            fill={`url(#${gradId})`}
+          />
+          {/* Smooth Right Side Contour Shade */}
+          <path
+            d="M72 26 C77 37 82 47 87 55 C99 80 91 108 60 108 C76 101 84 82 77 58 C73 43 72 32 72 26 Z"
+            fill="#15803d"
+            opacity="0.45"
+          />
+          {/* Inner Soft Pear Highlights */}
+          <ellipse cx="48" cy="64" rx="16" ry="25" transform="rotate(-10 48 64)" fill="#bbf7d0" opacity="0.55" />
+          <ellipse cx="43" cy="54" rx="7" ry="13" transform="rotate(-14 43 54)" fill="#ecfdf5" opacity="0.72" />
+          <ellipse cx="48" cy="88" rx="14" ry="8" fill="#86efac" opacity="0.4" />
+          {/* Tiny Stem */}
+          <path d="M59 19 Q60 11 63 9" stroke="#c2410c" strokeWidth="4.2" strokeLinecap="round" fill="none" />
+        </svg>
+      );
+    }
+
+    case 'fruit-grapes': {
+      // 4 - 3 - 2 - 1 grape circles per row
+      const grapePositions = [
+        // Row 1 (4)
+        { cx: 28.5, cy: 39, r: 11.5 },
+        { cx: 49.5, cy: 39, r: 11.5 },
+        { cx: 70.5, cy: 39, r: 11.5 },
+        { cx: 91.5, cy: 39, r: 11.5 },
+        // Row 2 (3)
+        { cx: 39, cy: 57, r: 11.5 },
+        { cx: 60, cy: 57, r: 11.5 },
+        { cx: 81, cy: 57, r: 11.5 },
+        // Row 3 (2)
+        { cx: 49.5, cy: 75, r: 11.5 },
+        { cx: 70.5, cy: 75, r: 11.5 },
+        // Row 4 (1)
+        { cx: 60, cy: 93, r: 11.5 },
+      ];
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Woody Stem */}
+          <path d="M60 35 Q62 17 72 11" stroke="#78350f" strokeWidth="7" strokeLinecap="round" fill="none" />
+          <path d="M47 28 Q60 25 73 28" stroke="#92400e" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+          {/* Clustered Glossy Burgundy Grapes (4-3-2-1 rows) */}
+          {grapePositions.map((g, i) => (
+            <g key={i}>
+              <circle cx={g.cx} cy={g.cy} r={g.r} fill="#881337" />
+              <circle cx={g.cx - 1.4} cy={g.cy - 1.4} r={g.r * 0.85} fill="#be185d" opacity="0.65" />
+              <ellipse
+                cx={g.cx - g.r * 0.32}
+                cy={g.cy - g.r * 0.34}
+                rx={g.r * 0.38}
+                ry={g.r * 0.22}
+                transform={`rotate(-28 ${g.cx - g.r * 0.32} ${g.cy - g.r * 0.34})`}
+                fill="#fda4af"
+                opacity="0.88"
+              />
+            </g>
+          ))}
+        </svg>
+      );
+    }
+
+    case 'fruit-strawberry': {
+      const gradId = `strawGrad-${uid}`;
+      const seeds = [
+        [40, 48], [56, 46], [72, 48], [84, 52],
+        [37, 63], [52, 61], [67, 62], [80, 65],
+        [44, 78], [59, 77], [73, 79],
+        [51, 93], [65, 93],
+      ];
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="20%" y1="15%" x2="85%" y2="95%">
+              <stop offset="0%" stopColor="#ef4444" />
+              <stop offset="60%" stopColor="#dc2626" />
+              <stop offset="100%" stopColor="#991b1b" />
+            </linearGradient>
+          </defs>
+          {/* Berry Silhouette */}
+          <path
+            d="M27 39 C22 57 35 103 60 107 C85 103 98 57 93 39 C85 30 35 30 27 39 Z"
+            fill={`url(#${gradId})`}
+          />
+          {/* Glossy Center Blush Highlight */}
+          <ellipse cx="53" cy="64" rx="20" ry="26" fill="#f87171" opacity="0.65" />
+          <ellipse cx="47" cy="52" rx="8" ry="12" transform="rotate(-15 47 52)" fill="#fecaca" opacity="0.55" />
+          {/* Golden Seeds */}
+          {seeds.map(([x, y], idx) => (
+            <ellipse key={idx} cx={x} cy={y} rx="2.1" ry="3.6" fill="#fde047" />
+          ))}
+          {/* Jagged Leaf Crown */}
+          <path
+            d="M32 37 L24 27 L39 30 L42 18 L54 27 L60 15 L66 27 L78 18 L81 30 L96 27 L88 37 L74 35 L60 40 L46 35 Z"
+            fill="#4ade80"
+          />
+          <path
+            d="M37 36 L44 26 L56 32 L60 22 L64 32 L76 26 L83 36 L60 40 Z"
+            fill="#16a34a"
+            opacity="0.7"
+          />
+        </svg>
+      );
+    }
+
+    case 'fruit-kiwi': {
+      const fleshGrad = `kiwiFlesh-${uid}`;
+      const angles = [0, 22, 45, 67, 90, 112, 135, 157, 180, 202, 225, 247, 270, 292, 315, 337];
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id={fleshGrad} cx="46%" cy="44%" r="54%">
+              <stop offset="0%" stopColor="#bef264" />
+              <stop offset="65%" stopColor="#a3e635" />
+              <stop offset="100%" stopColor="#65a30d" />
+            </radialGradient>
+          </defs>
+          {/* Fuzzy Brown Rim */}
+          <circle cx="60" cy="60" r="48" fill="#78350f" />
+          <ellipse cx="59" cy="58" rx="46" ry="47" fill="#92400e" />
+          {/* Bright Lime Flesh */}
+          <circle cx="60" cy="58" r="42" fill={`url(#${fleshGrad})`} />
+          {/* Radial Pale Spokes */}
+          {angles.map((a) => (
+            <line
+              key={`ray-${a}`}
+              x1="60"
+              y1="58"
+              x2="60"
+              y2="25"
+              stroke="#ecfccb"
+              strokeWidth="2.2"
+              opacity="0.55"
+              transform={`rotate(${a} 60 58)`}
+            />
+          ))}
+          {/* Starburst Cream Core */}
+          <ellipse cx="60" cy="58" rx="15" ry="13" fill="#fefce8" />
+          <ellipse cx="57" cy="56" rx="9" ry="7" fill="#ffffff" opacity="0.85" />
+          {/* Radial Black Seeds */}
+          {angles.map((a, idx) => (
+            <ellipse
+              key={`seed-${a}`}
+              cx="60"
+              cy={idx % 2 === 0 ? '36' : '39'}
+              rx="1.9"
+              ry="3.6"
+              fill="#1c1917"
+              transform={`rotate(${a + 8} 60 58)`}
+            />
+          ))}
+          {/* Top-Left Specular Crescent */}
+          <path d="M25 46 A38 38 0 0 1 56 19" stroke="#fef9c3" strokeWidth="4.5" strokeLinecap="round" fill="none" opacity="0.55" />
+        </svg>
+      );
+    }
+
+    case 'fruit-peach': {
+      const gradId = `peachGrad-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id={gradId} cx="35%" cy="32%" r="72%">
+              <stop offset="0%" stopColor="#fed7aa" />
+              <stop offset="45%" stopColor="#fb923c" />
+              <stop offset="85%" stopColor="#fb7185" />
+              <stop offset="100%" stopColor="#e11d48" />
+            </radialGradient>
+          </defs>
+          {/* Crisp Green Leaf */}
+          <path d="M62 28 C76 11 98 14 96 29 C82 34 69 32 62 28 Z" fill="#22c55e" />
+          <path d="M64 28 C74 20 84 20 93 26" stroke="#15803d" strokeWidth="2.2" fill="none" />
+          {/* Plump Peach Silhouette */}
+          <path
+            d="M60 27 C42 18 16 27 16 56 C16 86 42 104 60 107 C78 104 104 86 104 56 C104 27 78 18 60 27 Z"
+            fill={`url(#${gradId})`}
+          />
+          {/* Subtle Center Cleft */}
+          <path d="M60 28 C55 44 56 66 60 88" stroke="#be123c" strokeWidth="3.2" strokeLinecap="round" fill="none" opacity="0.35" />
+          {/* Soft Velvet Highlights */}
+          <ellipse cx="37" cy="48" rx="10" ry="17" transform="rotate(-18 37 48)" fill="#fff7ed" opacity="0.58" />
+          <ellipse cx="83" cy="60" rx="8" ry="15" transform="rotate(14 83 60)" fill="#fda4af" opacity="0.35" />
+        </svg>
+      );
+    }
+
+    case 'fruit-tanghulu': {
+      const berryGrad = `tangBerry-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={berryGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fb7185" />
+              <stop offset="55%" stopColor="#e11d48" />
+              <stop offset="100%" stopColor="#9f1239" />
+            </linearGradient>
+          </defs>
+          {/* Wooden Skewer */}
+          <rect x="57.5" y="8" width="5" height="106" rx="2.5" fill="#d97706" />
+          <rect x="59" y="8" width="2" height="106" rx="1" fill="#fde68a" opacity="0.6" />
+          {/* Stacked Candied Berries with Sugar Shell */}
+          {[
+            { cy: 29, r: 14 },
+            { cy: 55, r: 15.5 },
+            { cy: 82, r: 16 },
+          ].map((b, idx) => (
+            <g key={idx}>
+              {/* Outer Crystal Glaze Halo */}
+              <circle cx="60" cy={b.cy} r={b.r + 2.4} fill="#fecdd3" opacity="0.65" />
+              <circle cx="60" cy={b.cy} r={b.r} fill={`url(#${berryGrad})`} />
+              {/* Sharp Glossy Sugar Speculars */}
+              <ellipse
+                cx={53}
+                cy={b.cy - b.r * 0.34}
+                rx={b.r * 0.35}
+                ry={b.r * 0.18}
+                transform={`rotate(-28 53 ${b.cy - b.r * 0.34})`}
+                fill="#ffffff"
+                opacity="0.92"
+              />
+              <circle cx={67} cy={b.cy + b.r * 0.32} r="2.3" fill="#ffffff" opacity="0.7" />
+              {/* Sugar Drip Bead */}
+              <path
+                d={`M${60 + b.r * 0.55} ${b.cy + b.r * 0.65} Q${60 + b.r * 0.65} ${b.cy + b.r + 4} ${60 + b.r * 0.4} ${b.cy + b.r + 3} Z`}
+                fill="#ffe4e6"
+                opacity="0.85"
+              />
+            </g>
+          ))}
+        </svg>
+      );
+    }
+
+    case 'fruit-pineapple': {
+      const bodyGrad = `pineGrad-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={bodyGrad} x1="15%" y1="20%" x2="85%" y2="95%">
+              <stop offset="0%" stopColor="#fde047" />
+              <stop offset="55%" stopColor="#f59e0b" />
+              <stop offset="100%" stopColor="#d97706" />
+            </linearGradient>
+          </defs>
+          {/* Spiky Emerald Crown */}
+          <path d="M44 42 L26 22 L49 32 L45 10 L60 27 L75 10 L71 32 L94 22 L76 42 Z" fill="#16a34a" />
+          <path d="M49 41 L40 20 L57 32 L60 12 L63 32 L80 20 L71 41 Z" fill="#4ade80" />
+          {/* Golden Pineapple Body */}
+          <rect x="27" y="38" width="66" height="71" rx="28" fill={`url(#${bodyGrad})`} />
+          {/* Clean Geometric Diamond Facets (No outlines) */}
+          <polygon points="60,44 74,58 60,72 46,58" fill="#fef08a" opacity="0.45" />
+          <polygon points="44,60 58,74 44,88 30,74" fill="#b45309" opacity="0.22" />
+          <polygon points="76,60 90,74 76,88 62,74" fill="#b45309" opacity="0.28" />
+          <polygon points="60,76 74,90 60,104 46,90" fill="#fef08a" opacity="0.35" />
+          {/* Glossy Highlight */}
+          <ellipse cx="42" cy="58" rx="7" ry="16" transform="rotate(-12 42 58)" fill="#fef9c3" opacity="0.65" />
+        </svg>
+      );
+    }
+
+    case 'fruit-starfruit': {
+      const starGrad = `starGrad-${uid}`;
+      const shineMaskId = `starShineMask-${uid}`;
+      const shineGradId = `starShineGrad-${uid}`;
+      const outerStar =
+        'M60 11 L73 41 L106 44 L80 65 L89 98 L60 80 L31 98 L40 65 L14 44 L47 41 Z';
+      return (
+        <svg
+          viewBox="0 0 120 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-chroma-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id={starGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#67e8f9" />
+              <stop offset="35%" stopColor="#38bdf8" />
+              <stop offset="68%" stopColor="#a855f7" />
+              <stop offset="100%" stopColor="#fde047" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <path d={outerStar} fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Outer Iridescent Starfruit Rim */}
+          <path d={outerStar} fill={`url(#${starGrad})`} />
+          {/* Inner Crystalline Prismatic Facets */}
+          <polygon points="60,21 69,46 95,48 75,64 81,90 60,75 39,90 45,64 25,48 51,46" fill="#e0f2fe" opacity="0.55" />
+          <polygon points="60,21 60,59 69,46" fill="#ffffff" opacity="0.65" />
+          <polygon points="95,48 60,59 75,64" fill="#c084fc" opacity="0.45" />
+          <polygon points="25,48 60,59 45,64" fill="#22d3ee" opacity="0.5" />
+          {/* Prismatic Seed Core */}
+          <ellipse cx="60" cy="54" rx="2.6" ry="5" fill="#0ea5e9" />
+          <ellipse cx="53" cy="61" rx="2.6" ry="5" transform="rotate(-65 53 61)" fill="#6366f1" />
+          <ellipse cx="67" cy="61" rx="2.6" ry="5" transform="rotate(65 67 61)" fill="#14b8a6" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'fruit-dragonfruit': {
+      const dfGrad = `dfGrad-${uid}`;
+      const shineMaskId = `dfShineMask-${uid}`;
+      const shineGradId = `dfShineGrad-${uid}`;
+      const dfSilhouette =
+        'M60 13 C74 17 85 27 93 23 C92 38 103 48 101 66 C99 88 81 106 60 107 C39 106 21 88 19 66 C17 48 28 38 27 23 C35 27 46 17 60 13 Z';
+      return (
+        <svg
+          viewBox="0 0 120 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-mystic-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id={dfGrad} x1="15%" y1="10%" x2="85%" y2="95%">
+              <stop offset="0%" stopColor="#e879f9" />
+              <stop offset="50%" stopColor="#9333ea" />
+              <stop offset="100%" stopColor="#4c1d95" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <path d={dfSilhouette} fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Glowing Teal-Tipped Dragonfruit Fins */}
+          <path d="M27 23 Q15 34 22 49 L32 39 Z" fill="#2dd4bf" />
+          <path d="M93 23 Q105 34 98 49 L88 39 Z" fill="#2dd4bf" />
+          <path d="M60 10 L51 24 L69 24 Z" fill="#5eead4" />
+          {/* Cosmic Violet-Magenta Body */}
+          <path d={dfSilhouette} fill={`url(#${dfGrad})`} />
+          {/* Starry Cross-Section Core */}
+          <ellipse cx="60" cy="65" rx="28" ry="31" fill="#fdf4ff" opacity="0.92" />
+          <ellipse cx="60" cy="65" rx="23" ry="26" fill="#fae8ff" />
+          {/* Starry Cosmic Seeds */}
+          {[
+            [50, 50], [68, 49], [44, 62], [60, 62], [75, 64],
+            [49, 77], [64, 76], [56, 85],
+          ].map(([x, y], i) => (
+            <circle key={i} cx={x} cy={y} r="2.2" fill="#3b0764" />
+          ))}
+          {/* Mystical Glossy Sheen */}
+          <ellipse cx="38" cy="48" rx="7" ry="15" transform="rotate(-18 38 48)" fill="#f5d0fe" opacity="0.55" />
+          {shouldAnimateSpecial && (
+            <>
+              <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} isMystic />
+              <path d="M22 20 L24 25 L29 27 L24 29 L22 34 L20 29 L15 27 L20 25 Z" fill="#fef08a">
+                <animate attributeName="opacity" values="0.25;1;0.25" dur="1.7s" repeatCount="indefinite" />
+              </path>
+              <path d="M97 78 L99 82 L103 84 L99 86 L97 90 L95 86 L91 84 L95 82 Z" fill="#5eead4">
+                <animate attributeName="opacity" values="1;0.25;1" dur="1.7s" repeatCount="indefinite" />
+              </path>
+            </>
+          )}
+        </svg>
+      );
+    }
+
+    case 'fruit-blood-orange': {
+      const orangeGrad = `clickedOrange-${uid}`;
+      const shineMaskId = `clickedShineMask-${uid}`;
+      const shineGradId = `clickedShineGrad-${uid}`;
+      return (
+        <svg
+          viewBox="0 0 120 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-clicked-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <radialGradient id={orangeGrad} cx="42%" cy="38%" r="65%">
+              <stop offset="0%" stopColor="#fdba74" />
+              <stop offset="45%" stopColor="#ff7a00" />
+              <stop offset="100%" stopColor="#c2410c" />
+            </radialGradient>
+            <mask id={shineMaskId}>
+              <circle cx="60" cy="60" r="42" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Orbiting Neon Orange Click-Burst Arcs */}
+          <path d="M14 44 A48 48 0 0 1 44 14" stroke="#ff9f1c" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+          <path d="M106 76 A48 48 0 0 1 76 106" stroke="#ff7a00" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+          <path d="M84 16 A48 48 0 0 1 104 40" stroke="#fb923c" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+          <path d="M16 80 A48 48 0 0 0 36 104" stroke="#fb923c" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+          {/* Radiant Blood Orange Rind & Pith */}
+          <circle cx="60" cy="60" r="41" fill="#ea580c" />
+          <circle cx="60" cy="60" r="36" fill="#ffedd5" />
+          <circle cx="60" cy="60" r="32" fill={`url(#${orangeGrad})`} />
+          {/* Glossy Citrus Segments */}
+          {[0, 45, 90, 135, 180, 225, 270, 315].map((deg) => (
+            <path
+              key={deg}
+              d="M60 60 L51 31 A30 30 0 0 1 69 31 Z"
+              fill={deg % 90 === 0 ? '#ff6b00' : '#f97316'}
+              transform={`rotate(${deg} 60 60)`}
+              opacity="0.92"
+            />
+          ))}
+          {/* Spokes & Glowing Core */}
+          {[0, 45, 90, 135].map((deg) => (
+            <line
+              key={`spoke-${deg}`}
+              x1="60"
+              y1="27"
+              x2="60"
+              y2="93"
+              stroke="#fff7ed"
+              strokeWidth="2.8"
+              transform={`rotate(${deg} 60 60)`}
+            />
+          ))}
+          <circle cx="60" cy="60" r="6.5" fill="#fff7ed" />
+          <ellipse cx="44" cy="43" rx="7" ry="12" transform="rotate(-30 44 43)" fill="#ffffff" opacity="0.45" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'fruit-sun-ambrosia': {
+      const goldGrad = `godlyGold-${uid}`;
+      const orbGrad = `godlyOrb-${uid}`;
+      const shineMaskId = `godlyShineMask-${uid}`;
+      const shineGradId = `godlyShineGrad-${uid}`;
+      return (
+        <svg
+          viewBox="0 0 120 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-godly-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id={goldGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fef9c3" />
+              <stop offset="40%" stopColor="#facc15" />
+              <stop offset="100%" stopColor="#ca8a04" />
+            </linearGradient>
+            <radialGradient id={orbGrad} cx="40%" cy="35%" r="65%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="45%" stopColor="#fef08a" />
+              <stop offset="100%" stopColor="#eab308" />
+            </radialGradient>
+            <mask id={shineMaskId}>
+              <rect x="18" y="16" width="84" height="92" rx="18" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Floating Sun Halo */}
+          <ellipse cx="60" cy="18" rx="22" ry="6" fill="none" stroke="#fef08a" strokeWidth="4" />
+          {/* Winged Golden Sun Crown Crest */}
+          <path d="M22 44 L10 30 L28 33 L28 21 L42 33 L60 19 L78 33 L92 21 L92 33 L110 30 L98 44 Z" fill="#eab308" />
+          <path d="M27 44 L20 33 L37 36 L44 24 L60 35 L76 24 L83 36 L100 33 L93 44 Z" fill="#fef08a" />
+          {/* Ornate Shrine Vessel Body */}
+          <path d="M28 42 H92 L88 94 C88 101 81 106 73 106 H47 C39 106 32 101 32 94 Z" fill={`url(#${goldGrad})`} />
+          <path d="M20 56 C12 56 12 72 22 76 L31 76 L30 56 Z" fill="#facc15" />
+          <path d="M100 56 C108 56 108 72 98 76 L89 76 L90 56 Z" fill="#facc15" />
+          <rect x="24" y="40" width="72" height="10" rx="5" fill="#fef08a" />
+          <rect x="36" y="98" width="48" height="10" rx="4" fill="#a16207" />
+          {/* Radiant Celestial Fruit Core Orb */}
+          <circle cx="60" cy="70" r="19" fill="#ca8a04" />
+          <circle cx="60" cy="70" r="15.5" fill={`url(#${orbGrad})`} />
+          <ellipse cx="54" cy="64" rx="5" ry="7" transform="rotate(-24 54 64)" fill="#ffffff" opacity="0.88" />
+          {shouldAnimateSpecial && (
+            <>
+              <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} isMystic />
+              <path d="M18 18 L20 23 L25 25 L20 27 L18 32 L16 27 L11 25 L16 23 Z" fill="#fef08a">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite" />
+              </path>
+              <path d="M102 18 L104 23 L109 25 L104 27 L102 32 L100 27 L95 25 L100 23 Z" fill="#ffffff">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" />
+              </path>
+            </>
+          )}
+        </svg>
+      );
+    }
+
+    case 'chess-pawn-white': {
+      const ivoryGrad = `chessIvory-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={ivoryGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="55%" stopColor="#f1f5f9" />
+              <stop offset="100%" stopColor="#cbd5e1" />
+            </linearGradient>
+          </defs>
+          {/* Pedestal Base */}
+          <rect x="26" y="92" width="68" height="14" rx="7" fill="#94a3b8" />
+          <rect x="30" y="88" width="60" height="12" rx="6" fill="#e2e8f0" />
+          {/* Tapered Body */}
+          <path d="M46 52 C42 68 35 80 32 88 H88 C85 80 78 68 74 52 Z" fill={`url(#${ivoryGrad})`} />
+          <path d="M70 52 C74 68 80 80 84 88 H88 C85 80 78 68 74 52 Z" fill="#cbd5e1" opacity="0.65" />
+          {/* Collar Ring */}
+          <rect x="39" y="45" width="42" height="10" rx="5" fill="#e2e8f0" />
+          <rect x="42" y="47" width="22" height="3.5" rx="1.75" fill="#ffffff" opacity="0.85" />
+          {/* Glossy Sphere Finial */}
+          <circle cx="60" cy="30" r="18" fill={`url(#${ivoryGrad})`} />
+          <ellipse cx="53" cy="24" rx="6" ry="8.5" transform="rotate(-24 53 24)" fill="#ffffff" opacity="0.85" />
+          <ellipse cx="48" cy="70" rx="4.5" ry="11" transform="rotate(14 48 70)" fill="#ffffff" opacity="0.7" />
+        </svg>
+      );
+    }
+
+    case 'chess-pawn-black': {
+      const obsidianGrad = `chessObsidian-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={obsidianGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#64748b" />
+              <stop offset="48%" stopColor="#334155" />
+              <stop offset="100%" stopColor="#0f172a" />
+            </linearGradient>
+          </defs>
+          {/* Pedestal Base */}
+          <rect x="26" y="92" width="68" height="14" rx="7" fill="#0f172a" />
+          <rect x="30" y="88" width="60" height="12" rx="6" fill="#334155" />
+          {/* Tapered Body */}
+          <path d="M46 52 C42 68 35 80 32 88 H88 C85 80 78 68 74 52 Z" fill={`url(#${obsidianGrad})`} />
+          <path d="M70 52 C74 68 80 80 84 88 H88 C85 80 78 68 74 52 Z" fill="#0f172a" opacity="0.55" />
+          {/* Collar Ring */}
+          <rect x="39" y="45" width="42" height="10" rx="5" fill="#475569" />
+          <rect x="42" y="47" width="20" height="3" rx="1.5" fill="#94a3b8" opacity="0.65" />
+          {/* Glossy Sphere Finial */}
+          <circle cx="60" cy="30" r="18" fill={`url(#${obsidianGrad})`} />
+          <ellipse cx="53" cy="24" rx="6" ry="8.5" transform="rotate(-24 53 24)" fill="#cbd5e1" opacity="0.45" />
+          <ellipse cx="48" cy="70" rx="4.5" ry="11" transform="rotate(14 48 70)" fill="#94a3b8" opacity="0.35" />
+        </svg>
+      );
+    }
+
+    case 'chess-clock': {
+      const woodGrad = `chessClockWood-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={woodGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#d97706" />
+              <stop offset="55%" stopColor="#b45309" />
+              <stop offset="100%" stopColor="#78350f" />
+            </linearGradient>
+          </defs>
+          {/* Top Rocker Plungers */}
+          <rect x="28" y="20" width="18" height="12" rx="4" fill="#94a3b8" />
+          <rect x="74" y="25" width="18" height="8" rx="3" fill="#64748b" />
+          <rect x="25" y="18" width="24" height="5" rx="2.5" fill="#e2e8f0" />
+          <rect x="71" y="23" width="24" height="5" rx="2.5" fill="#cbd5e1" />
+          {/* Rounded Mahogany Cabinet */}
+          <rect x="14" y="34" width="92" height="62" rx="16" fill="#78350f" />
+          <rect x="14" y="30" width="92" height="60" rx="16" fill={`url(#${woodGrad})`} />
+          <rect x="22" y="34" width="76" height="6" rx="3" fill="#fbbf24" opacity="0.45" />
+          {/* Twin Analog Clock Dials */}
+          <circle cx="40" cy="60" r="18" fill="#cbd5e1" />
+          <circle cx="40" cy="60" r="14.5" fill="#ffffff" />
+          <line x1="40" y1="60" x2="40" y2="49" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <line x1="40" y1="60" x2="49" y2="63" stroke="#ef4444" strokeWidth="2.4" strokeLinecap="round" />
+          <circle cx="40" cy="60" r="2.5" fill="#1e293b" />
+
+          <circle cx="80" cy="60" r="18" fill="#cbd5e1" />
+          <circle cx="80" cy="60" r="14.5" fill="#ffffff" />
+          <line x1="80" y1="60" x2="86" y2="51" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+          <line x1="80" y1="60" x2="72" y2="63" stroke="#ef4444" strokeWidth="2.4" strokeLinecap="round" />
+          <circle cx="80" cy="60" r="2.5" fill="#1e293b" />
+          {/* Brass Center Plaque */}
+          <rect x="52" y="80" width="16" height="5" rx="2.5" fill="#fde047" />
+        </svg>
+      );
+    }
+
+    case 'chess-board-tile': {
+      const frameGrad = `chessBoardFrame-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={frameGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#b45309" />
+              <stop offset="100%" stopColor="#78350f" />
+            </linearGradient>
+          </defs>
+          {/* 3D Board Extrusion & Frame */}
+          <rect x="14" y="18" width="92" height="90" rx="16" fill="#451a03" />
+          <rect x="14" y="14" width="92" height="88" rx="16" fill={`url(#${frameGrad})`} />
+          {/* 4x4 Glossy Checkered Grid */}
+          <g>
+            {[0, 1, 2, 3].map((row) =>
+              [0, 1, 2, 3].map((col) => (
+                <rect
+                  key={`${row}-${col}`}
+                  x={22 + col * 19}
+                  y={20 + row * 19}
+                  width="19"
+                  height="19"
+                  rx={
+                    (row === 0 && col === 0) ||
+                    (row === 0 && col === 3) ||
+                    (row === 3 && col === 0) ||
+                    (row === 3 && col === 3)
+                      ? 4
+                      : 0
+                  }
+                  fill={(row + col) % 2 === 0 ? '#f8fafc' : '#1e293b'}
+                />
+              ))
+            )}
+          </g>
+          {/* Glossy Diagonal Reflection */}
+          <polygon points="24,20 56,20 24,52" fill="#ffffff" opacity="0.35" />
+          <rect x="26" y="23" width="12" height="4" rx="2" fill="#ffffff" opacity="0.7" />
+        </svg>
+      );
+    }
+
+    case 'chess-rook': {
+      const rookGrad = `chessRook-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={rookGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#7dd3fc" />
+              <stop offset="50%" stopColor="#0284c7" />
+              <stop offset="100%" stopColor="#0369a1" />
+            </linearGradient>
+          </defs>
+          {/* Pedestal Base */}
+          <rect x="24" y="92" width="72" height="14" rx="7" fill="#075985" />
+          <rect x="28" y="86" width="64" height="12" rx="5" fill="#0ea5e9" />
+          {/* Tower Body */}
+          <path d="M36 44 H84 L80 86 H40 Z" fill={`url(#${rookGrad})`} />
+          <path d="M68 44 H84 L80 86 H68 Z" fill="#0369a1" opacity="0.45" />
+          {/* Crenellated Battlement Crown */}
+          <path
+            d="M30 20 H42 V28 H53 V20 H67 V28 H78 V20 H90 V42 L84 48 H36 L30 42 Z"
+            fill="#38bdf8"
+          />
+          {/* Subtle Mortar Groove Highlights */}
+          <rect x="34" y="42" width="52" height="5" rx="2.5" fill="#bae6fd" opacity="0.75" />
+          <ellipse cx="47" cy="64" rx="4.5" ry="13" fill="#e0f2fe" opacity="0.5" />
+        </svg>
+      );
+    }
+
+    case 'chess-bishop': {
+      const bishopGrad = `chessBishop-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={bishopGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#93c5fd" />
+              <stop offset="48%" stopColor="#2563eb" />
+              <stop offset="100%" stopColor="#1e3a8a" />
+            </linearGradient>
+          </defs>
+          {/* Base & Collar */}
+          <rect x="26" y="92" width="68" height="14" rx="7" fill="#1e3a8a" />
+          <rect x="30" y="86" width="60" height="12" rx="6" fill="#3b82f6" />
+          {/* Tapered Stem */}
+          <path d="M44 58 L36 86 H84 L76 58 Z" fill={`url(#${bishopGrad})`} />
+          <rect x="38" y="53" width="44" height="9" rx="4.5" fill="#60a5fa" />
+          {/* Top Finial */}
+          <circle cx="60" cy="14" r="6.5" fill="#93c5fd" />
+          {/* Mitre Dome with Diagonal Cut */}
+          <path
+            d="M60 19 C43 26 39 43 44 54 H76 C81 43 77 26 60 19 Z"
+            fill={`url(#${bishopGrad})`}
+          />
+          {/* Signature Diagonal Mitre Notch */}
+          <path d="M62 29 L73 39" stroke="#eff6ff" strokeWidth="5.5" strokeLinecap="round" />
+          <ellipse cx="51" cy="36" rx="4" ry="9" transform="rotate(-14 51 36)" fill="#dbeafe" opacity="0.55" />
+        </svg>
+      );
+    }
+
+    case 'chess-knight': {
+      const knightGrad = `chessKnight-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={knightGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#d8b4fe" />
+              <stop offset="45%" stopColor="#9333ea" />
+              <stop offset="100%" stopColor="#581c87" />
+            </linearGradient>
+          </defs>
+          {/* Pedestal Base */}
+          <rect x="24" y="92" width="72" height="14" rx="7" fill="#3b0764" />
+          <rect x="28" y="86" width="64" height="12" rx="6" fill="#7e22ce" />
+          {/* Armored Steed Mane Crest */}
+          <path
+            d="M72 22 C86 30 90 52 82 70 L74 86 H62 C70 66 72 44 64 26 Z"
+            fill="#6b21a8"
+          />
+          {/* Sculpted Knight Head & Neck */}
+          <path
+            d="M36 86 L40 60 C27 56 22 44 30 33 L42 21 L45 11 L56 17 L68 12 L68 25 C82 35 83 62 72 86 Z"
+            fill={`url(#${knightGrad})`}
+          />
+          {/* Gold Bridle & Gloss Highlights */}
+          <path d="M40 32 L54 42" stroke="#fde047" strokeWidth="4" strokeLinecap="round" />
+          <ellipse cx="47" cy="27" rx="4" ry="6.5" transform="rotate(-32 47 27)" fill="#f3e8ff" opacity="0.6" />
+          <ellipse cx="52" cy="64" rx="4.5" ry="12" transform="rotate(8 52 64)" fill="#e9d5ff" opacity="0.4" />
+        </svg>
+      );
+    }
+
+    case 'chess-queen': {
+      const queenGrad = `chessQueen-${uid}`;
+      const gemGrad = `chessQueenGem-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={queenGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fef08a" />
+              <stop offset="48%" stopColor="#f59e0b" />
+              <stop offset="100%" stopColor="#b45309" />
+            </linearGradient>
+            <radialGradient id={gemGrad} cx="40%" cy="35%" r="65%">
+              <stop offset="0%" stopColor="#fda4af" />
+              <stop offset="55%" stopColor="#e11d48" />
+              <stop offset="100%" stopColor="#881337" />
+            </radialGradient>
+          </defs>
+          {/* Pedestal Base */}
+          <rect x="24" y="92" width="72" height="14" rx="7" fill="#92400e" />
+          <rect x="28" y="86" width="64" height="12" rx="6" fill="#f59e0b" />
+          {/* Tapered Royal Body */}
+          <path d="M36 52 L34 86 H86 L84 52 Z" fill={`url(#${queenGrad})`} />
+          {/* 5-Pointed Coronet Spires */}
+          <path
+            d="M32 52 L22 28 L42 40 L48 22 L60 38 L72 22 L78 40 L98 28 L88 52 Z"
+            fill={`url(#${queenGrad})`}
+          />
+          {/* Coronet Pearls */}
+          <circle cx="22" cy="26" r="4.5" fill="#fef9c3" />
+          <circle cx="48" cy="20" r="4.5" fill="#fef9c3" />
+          <circle cx="60" cy="14" r="5" fill="#ffffff" />
+          <circle cx="72" cy="20" r="4.5" fill="#fef9c3" />
+          <circle cx="98" cy="26" r="4.5" fill="#fef9c3" />
+          {/* Ruby Center Crest */}
+          <polygon points="60,57 69,68 60,79 51,68" fill={`url(#${gemGrad})`} />
+          <rect x="34" y="49" width="52" height="7" rx="3.5" fill="#fef08a" />
+          <ellipse cx="45" cy="70" rx="3.5" ry="10" fill="#ffffff" opacity="0.55" />
+        </svg>
+      );
+    }
+
+    case 'chess-king': {
+      const chromaGrad = `chessChromaKing-${uid}`;
+      const shineMaskId = `chessKingMask-${uid}`;
+      const shineGradId = `chessKingShine-${uid}`;
+      return (
+        <svg
+          viewBox="0 0 120 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-chroma-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id={chromaGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#67e8f9" />
+              <stop offset="35%" stopColor="#38bdf8" />
+              <stop offset="70%" stopColor="#c084fc" />
+              <stop offset="100%" stopColor="#f472b6" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <rect x="22" y="8" width="76" height="98" rx="14" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Crown Cross Finial */}
+          <rect x="55" y="9" width="10" height="22" rx="4" fill="#67e8f9" />
+          <rect x="47" y="15" width="26" height="9" rx="4" fill="#a5f3fc" />
+          {/* Royal Pedestal */}
+          <rect x="24" y="92" width="72" height="14" rx="7" fill="#0284c7" />
+          <rect x="28" y="86" width="64" height="12" rx="6" fill={`url(#${chromaGrad})`} />
+          {/* Prismatic King Body */}
+          <path d="M35 44 C30 33 42 26 60 28 C78 26 90 33 85 44 L82 86 H38 Z" fill={`url(#${chromaGrad})`} />
+          {/* Imperial Collar Band */}
+          <rect x="33" y="42" width="54" height="10" rx="5" fill="#e0f2fe" />
+          <circle cx="46" cy="47" r="2.8" fill="#38bdf8" />
+          <circle cx="60" cy="47" r="3.2" fill="#f472b6" />
+          <circle cx="74" cy="47" r="2.8" fill="#a855f7" />
+          <ellipse cx="47" cy="68" rx="4.5" ry="12" fill="#ffffff" opacity="0.55" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'chess-en-passant': {
+      const mysticGrad = `chessMysticGrad-${uid}`;
+      const phantomGrad = `chessPhantomBody-${uid}`;
+      const shineMaskId = `chessMysticMask-${uid}`;
+      const shineGradId = `chessMysticShine-${uid}`;
+      return (
+        <svg
+          viewBox="0 0 120 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-mystic-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id={mysticGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f5d0fe" />
+              <stop offset="45%" stopColor="#a855f7" />
+              <stop offset="100%" stopColor="#3b0764" />
+            </linearGradient>
+            <linearGradient id={phantomGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#67e8f9" />
+              <stop offset="55%" stopColor="#a855f7" />
+              <stop offset="100%" stopColor="#6b21a8" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <rect x="14" y="14" width="92" height="92" rx="20" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Afterimage Ghost Pawn Trail */}
+          <g opacity="0.38" transform="translate(-16, -2)">
+            <circle cx="52" cy="36" r="14" fill="#c084fc" />
+            <path d="M40 54 L32 84 H72 L64 54 Z" fill="#a855f7" />
+          </g>
+          {/* Kinetic Arcane Dash Arcs */}
+          <path d="M16 54 H38" stroke="#e9d5ff" strokeWidth="4" strokeLinecap="round" />
+          <path d="M12 68 H34" stroke="#67e8f9" strokeWidth="3.5" strokeLinecap="round" />
+          <path d="M20 82 H40" stroke="#e9d5ff" strokeWidth="3" strokeLinecap="round" />
+          {/* Main Spectral En Passant Pawn */}
+          <g transform="translate(14, 4)">
+            <rect x="34" y="88" width="52" height="12" rx="6" fill="#4c1d95" />
+            <path d="M47 52 L39 88 H81 L73 52 Z" fill={`url(#${mysticGrad})`} />
+            <rect x="42" y="46" width="36" height="8" rx="4" fill="#e9d5ff" />
+            <circle cx="60" cy="30" r="16" fill={`url(#${phantomGrad})`} />
+            <ellipse cx="54" cy="24" rx="5" ry="7.5" transform="rotate(-24 54 24)" fill="#ffffff" opacity="0.8" />
+          </g>
+          {shouldAnimateSpecial && (
+            <>
+              <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} isMystic />
+              <path d="M24 22 L26 27 L31 29 L26 31 L24 36 L22 31 L17 29 L22 27 Z" fill="#fef08a">
+                <animate attributeName="opacity" values="0.35;1;0.35" dur="1.7s" repeatCount="indefinite" />
+              </path>
+              <path d="M98 20 L100 24 L104 26 L100 28 L98 32 L96 28 L92 26 L96 24 Z" fill="#e9d5ff">
+                <animate attributeName="opacity" values="1;0.35;1" dur="1.7s" repeatCount="indefinite" />
+              </path>
+            </>
+          )}
+        </svg>
+      );
+    }
+
+    case 'chess-checkmate': {
+      const checkmateGrad = `chessClickedGrad-${uid}`;
+      const shineMaskId = `chessClickedMask-${uid}`;
+      const shineGradId = `chessClickedShine-${uid}`;
+      return (
+        <svg
+          viewBox="0 0 120 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-clicked-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <radialGradient id={checkmateGrad} cx="42%" cy="38%" r="68%">
+              <stop offset="0%" stopColor="#fed7aa" />
+              <stop offset="42%" stopColor="#ff7a00" />
+              <stop offset="100%" stopColor="#9a3412" />
+            </radialGradient>
+            <mask id={shineMaskId}>
+              <circle cx="60" cy="60" r="46" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Orbiting Click-Burst Checkmate Arcs */}
+          <path d="M14 44 A48 48 0 0 1 44 14" stroke="#ff9f1c" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+          <path d="M106 76 A48 48 0 0 1 76 106" stroke="#ff7a00" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+          <path d="M84 16 A48 48 0 0 1 104 40" stroke="#fb923c" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+          <path d="M16 80 A48 48 0 0 0 36 104" stroke="#fb923c" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+          {/* Tilted Defeated King Crest on Heated Tile */}
+          <circle cx="60" cy="60" r="39" fill="#c2410c" />
+          <circle cx="60" cy="60" r="34" fill={`url(#${checkmateGrad})`} />
+          <g transform="translate(60, 62) rotate(-24) translate(-60, -62)">
+            <rect x="56" y="23" width="8" height="16" rx="3" fill="#fff7ed" />
+            <rect x="50" y="28" width="20" height="6" rx="3" fill="#fff7ed" />
+            <path d="M43 44 C40 37 48 34 60 35 C72 34 80 37 77 44 L74 79 H46 Z" fill="#ffedd5" />
+            <rect x="38" y="79" width="44" height="10" rx="5" fill="#fed7aa" />
+          </g>
+          {/* Checkmate '#' Impact Badge */}
+          <text
+            x="84"
+            y="47"
+            textAnchor="middle"
+            fill="#ffffff"
+            stroke="#9a3412"
+            strokeWidth="4"
+            paintOrder="stroke fill"
+            fontFamily="'Titan One', cursive, sans-serif"
+            fontSize="24"
+          >
+            #
+          </text>
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'chess-grandmaster': {
+      const goldGrad = `chessGodlyGold-${uid}`;
+      const gemGrad = `chessGodlyGem-${uid}`;
+      const shineMaskId = `chessGodlyMask-${uid}`;
+      const shineGradId = `chessGodlyShine-${uid}`;
+      return (
+        <svg
+          viewBox="0 0 120 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-godly-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id={goldGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#fef9c3" />
+              <stop offset="42%" stopColor="#facc15" />
+              <stop offset="100%" stopColor="#b45309" />
+            </linearGradient>
+            <radialGradient id={gemGrad} cx="40%" cy="35%" r="65%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="45%" stopColor="#fef08a" />
+              <stop offset="100%" stopColor="#eab308" />
+            </radialGradient>
+            <mask id={shineMaskId}>
+              <rect x="14" y="12" width="92" height="98" rx="18" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Celestial Halo */}
+          <ellipse cx="60" cy="18" rx="24" ry="6.5" fill="none" stroke="#fef08a" strokeWidth="4" />
+          {/* Winged Grandmaster Laurel Crest */}
+          <path d="M22 66 C10 56 10 40 24 32 L34 46 L26 66 Z" fill="#eab308" />
+          <path d="M98 66 C110 56 110 40 96 32 L86 46 L94 66 Z" fill="#eab308" />
+          {/* Imperial Crown Base */}
+          <rect x="24" y="92" width="72" height="14" rx="7" fill="#a16207" />
+          <rect x="28" y="86" width="64" height="11" rx="5.5" fill="#eab308" />
+          {/* Sovereign King & Queen Merged Crest */}
+          <path
+            d="M30 86 L24 44 L44 56 L60 28 L76 56 L96 44 L90 86 Z"
+            fill={`url(#${goldGrad})`}
+          />
+          <rect x="56" y="20" width="8" height="16" rx="3" fill="#fef08a" />
+          <rect x="51" y="25" width="18" height="6" rx="3" fill="#fef08a" />
+          <circle cx="24" cy="42" r="5" fill="#fef9c3" />
+          <circle cx="96" cy="42" r="5" fill="#fef9c3" />
+          {/* Glowing Sunstone Core */}
+          <circle cx="60" cy="66" r="14" fill="#ca8a04" />
+          <circle cx="60" cy="66" r="11" fill={`url(#${gemGrad})`} />
+          <ellipse cx="56" cy="62" rx="3.5" ry="5" transform="rotate(-24 56 62)" fill="#ffffff" opacity="0.88" />
+          {shouldAnimateSpecial && (
+            <>
+              <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} isMystic />
+              <path d="M18 18 L20 23 L25 25 L20 27 L18 32 L16 27 L11 25 L16 23 Z" fill="#fef08a">
+                <animate attributeName="opacity" values="0.3;1;0.3" dur="1.5s" repeatCount="indefinite" />
+              </path>
+              <path d="M102 18 L104 23 L109 25 L104 27 L102 32 L100 27 L95 25 L100 23 Z" fill="#ffffff">
+                <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" />
               </path>
             </>
           )}

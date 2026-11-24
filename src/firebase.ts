@@ -107,6 +107,12 @@ export interface FirestoreChatMessage {
   isOwner?: boolean;
   text: string;
   createdAt: string;
+  clanTag?: string;
+  clanColor?: string;
+  replyToId?: string;
+  replyToUsername?: string;
+  replyToAvatar?: string;
+  replyToText?: string;
 }
 
 export interface FirestorePlayerPresence {
@@ -118,6 +124,7 @@ export interface FirestorePlayerPresence {
   isOwner?: boolean;
   achievements?: string[];
   lastSeen: number;
+  typingUntil?: number;
 }
 
 export interface FirestoreGlobalTrade {
@@ -161,6 +168,12 @@ export function subscribeFirestoreChat(
           isOwner: Boolean(data.isOwner),
           text: data.text || '',
           createdAt: data.createdAt || new Date().toISOString(),
+          ...(data.clanTag ? { clanTag: String(data.clanTag) } : {}),
+          ...(data.clanColor ? { clanColor: String(data.clanColor) } : {}),
+          ...(data.replyToId ? { replyToId: String(data.replyToId) } : {}),
+          ...(data.replyToUsername ? { replyToUsername: String(data.replyToUsername) } : {}),
+          ...(data.replyToAvatar ? { replyToAvatar: String(data.replyToAvatar) } : {}),
+          ...(data.replyToText ? { replyToText: String(data.replyToText) } : {}),
         });
       });
       onMessages(msgs);
@@ -177,16 +190,24 @@ export function subscribeFirestoreChat(
 export async function sendFirestoreChatMessage(message: FirestoreChatMessage): Promise<void> {
   const docPath = `chat_messages/${message.id}`;
   try {
-    await setDoc(doc(db, 'chat_messages', message.id), {
+    const payload: Record<string, unknown> = {
       id: message.id,
       userId: message.userId,
-      username: message.username,
-      avatarBlookId: message.avatarBlookId || '',
+      username: message.username.slice(0, 32),
+      avatarBlookId: (message.avatarBlookId || '').slice(0, 64),
       achievements: message.achievements || [],
       isOwner: Boolean(message.isOwner),
-      text: message.text,
+      text: message.text.slice(0, 300),
       createdAt: message.createdAt || new Date().toISOString(),
-    });
+    };
+    if (message.clanTag) payload.clanTag = message.clanTag.slice(0, 10);
+    if (message.clanColor) payload.clanColor = message.clanColor.slice(0, 16);
+    if (message.replyToId) payload.replyToId = message.replyToId.slice(0, 128);
+    if (message.replyToUsername) payload.replyToUsername = message.replyToUsername.slice(0, 32);
+    if (message.replyToAvatar) payload.replyToAvatar = message.replyToAvatar.slice(0, 64);
+    if (message.replyToText) payload.replyToText = message.replyToText.slice(0, 120);
+
+    await setDoc(doc(db, 'chat_messages', message.id), payload);
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, docPath);
   }
@@ -233,6 +254,7 @@ export function subscribeFirestorePresence(
             isOwner: Boolean(data.isOwner),
             achievements: Array.isArray(data.achievements) ? data.achievements : [],
             lastSeen,
+            typingUntil: Number(data.typingUntil) || 0,
           });
         }
       });
@@ -256,12 +278,13 @@ export async function updateFirestorePresence(
     await setDoc(doc(db, 'presence', playerId), {
       id: playerId,
       userId: presence.userId,
-      username: presence.username,
-      avatarBlookId: presence.avatarBlookId || '',
+      username: presence.username.slice(0, 32),
+      avatarBlookId: (presence.avatarBlookId || '').slice(0, 64),
       unlockedCount: presence.unlockedCount || 0,
       isOwner: Boolean(presence.isOwner),
       achievements: presence.achievements || [],
       lastSeen: Date.now(),
+      typingUntil: Number(presence.typingUntil) || 0,
     });
   } catch (error) {
     handleFirestoreError(error, OperationType.WRITE, docPath);
@@ -295,7 +318,9 @@ export function subscribeFirestoreTrades(
       const trades: FirestoreGlobalTrade[] = [];
       snapshot.forEach((d) => {
         const data = d.data();
-        if (data.status === 'OPEN') {
+        const isBot =
+          d.id.startsWith('gt-seed-') || String(data.creatorId || '').startsWith('seed-trader-');
+        if (data.status === 'OPEN' && !isBot) {
           trades.push({
             id: d.id,
             creatorId: data.creatorId || '',

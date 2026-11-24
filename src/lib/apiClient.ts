@@ -74,6 +74,12 @@ export interface StaticChatMessage {
   isOwner: boolean;
   text: string;
   createdAt: string;
+  clanTag?: string;
+  clanColor?: string;
+  replyToId?: string;
+  replyToUsername?: string;
+  replyToAvatar?: string;
+  replyToText?: string;
 }
 
 export interface StaticGlobalTradeListing {
@@ -180,65 +186,6 @@ export function onStaticModeChange(listener: () => void): () => void {
   };
 }
 
-const INITIAL_STATIC_GLOBAL_TRADES: StaticGlobalTradeListing[] = [
-  {
-    id: 'gt-seed-1',
-    creatorId: 'seed-trader-1',
-    creatorUsername: 'CircusCollector',
-    creatorAvatarBlookId: 'magician',
-    creatorAchievements: ['day_one'],
-    creatorIsOwner: false,
-    offeredBlookId: 'cotton-candy',
-    requestedBlookId: 'popcorn',
-    requestedRarity: null,
-    note: 'Trading my Rare Cotton Candy for a Popcorn!',
-    status: 'OPEN',
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: 'gt-seed-2',
-    creatorId: 'seed-trader-2',
-    creatorUsername: 'AthleteFan99',
-    creatorAvatarBlookId: 'athlete-soccer',
-    creatorAchievements: ['day_one'],
-    creatorIsOwner: false,
-    offeredBlookId: 'athlete-basketball',
-    requestedBlookId: 'tightrope-walker',
-    requestedRarity: null,
-    note: '1-to-1 Uncommon swap! Need Tightrope Walker.',
-    status: 'OPEN',
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: 'gt-seed-3',
-    creatorId: 'seed-trader-3',
-    creatorUsername: 'BlookCollectorPro',
-    creatorAvatarBlookId: 'ring-lion',
-    creatorAchievements: ['day_one', 'legendary'],
-    creatorIsOwner: false,
-    offeredBlookId: 'circus-elephant',
-    requestedBlookId: null,
-    requestedRarity: 'Rare',
-    note: 'Offering Circus Elephant for ANY Rare Blook!',
-    status: 'OPEN',
-    createdAt: new Date(Date.now() - 10800000).toISOString(),
-  },
-  {
-    id: 'gt-seed-4',
-    creatorId: 'seed-trader-4',
-    creatorUsername: 'ClicketTrader',
-    creatorAvatarBlookId: 'jester',
-    creatorAchievements: ['day_one'],
-    creatorIsOwner: false,
-    offeredBlookId: 'magician',
-    requestedBlookId: 'jester',
-    requestedRarity: null,
-    note: 'Need an extra Jester for Bazaar crafting!',
-    status: 'OPEN',
-    createdAt: new Date(Date.now() - 14400000).toISOString(),
-  },
-];
-
 const INITIAL_STATIC_CHAT: StaticChatMessage[] = [
   {
     id: 'msg-welcome-owner',
@@ -252,12 +199,21 @@ const INITIAL_STATIC_CHAT: StaticChatMessage[] = [
   },
 ];
 
+function isBotStaticTrade(t: StaticGlobalTradeListing): boolean {
+  return (
+    String(t.id || '').startsWith('gt-seed-') ||
+    String(t.creatorId || '').startsWith('seed-trader-')
+  );
+}
+
 function loadStaticDb(): StaticDatabase {
   try {
     const raw = localStorage.getItem(STATIC_DB_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<StaticDatabase>;
-      return {
+      const rawTrades = Array.isArray(parsed.globalTrades) ? parsed.globalTrades : [];
+      const cleanedTrades = rawTrades.filter((t) => !isBotStaticTrade(t));
+      const db: StaticDatabase = {
         users: parsed.users || {},
         sessions: parsed.sessions || {},
         setStats: parsed.setStats || {},
@@ -266,11 +222,12 @@ function loadStaticDb(): StaticDatabase {
           Array.isArray(parsed.chatMessages) && parsed.chatMessages.length > 0
             ? parsed.chatMessages
             : [...INITIAL_STATIC_CHAT],
-        globalTrades:
-          Array.isArray(parsed.globalTrades) && parsed.globalTrades.length > 0
-            ? parsed.globalTrades
-            : [...INITIAL_STATIC_GLOBAL_TRADES],
+        globalTrades: cleanedTrades,
       };
+      if (cleanedTrades.length !== rawTrades.length) {
+        saveStaticDb(db);
+      }
+      return db;
     }
   } catch {
     // Ignore storage read error
@@ -281,7 +238,7 @@ function loadStaticDb(): StaticDatabase {
     setStats: {},
     clans: {},
     chatMessages: [...INITIAL_STATIC_CHAT],
-    globalTrades: [...INITIAL_STATIC_GLOBAL_TRADES],
+    globalTrades: [],
   };
   saveStaticDb(initial);
   return initial;
@@ -1084,6 +1041,12 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
         ? user.equippedBlookId
         : '';
 
+    const userClan = user.clanId && db.clans?.[user.clanId] ? db.clans[user.clanId] : null;
+    const replyToId = body.replyToId ? String(body.replyToId).trim().slice(0, 128) : '';
+    const replyToUsername = body.replyToUsername ? String(body.replyToUsername).trim().slice(0, 32) : '';
+    const replyToAvatar = body.replyToAvatar ? String(body.replyToAvatar).trim().slice(0, 64) : '';
+    const replyToText = body.replyToText ? String(body.replyToText).trim().slice(0, 120) : '';
+
     const message: StaticChatMessage = {
       id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
       userId: user.id,
@@ -1093,6 +1056,12 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
       isOwner,
       text: cleanText,
       createdAt: new Date().toISOString(),
+      ...(userClan?.tag ? { clanTag: userClan.tag } : {}),
+      ...(userClan?.bannerColor ? { clanColor: userClan.bannerColor } : {}),
+      ...(replyToId ? { replyToId } : {}),
+      ...(replyToUsername ? { replyToUsername } : {}),
+      ...(replyToAvatar ? { replyToAvatar } : {}),
+      ...(replyToText ? { replyToText } : {}),
     };
 
     if (!Array.isArray(db.chatMessages)) db.chatMessages = [];
@@ -1121,7 +1090,9 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
 
   // GLOBAL TRADING: LIST / CREATE / FULFILL / CANCEL
   if (url === '/api/trades/global' && method === 'GET') {
-    const openTrades = (db.globalTrades || []).filter((t) => t.status === 'OPEN');
+    const openTrades = (db.globalTrades || []).filter(
+      (t) => t.status === 'OPEN' && !isBotStaticTrade(t)
+    );
     return jsonRes({ trades: openTrades.slice(-80).reverse() });
   }
 

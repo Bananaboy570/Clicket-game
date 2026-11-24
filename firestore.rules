@@ -14,10 +14,6 @@ service cloud.firestore {
       return request.resource.data;
     }
 
-    function existing() {
-      return resource.data;
-    }
-
     function isSignedIn() {
       return request.auth != null;
     }
@@ -29,28 +25,51 @@ service cloud.firestore {
       );
     }
 
+    function isOptionalString(data, key, maxLen) {
+      return !(key in data) || (data[key] is string && data[key].size() <= maxLen);
+    }
+
     function isValidChatMessage(data) {
       return data.keys().hasAll(['id', 'userId', 'username', 'text', 'createdAt']) &&
-        data.keys().hasOnly(['id', 'userId', 'username', 'avatarBlookId', 'achievements', 'isOwner', 'text', 'createdAt']) &&
+        data.keys().hasOnly([
+          'id', 'userId', 'username', 'avatarBlookId', 'achievements', 'isOwner',
+          'text', 'createdAt', 'clanTag', 'clanColor',
+          'replyToId', 'replyToUsername', 'replyToAvatar', 'replyToText'
+        ]) &&
         data.id is string && data.id.size() <= 128 &&
         data.userId is string && data.userId.size() <= 128 &&
         data.username is string && data.username.size() >= 1 && data.username.size() <= 32 &&
         data.text is string && data.text.size() > 0 && data.text.size() <= 300 &&
-        data.createdAt is string && data.createdAt.size() <= 64;
+        data.createdAt is string && data.createdAt.size() <= 64 &&
+        isOptionalString(data, 'avatarBlookId', 64) &&
+        isOptionalString(data, 'clanTag', 10) &&
+        isOptionalString(data, 'clanColor', 16) &&
+        isOptionalString(data, 'replyToId', 128) &&
+        isOptionalString(data, 'replyToUsername', 32) &&
+        isOptionalString(data, 'replyToAvatar', 64) &&
+        isOptionalString(data, 'replyToText', 120);
     }
 
     function isValidPresence(data) {
       return data.keys().hasAll(['id', 'userId', 'username', 'lastSeen']) &&
-        data.keys().hasOnly(['id', 'userId', 'username', 'avatarBlookId', 'unlockedCount', 'isOwner', 'achievements', 'lastSeen']) &&
+        data.keys().hasOnly([
+          'id', 'userId', 'username', 'avatarBlookId', 'unlockedCount',
+          'isOwner', 'achievements', 'lastSeen', 'typingUntil'
+        ]) &&
         data.id is string && data.id.size() <= 128 &&
         data.userId is string && data.userId.size() <= 128 &&
         data.username is string && data.username.size() <= 32 &&
-        data.lastSeen is number;
+        data.lastSeen is number &&
+        (!('typingUntil' in data) || data.typingUntil is number);
     }
 
     function isValidTrade(data) {
       return data.keys().hasAll(['id', 'creatorId', 'creatorUsername', 'offeredBlookId', 'status', 'createdAt']) &&
-        data.keys().hasOnly(['id', 'creatorId', 'creatorUsername', 'creatorAvatarBlookId', 'creatorAchievements', 'creatorIsOwner', 'offeredBlookId', 'requestedBlookId', 'requestedRarity', 'note', 'status', 'createdAt', 'fulfilledByUsername', 'fulfilledAt']) &&
+        data.keys().hasOnly([
+          'id', 'creatorId', 'creatorUsername', 'creatorAvatarBlookId', 'creatorAchievements',
+          'creatorIsOwner', 'offeredBlookId', 'requestedBlookId', 'requestedRarity', 'note',
+          'status', 'createdAt', 'fulfilledByUsername', 'fulfilledAt'
+        ]) &&
         data.id is string && data.id.size() <= 128 &&
         data.creatorId is string && data.creatorId.size() <= 128 &&
         data.creatorUsername is string && data.creatorUsername.size() <= 32 &&

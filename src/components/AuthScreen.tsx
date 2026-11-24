@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff } from 'lucide-react';
 import { BlookArt } from './BlookArt';
+import { BlookBackground } from './BlookBackground';
 import { apiFetch } from '../lib/apiClient';
 
 export interface TradeHistoryItem {
@@ -117,15 +118,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
   };
 
   return (
-    <div className="min-h-screen w-screen bg-[#f87171] flex flex-col items-center justify-center p-4 relative overflow-y-auto select-none">
-      {/* Subtle Checkered Background Pattern */}
-      <div
-        className="pointer-events-none fixed inset-0 opacity-[0.09]"
-        style={{
-          backgroundImage: `radial-gradient(rgba(255,255,255,0.6) 2px, transparent 2px), linear-gradient(15deg, rgba(255,255,255,0.22) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0.22) 75%, transparent 75%, transparent)`,
-          backgroundSize: '110px 110px',
-        }}
-      />
+    <div className="min-h-screen w-screen bg-[#ff8585] flex flex-col items-center justify-center p-4 relative overflow-y-auto select-none">
+      <BlookBackground />
 
       {/* Top Red Bar with CLICKET Logo */}
       <div className="fixed top-0 inset-x-0 h-16 bg-[#dc2626] shadow-[0_4px_15px_rgba(0,0,0,0.18)] flex items-center justify-between px-6 z-20">

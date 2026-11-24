@@ -5,6 +5,7 @@
     font-family: 'Nunito', sans-serif;
     user-select: none;
     overflow: hidden;
+    background-color: #ff8585;
   }
 }
 
@@ -241,6 +242,28 @@
   }
 }
 
+@keyframes clickedFloatMove {
+  0%, 100% {
+    transform: translateY(0px) scale(1) rotate(-2deg);
+    filter: drop-shadow(0 0 9px rgba(255, 122, 0, 0.72));
+  }
+  50% {
+    transform: translateY(-6px) scale(1.055) rotate(2deg);
+    filter: drop-shadow(0 0 18px rgba(255, 159, 28, 0.95));
+  }
+}
+
+@keyframes godlyFloatMove {
+  0%, 100% {
+    transform: translateY(0px) scale(1) rotate(-1.5deg);
+    filter: drop-shadow(0 0 11px rgba(250, 204, 21, 0.8));
+  }
+  50% {
+    transform: translateY(-7px) scale(1.06) rotate(1.5deg);
+    filter: drop-shadow(0 0 22px rgba(254, 240, 138, 1));
+  }
+}
+
 /* Moving Glossy Shine Sweep across Chromas & Mysticals */
 @keyframes blookShineSweep {
   0% {
@@ -311,6 +334,14 @@
 
 .animate-mystic-move {
   animation: mysticFloatMove 2.8s ease-in-out infinite;
+}
+
+.animate-clicked-move {
+  animation: clickedFloatMove 2.3s ease-in-out infinite;
+}
+
+.animate-godly-move {
+  animation: godlyFloatMove 2.5s ease-in-out infinite;
 }
 
 .animate-blook-shine {

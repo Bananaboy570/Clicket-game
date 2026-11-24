@@ -55,6 +55,7 @@ export interface OnlinePlayerSummary {
   inTrade: boolean;
   achievements?: string[];
   isOwner?: boolean;
+  typingUntil?: number;
 }
 
 export interface LiveTradeParticipant {
@@ -117,6 +118,8 @@ const RARITY_TABS: Array<'All' | Rarity> = [
   'Legendary',
   'Chroma',
   'Mystic',
+  'Clicked',
+  'Godly',
 ];
 
 export const TradingView: React.FC<TradingViewProps> = ({
@@ -886,8 +889,19 @@ export const TradingView: React.FC<TradingViewProps> = ({
                   })}
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                  {(['Uncommon', 'Rare', 'Epic', 'Legendary', 'Chroma', 'Mystic'] as Rarity[]).map(
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  {(
+                    [
+                      'Uncommon',
+                      'Rare',
+                      'Epic',
+                      'Legendary',
+                      'Chroma',
+                      'Mystic',
+                      'Clicked',
+                      'Godly',
+                    ] as Rarity[]
+                  ).map(
                     (rarity) => (
                       <button
                         key={rarity}

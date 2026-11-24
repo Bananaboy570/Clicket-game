@@ -44,6 +44,36 @@
           "type": "string",
           "format": "date-time",
           "description": "ISO timestamp when the message was posted"
+        },
+        "clanTag": {
+          "type": "string",
+          "description": "Optional clan tag badge for the author",
+          "maxLength": 10
+        },
+        "clanColor": {
+          "type": "string",
+          "description": "Optional hex color for the author clan tag",
+          "maxLength": 16
+        },
+        "replyToId": {
+          "type": "string",
+          "description": "ID of message being replied to",
+          "maxLength": 128
+        },
+        "replyToUsername": {
+          "type": "string",
+          "description": "Username of message being replied to",
+          "maxLength": 32
+        },
+        "replyToAvatar": {
+          "type": "string",
+          "description": "Avatar Blook ID of message being replied to",
+          "maxLength": 64
+        },
+        "replyToText": {
+          "type": "string",
+          "description": "Truncated snippet of replied message",
+          "maxLength": 120
         }
       },
       "required": ["id", "userId", "username", "text", "createdAt"]
@@ -190,6 +220,10 @@
         "lastSeen": {
           "type": "number",
           "description": "Epoch timestamp of last activity heartbeat"
+        },
+        "typingUntil": {
+          "type": "number",
+          "description": "Optional epoch timestamp until which user is typing in chat"
         }
       },
       "required": ["id", "userId", "username", "lastSeen"]

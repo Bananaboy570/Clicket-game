@@ -244,6 +244,249 @@ export const CircusPackCoverSVG: React.FC<{ className?: string }> = ({ className
   </svg>
 );
 
+export const FruitPackCoverSVG: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg viewBox="0 0 200 240" className={className} xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="fruitPackBodyClip">
+        <rect x="10" y="42" width="180" height="158" />
+      </clipPath>
+      <linearGradient id="fruitPackSkyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#fde047" />
+        <stop offset="45%" stopColor="#fb923c" />
+        <stop offset="100%" stopColor="#ea580c" />
+      </linearGradient>
+      <linearGradient id="fruitPackAppleGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#f87171" />
+        <stop offset="55%" stopColor="#dc2626" />
+        <stop offset="100%" stopColor="#991b1b" />
+      </linearGradient>
+      <linearGradient id="fruitPackPearGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#86efac" />
+        <stop offset="55%" stopColor="#22c55e" />
+        <stop offset="100%" stopColor="#15803d" />
+      </linearGradient>
+    </defs>
+
+    <FoilSealTop />
+
+    <g clipPath="url(#fruitPackBodyClip)">
+      <rect x="10" y="42" width="180" height="158" fill="url(#fruitPackSkyGrad)" />
+
+      {/* Sunburst Radial Stripes */}
+      <g opacity="0.22" transform="translate(100, 118)">
+        {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
+          <polygon
+            key={deg}
+            points="0,0 -14,-130 14,-130"
+            fill="#ffffff"
+            transform={`rotate(${deg})`}
+          />
+        ))}
+      </g>
+
+      {/* Lush Orchard Grass Hills */}
+      <path d="M10 165 Q55 142 105 162 Q155 146 190 164 V200 H10 Z" fill="#16a34a" />
+      <path d="M10 178 Q70 160 130 176 Q168 166 190 178 V200 H10 Z" fill="#15803d" />
+
+      {/* Top Left Apple */}
+      <g transform="translate(22, 114) rotate(-14) scale(0.5)">
+        <path
+          d="M50 18 C32 10 12 20 12 46 C12 78 30 98 46 96 C50 95 54 95 58 96 C74 98 92 78 92 46 C92 20 72 10 54 18 Z"
+          fill="url(#fruitPackAppleGrad)"
+        />
+        <ellipse cx="32" cy="40" rx="8" ry="15" transform="rotate(-18 32 40)" fill="#fca5a5" opacity="0.5" />
+        <path d="M51 20 Q55 6 62 4" stroke="#78350f" strokeWidth="5" strokeLinecap="round" fill="none" />
+      </g>
+
+      {/* Top Right Pear */}
+      <g transform="translate(132, 110) rotate(12) scale(0.5)">
+        <path
+          d="M50 14 C62 14 68 34 76 52 C86 72 80 96 50 96 C20 96 14 72 24 52 C32 34 38 14 50 14 Z"
+          fill="url(#fruitPackPearGrad)"
+        />
+        <ellipse cx="40" cy="48" rx="8" ry="18" transform="rotate(-10 40 48)" fill="#dcfce7" opacity="0.55" />
+        <path d="M50 16 Q52 4 58 3" stroke="#92400e" strokeWidth="4.5" strokeLinecap="round" fill="none" />
+      </g>
+
+      {/* Center Kiwi Slice */}
+      <g transform="translate(76, 136) scale(0.48)">
+        <circle cx="50" cy="50" r="42" fill="#92400e" />
+        <circle cx="50" cy="50" r="37" fill="#a3e635" />
+        <circle cx="50" cy="50" r="14" fill="#fefce8" />
+        {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => (
+          <ellipse
+            key={a}
+            cx="50"
+            cy="28"
+            rx="2.3"
+            ry="4.2"
+            fill="#1c1917"
+            transform={`rotate(${a} 50 50)`}
+          />
+        ))}
+      </g>
+
+      {/* Bold FRUIT Title */}
+      <text
+        x="100"
+        y="90"
+        textAnchor="middle"
+        fill="#ffffff"
+        stroke="#7c2d12"
+        strokeWidth="6"
+        paintOrder="stroke fill"
+        fontFamily="'Titan One', cursive, sans-serif"
+        fontSize="33"
+        letterSpacing="1.5"
+      >
+        FRUIT
+      </text>
+
+      {/* Wooden Orchard PACK Banner */}
+      <g transform="translate(62, 98)">
+        <rect x="0" y="0" width="76" height="28" rx="6" fill="#9a3412" stroke="#431407" strokeWidth="2.5" />
+        <rect x="3" y="3" width="70" height="22" rx="4" fill="#c2410c" />
+        <text
+          x="38"
+          y="21"
+          textAnchor="middle"
+          fill="#fef08a"
+          stroke="#431407"
+          strokeWidth="4"
+          paintOrder="stroke fill"
+          fontFamily="'Titan One', cursive, sans-serif"
+          fontSize="20"
+        >
+          PACK
+        </text>
+      </g>
+    </g>
+
+    <FoilSealBottom />
+  </svg>
+);
+
+export const ChessPackCoverSVG: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg viewBox="0 0 200 240" className={className} xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="chessPackBodyClip">
+        <rect x="10" y="42" width="180" height="158" />
+      </clipPath>
+      <linearGradient id="chessPackSkyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#1e1b4b" />
+        <stop offset="52%" stopColor="#312e81" />
+        <stop offset="100%" stopColor="#4338ca" />
+      </linearGradient>
+      <linearGradient id="chessPackIvoryGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#ffffff" />
+        <stop offset="55%" stopColor="#f1f5f9" />
+        <stop offset="100%" stopColor="#cbd5e1" />
+      </linearGradient>
+      <linearGradient id="chessPackObsidianGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stopColor="#475569" />
+        <stop offset="55%" stopColor="#1e293b" />
+        <stop offset="100%" stopColor="#0f172a" />
+      </linearGradient>
+    </defs>
+
+    <FoilSealTop />
+
+    <g clipPath="url(#chessPackBodyClip)">
+      <rect x="10" y="42" width="180" height="158" fill="url(#chessPackSkyGrad)" />
+
+      {/* Grandmaster Spotlight Glow */}
+      <polygon points="100,42 22,200 178,200" fill="#818cf8" opacity="0.18" />
+      <circle cx="100" cy="110" r="56" fill="#c7d2fe" opacity="0.14" />
+
+      {/* Perspective Checkered Chessboard Floor */}
+      <g>
+        <rect x="10" y="156" width="180" height="44" fill="#1e293b" />
+        {[0, 1, 2, 3, 4, 5].map((col) => (
+          <React.Fragment key={col}>
+            <polygon
+              points={`${10 + col * 30},156 ${40 + col * 30},156 ${36 + col * 32},178 ${4 + col * 32},178`}
+              fill={col % 2 === 0 ? '#e2e8f0' : '#334155'}
+            />
+            <polygon
+              points={`${4 + col * 32},178 ${36 + col * 32},178 ${32 + col * 34},200 ${-2 + col * 34},200`}
+              fill={col % 2 === 1 ? '#e2e8f0' : '#1e293b'}
+            />
+          </React.Fragment>
+        ))}
+        <rect x="10" y="154" width="180" height="4" fill="#facc15" opacity="0.8" />
+      </g>
+
+      {/* Left Obsidian Knight Silhouette */}
+      <g transform="translate(18, 114) rotate(-8) scale(0.5)">
+        <path
+          d="M28 84 L32 54 C20 50 18 36 28 24 L36 12 L48 16 L60 8 L58 24 C74 32 76 58 64 84 Z"
+          fill="url(#chessPackObsidianGrad)"
+        />
+        <rect x="22" y="82" width="48" height="12" rx="5" fill="#0f172a" />
+        <path d="M40 24 C48 32 50 44 44 54" stroke="#64748b" strokeWidth="4" strokeLinecap="round" fill="none" />
+      </g>
+
+      {/* Right White Pawn Silhouette */}
+      <g transform="translate(136, 122) rotate(8) scale(0.48)">
+        <circle cx="50" cy="30" r="16" fill="url(#chessPackIvoryGrad)" />
+        <rect x="34" y="45" width="32" height="7" rx="3.5" fill="#e2e8f0" />
+        <path d="M38 52 L28 84 H72 L62 52 Z" fill="url(#chessPackIvoryGrad)" />
+        <rect x="22" y="82" width="56" height="12" rx="5" fill="#cbd5e1" />
+      </g>
+
+      {/* Center Royal King Piece */}
+      <g transform="translate(74, 124) scale(0.52)">
+        <rect x="46" y="4" width="8" height="22" rx="3" fill="#facc15" />
+        <rect x="39" y="10" width="22" height="7" rx="3" fill="#facc15" />
+        <path d="M34 32 L40 24 H60 L66 32 L62 78 H38 Z" fill="url(#chessPackIvoryGrad)" />
+        <rect x="32" y="34" width="36" height="8" rx="4" fill="#fde047" />
+        <rect x="24" y="78" width="52" height="14" rx="6" fill="#e2e8f0" />
+      </g>
+
+      {/* Bold CHESS Title */}
+      <text
+        x="100"
+        y="88"
+        textAnchor="middle"
+        fill="#ffffff"
+        stroke="#0f172a"
+        strokeWidth="6"
+        paintOrder="stroke fill"
+        fontFamily="'Titan One', cursive, sans-serif"
+        fontSize="32"
+        letterSpacing="1.5"
+      >
+        CHESS
+      </text>
+
+      {/* Royal Slate & Gold PACK Banner */}
+      <g transform="translate(62, 96)">
+        <rect x="0" y="0" width="76" height="28" rx="6" fill="#0f172a" stroke="#facc15" strokeWidth="2.5" />
+        <rect x="3" y="3" width="70" height="22" rx="4" fill="#312e81" />
+        <text
+          x="38"
+          y="21"
+          textAnchor="middle"
+          fill="#fef08a"
+          stroke="#0f172a"
+          strokeWidth="4"
+          paintOrder="stroke fill"
+          fontFamily="'Titan One', cursive, sans-serif"
+          fontSize="20"
+        >
+          PACK
+        </text>
+      </g>
+    </g>
+
+    <FoilSealBottom />
+  </svg>
+);
+
 export const PackCoverArt: React.FC<{ packId?: string; className?: string }> = ({
   packId = 'circus',
   className = 'w-36 h-44',
@@ -254,6 +497,32 @@ export const PackCoverArt: React.FC<{ packId?: string; className?: string }> = (
         <img
           src="assets/aistudio/Pack_Designs__2_-removebg-preview_c4530e10.png"
           alt="Athletes Pack"
+          className="w-full h-full object-contain select-none"
+          draggable={false}
+        />
+      </div>
+    );
+  }
+
+  if (packId === 'fruit') {
+    return (
+      <div className={`${className} drop-shadow-[0_6px_8px_rgba(0,0,0,0.45)] transition-transform duration-200 flex items-center justify-center`}>
+        <img
+          src="assets/aistudio/Pack_Designs__5_-removebg-preview__1__16e42f7f.png"
+          alt="Fruit Pack"
+          className="w-full h-full object-contain select-none"
+          draggable={false}
+        />
+      </div>
+    );
+  }
+
+  if (packId === 'chess') {
+    return (
+      <div className={`${className} drop-shadow-[0_6px_8px_rgba(0,0,0,0.45)] transition-transform duration-200 flex items-center justify-center`}>
+        <img
+          src="assets/aistudio/Pack_Designs__7_-removebg-preview_b259eceb.png"
+          alt="Chess Pack"
           className="w-full h-full object-contain select-none"
           draggable={false}
         />
@@ -369,78 +638,42 @@ export const AthletesSoccerBallIcon: React.FC<{ className?: string }> = ({
   </svg>
 );
 
-export const MarketShopkeeperBooth: React.FC = () => (
-  <svg viewBox="0 0 260 360" className="w-full max-w-[240px] h-auto drop-shadow-xl" xmlns="http://www.w3.org/2000/svg">
-    <text
-      x="130"
-      y="42"
-      textAnchor="middle"
-      fill="#09090b"
-      fontFamily="'Nunito', sans-serif"
-      fontWeight="900"
-      fontSize="36"
-      letterSpacing="2"
-    >
-      MARKET
-    </text>
-    <path d="M68 50 Q130 42 192 50" stroke="#09090b" strokeWidth="2.5" fill="none" />
-    <line x1="68" y1="56" x2="192" y2="56" stroke="#09090b" strokeWidth="3" />
-    {[78, 92, 106, 120, 134, 148, 162, 176].map((x) => (
-      <line key={x} x1={x} y1="47" x2={x} y2="56" stroke="#09090b" strokeWidth="2" />
-    ))}
-
-    <polygon points="56,56 204,56 226,118 34,118" fill="#4c4f7a" />
-    {[68, 86, 104].map((y, row) => (
-      <g key={y} opacity="0.45">
-        {[55, 80, 105, 130, 155, 180].map((x) => (
-          <path
-            key={`${row}-${x}`}
-            d={`M${x + (row % 2) * 10 - 12} ${y} Q${x + (row % 2) * 10} ${y + 16} ${x + (row % 2) * 10 + 12} ${y}`}
-            stroke="#2e3052"
-            strokeWidth="3"
-            fill="none"
-          />
-        ))}
-      </g>
-    ))}
-
-    <path d="M22 104 L38 130 L130 82 L222 130 L238 104 L228 138 L130 92 L32 138 Z" fill="#2e3252" />
-
-    <polygon points="40,122 220,122 232,332 28,332" fill="#1b5463" />
-    {[148, 176, 204, 232, 260, 288, 314].map((y) => (
-      <line key={y} x1="32" y1={y} x2="228" y2={y} stroke="#113b47" strokeWidth="4" />
-    ))}
-
-    <path d="M62 280 V185 C62 118 198 118 198 185 V280 Z" fill="#18a4e0" stroke="#113b47" strokeWidth="5" />
-
-    <g transform="translate(115, 180)">
-      <rect x="6" y="16" width="66" height="66" rx="12" fill="#ffcc00" />
-      <path d="M6 64 H72 V74 C72 78 68 82 64 82 H14 C10 82 6 78 6 74 V64 Z" fill="#6b21a8" />
-      <polygon points="28,64 39,78 50,64" fill="#ffffff" />
-      <rect x="46" y="70" width="12" height="6" rx="1" fill="#facc15" />
-      <circle cx="22" cy="48" r="7.5" fill="#ffffff" />
-      <circle cx="23" cy="48" r="5" fill="#27272a" />
-      <circle cx="21" cy="46" r="2" fill="#ffffff" />
-      <circle cx="56" cy="48" r="7.5" fill="#ffffff" />
-      <circle cx="55" cy="48" r="5" fill="#27272a" />
-      <circle cx="53" cy="46" r="2" fill="#ffffff" />
-      <path d="M35 55 Q39 60 43 55" stroke="#92400e" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-      <ellipse cx="39" cy="20" rx="40" ry="8" transform="rotate(4 39 20)" fill="#7e22ce" />
-      <path d="M12 18 L34 -8 L56 -4 L48 8 L64 20 Z" fill="#9333ea" />
-      <path d="M15 15 Q39 21 62 18" stroke="#fde047" strokeWidth="3.5" fill="none" />
-    </g>
-
-    <g transform="translate(65, 208)">
-      <rect x="8" y="0" width="22" height="12" rx="2" fill="#52525b" />
-      <rect x="11" y="2" width="16" height="7" fill="#d4d4d8" />
-      <path d="M4 12 H34 L38 34 H0 Z" fill="#71717a" />
-      <rect x="0" y="34" width="54" height="20" rx="3" fill="#52525b" />
-    </g>
-
-    <polygon points="52,258 208,258 214,276 46,276" fill="#5c2d16" />
-    <rect x="46" y="274" width="168" height="10" fill="#3e1d0d" />
-
-    <rect x="18" y="330" width="224" height="18" rx="3" fill="#1e1b38" />
-    <rect x="18" y="330" width="224" height="6" rx="2" fill="#2e2a54" />
+/**
+ * Glossy apple & leaf icon for the bottom-right corner of the Fruit Pack card
+ */
+export const FruitBasketCornerIcon: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path d="M52 24 C62 12 78 14 78 24 C66 28 58 28 52 24 Z" fill="#22c55e" />
+    <path d="M48 26 Q46 12 40 10" stroke="#78350f" strokeWidth="5" strokeLinecap="round" fill="none" />
+    <path
+      d="M50 26 C31 18 14 30 14 54 C14 82 32 95 47 93 C50 92 52 92 55 93 C70 95 86 82 86 54 C86 30 69 18 50 26 Z"
+      fill="#dc2626"
+    />
+    <ellipse cx="32" cy="46" rx="8" ry="15" transform="rotate(-18 32 46)" fill="#fca5a5" opacity="0.55" />
   </svg>
 );
+
+/**
+ * Glossy knight silhouette icon for the bottom-right corner of the Chess Pack card
+ */
+export const ChessKnightCornerIcon: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg">
+    <path
+      d="M32 76 L37 52 C24 49 20 35 30 22 L42 12 L52 16 L66 10 L63 26 C78 34 80 56 68 76 Z"
+      fill="#f8fafc"
+    />
+    <path
+      d="M44 26 C53 34 55 46 48 56"
+      stroke="#cbd5e1"
+      strokeWidth="4.5"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <rect x="24" y="75" width="52" height="12" rx="6" fill="#cbd5e1" />
+  </svg>
+);
+

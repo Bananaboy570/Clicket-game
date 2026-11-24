@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BlookItem, PackInfo, RARITY_COLORS } from '../data/blooks';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { Zap, Play, Pause, ChevronRight } from 'lucide-react';
+import { BlookItem, PackInfo, RARITY_COLORS, RARITY_RANK } from '../data/blooks';
 import { BlookArt } from './BlookArt';
 import { PackCoverArt } from './PackCoverArt';
 
@@ -143,20 +144,115 @@ const StageRevealCard: React.FC<{ packId: string; blook: BlookItem; isNew: boole
 }) => {
   const rarityColor = RARITY_COLORS[blook.rarity];
   const isAthletes = packId === 'athletes' || blook.packId === 'athletes';
+  const isFruit = packId === 'fruit' || blook.packId === 'fruit';
+  const isChess = packId === 'chess' || blook.packId === 'chess';
 
   return (
     <div className="flex flex-col items-center">
       {/* Rarity Pill Badge */}
       <div
         className="mb-3 px-6 py-1.5 rounded-full font-nunito font-black text-lg tracking-wide shadow-xl border-2 border-white/50 animate-new-badge"
-        style={{ backgroundColor: rarityColor, color: '#ffffff' }}
+        style={{
+          backgroundColor: rarityColor,
+          color: blook.rarity === 'Godly' ? '#422006' : '#ffffff',
+        }}
       >
         {blook.rarity}
       </div>
 
       {/* Rounded Black Frame matching real Blooket pack reveal card */}
       <div className="relative w-[340px] h-[360px] bg-black rounded-[38px] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.65)] flex items-center justify-center overflow-hidden border-2 border-white/20">
-        {isAthletes ? (
+        {isChess ? (
+          <svg viewBox="0 0 300 320" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="chessWindowClip">
+                <rect x="14" y="12" width="272" height="296" rx="28" />
+              </clipPath>
+              <linearGradient id="chessArenaGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#0f172a" />
+                <stop offset="48%" stopColor="#1e1b4b" />
+                <stop offset="100%" stopColor="#312e81" />
+              </linearGradient>
+            </defs>
+
+            <g clipPath="url(#chessWindowClip)">
+              <rect x="14" y="12" width="272" height="296" fill="url(#chessArenaGrad)" />
+
+              {/* Spotlight Rays */}
+              <polygon points="150,12 40,240 260,240" fill="#818cf8" opacity="0.18" />
+              <circle cx="150" cy="148" r="76" fill="#c7d2fe" opacity="0.16" />
+
+              {/* Velvet Midnight Curtains */}
+              <path d="M14 12 H74 C56 88 46 156 42 228 H14 Z" fill="#1e1b4b" />
+              <path d="M14 12 H50 C38 88 30 156 26 228 H14 Z" fill="#312e81" />
+              <path d="M286 12 H226 C244 88 254 156 258 228 H286 Z" fill="#1e1b4b" />
+              <path d="M286 12 H250 C262 88 270 156 274 228 H286 Z" fill="#312e81" />
+
+              {/* Perspective Checkered Chessboard Floor */}
+              <rect x="14" y="218" width="272" height="90" fill="#0f172a" />
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((col) => (
+                <React.Fragment key={col}>
+                  <rect
+                    x={14 + col * 34}
+                    y="222"
+                    width="34"
+                    height="28"
+                    fill={col % 2 === 0 ? '#e2e8f0' : '#334155'}
+                  />
+                  <rect
+                    x={14 + col * 34}
+                    y="250"
+                    width="34"
+                    height="28"
+                    fill={col % 2 === 1 ? '#e2e8f0' : '#1e293b'}
+                  />
+                  <rect
+                    x={14 + col * 34}
+                    y="278"
+                    width="34"
+                    height="30"
+                    fill={col % 2 === 0 ? '#cbd5e1' : '#0f172a'}
+                  />
+                </React.Fragment>
+              ))}
+              <rect x="14" y="218" width="272" height="5" fill="#facc15" opacity="0.85" />
+            </g>
+          </svg>
+        ) : isFruit ? (
+          <svg viewBox="0 0 300 320" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="fruitWindowClip">
+                <rect x="14" y="12" width="272" height="296" rx="28" />
+              </clipPath>
+              <linearGradient id="orchardSkyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#fde047" />
+                <stop offset="48%" stopColor="#fb923c" />
+                <stop offset="100%" stopColor="#fed7aa" />
+              </linearGradient>
+            </defs>
+
+            <g clipPath="url(#fruitWindowClip)">
+              <rect x="14" y="12" width="272" height="296" fill="url(#orchardSkyGrad)" />
+              <g opacity="0.25" transform="translate(150, 155)">
+                {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
+                  <polygon
+                    key={deg}
+                    points="0,0 -18,-210 18,-210"
+                    fill="#ffffff"
+                    transform={`rotate(${deg})`}
+                  />
+                ))}
+              </g>
+              {/* Orchard Rolling Hills */}
+              <path d="M14 220 Q80 185 155 215 Q225 188 286 218 V308 H14 Z" fill="#22c55e" />
+              <path d="M14 242 Q95 218 175 244 Q235 225 286 242 V308 H14 Z" fill="#16a34a" />
+              {/* Wooden Orchard Crate Edge */}
+              <rect x="14" y="266" width="272" height="44" fill="#9a3412" />
+              <rect x="14" y="266" width="272" height="7" fill="#c2410c" />
+              <line x1="14" y1="288" x2="286" y2="288" stroke="#7c2d12" strokeWidth="3" />
+            </g>
+          </svg>
+        ) : isAthletes ? (
           <svg viewBox="0 0 300 320" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <clipPath id="athletesWindowClip">
@@ -255,7 +351,13 @@ const StageRevealCard: React.FC<{ packId: string; blook: BlookItem; isNew: boole
           <h3
             className="font-titan text-white text-[26px] leading-tight tracking-wide drop-shadow-[0_3px_2px_rgba(0,0,0,0.65)]"
             style={{
-              WebkitTextStroke: isAthletes ? '2px #14532d' : '2px #3b1908',
+              WebkitTextStroke: isChess
+                ? '2px #0f172a'
+                : isFruit
+                ? '2px #7c2d12'
+                : isAthletes
+                ? '2px #14532d'
+                : '2px #3b1908',
               paintOrder: 'stroke fill',
             }}
           >
@@ -273,7 +375,13 @@ const StageRevealCard: React.FC<{ packId: string; blook: BlookItem; isNew: boole
           <span
             className="font-titan text-white text-[22px] tracking-wide drop-shadow-[0_2px_2px_rgba(0,0,0,0.85)]"
             style={{
-              WebkitTextStroke: isAthletes ? '1.8px #14532d' : '1.8px #2b1204',
+              WebkitTextStroke: isChess
+                ? '1.8px #0f172a'
+                : isFruit
+                ? '1.8px #7c2d12'
+                : isAthletes
+                ? '1.8px #14532d'
+                : '1.8px #2b1204',
               paintOrder: 'stroke fill',
             }}
           >
@@ -294,62 +402,127 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
   canAffordAnother,
 }) => {
   const [phase, setPhase] = useState<PackAnimationPhase>('READY');
+  const [currentIndex, setCurrentIndex] = useState<number>(0);
+  const [isSummary, setIsSummary] = useState<boolean>(false);
+  const [autoOpenActive, setAutoOpenActive] = useState<boolean>(false);
   const [inspectedPull, setInspectedPull] = useState<PackPullResult | null>(null);
   const phaseTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  const clearPhaseTimers = () => {
+  const clearPhaseTimers = useCallback(() => {
     phaseTimersRef.current.forEach((t) => clearTimeout(t));
     phaseTimersRef.current = [];
-  };
+  }, []);
 
   const isMulti = pulls.length > 1;
+  const activePull = pulls[Math.min(currentIndex, Math.max(0, pulls.length - 1))] || pulls[0];
 
-  const rarityRank: Record<string, number> = {
-    Uncommon: 1,
-    Rare: 2,
-    Epic: 3,
-    Legendary: 4,
-    Chroma: 5,
-    Mystic: 6,
-  };
   const bestPull = pulls.reduce((best, curr) =>
-    rarityRank[curr.blook.rarity] > rarityRank[best.blook.rarity] ? curr : best
+    RARITY_RANK[curr.blook.rarity] > RARITY_RANK[best.blook.rarity] ? curr : best
   );
-  const rarityColor = RARITY_COLORS[bestPull.blook.rarity];
+
+  // Use the current pack's rarity color while stepping through packs, and the best pull's color in summary
+  const activeDisplayPull = isMulti && !isSummary ? activePull : bestPull;
+  const rarityColor = RARITY_COLORS[activeDisplayPull.blook.rarity];
 
   useEffect(() => {
     clearPhaseTimers();
     setPhase('READY');
+    setCurrentIndex(0);
+    setIsSummary(false);
+    setAutoOpenActive(false);
     setInspectedPull(null);
     return clearPhaseTimers;
-  }, [pulls, pack]);
+  }, [pulls, pack, clearPhaseTimers]);
 
-  const handleStartOpening = () => {
-    if (phase !== 'READY') return;
+  const handleStartOpening = useCallback(
+    (fastMode: boolean = false) => {
+      if (phase !== 'READY') return;
+      clearPhaseTimers();
+
+      const targetPull = pulls[Math.min(currentIndex, Math.max(0, pulls.length - 1))] || pulls[0];
+      const tearMs = fastMode ? 420 : 750;
+      const burstMs = fastMode ? 680 : 1150;
+      const revealMs = fastMode ? 880 : 1450;
+
+      setPhase('SHAKING');
+      playSfx('shake');
+      phaseTimersRef.current.push(
+        setTimeout(() => playSfx('shake'), fastMode ? 180 : 250),
+        ...(fastMode ? [] : [setTimeout(() => playSfx('shake'), 500)]),
+        setTimeout(() => {
+          setPhase('TEARING');
+          playSfx('rip');
+        }, tearMs),
+        setTimeout(() => {
+          setPhase('BURST');
+          if (
+            targetPull.blook.rarity === 'Mystic' ||
+            targetPull.blook.rarity === 'Chroma' ||
+            targetPull.blook.rarity === 'Clicked' ||
+            targetPull.blook.rarity === 'Godly'
+          ) {
+            playSfx('mystic');
+          } else {
+            playSfx('reveal');
+          }
+        }, burstMs),
+        setTimeout(() => {
+          setPhase('REVEALED');
+        }, revealMs)
+      );
+    },
+    [phase, clearPhaseTimers, pulls, currentIndex]
+  );
+
+  const handleAdvanceNextPack = useCallback(() => {
+    if (!isMulti || isSummary) return;
     clearPhaseTimers();
+    if (currentIndex + 1 < pulls.length) {
+      setCurrentIndex((prev) => prev + 1);
+      setPhase('READY');
+    } else {
+      setAutoOpenActive(false);
+      setIsSummary(true);
+      setPhase('REVEALED');
+    }
+  }, [isMulti, isSummary, clearPhaseTimers, currentIndex, pulls.length]);
 
-    setPhase('SHAKING');
-    playSfx('shake');
-    phaseTimersRef.current.push(
-      setTimeout(() => playSfx('shake'), 250),
-      setTimeout(() => playSfx('shake'), 500),
-      setTimeout(() => {
-        setPhase('TEARING');
-        playSfx('rip');
-      }, 750),
-      setTimeout(() => {
-        setPhase('BURST');
-        if (bestPull.blook.rarity === 'Mystic' || bestPull.blook.rarity === 'Chroma') {
-          playSfx('mystic');
-        } else {
-          playSfx('reveal');
-        }
-      }, 1150),
-      setTimeout(() => {
-        setPhase('REVEALED');
-      }, 1450)
-    );
-  };
+  const handleQuickOpen = useCallback(() => {
+    if (!isMulti) return;
+    clearPhaseTimers();
+    setAutoOpenActive(false);
+    setIsSummary(true);
+    setPhase('REVEALED');
+    if (
+      bestPull.blook.rarity === 'Mystic' ||
+      bestPull.blook.rarity === 'Chroma' ||
+      bestPull.blook.rarity === 'Clicked' ||
+      bestPull.blook.rarity === 'Godly'
+    ) {
+      playSfx('mystic');
+    } else {
+      playSfx('reveal');
+    }
+  }, [isMulti, clearPhaseTimers, bestPull]);
+
+  // Auto Open loop for multi-pack opening
+  useEffect(() => {
+    if (!isMulti || isSummary || !autoOpenActive) return;
+
+    if (phase === 'READY') {
+      const t = setTimeout(() => {
+        handleStartOpening(true);
+      }, 120);
+      return () => clearTimeout(t);
+    }
+
+    if (phase === 'REVEALED') {
+      const t = setTimeout(() => {
+        handleAdvanceNextPack();
+      }, 720);
+      return () => clearTimeout(t);
+    }
+  }, [isMulti, isSummary, autoOpenActive, phase, handleStartOpening, handleAdvanceNextPack]);
 
   // Confetti strictly using Triangle, Rectangle, and Circle shapes in shades of the pulled blook's rarity color
   const confettiParticles = useMemo(() => {
@@ -389,9 +562,10 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
       },
       {}
     )
-  ).sort((a, b) => rarityRank[b.blook.rarity] - rarityRank[a.blook.rarity]);
+  ).sort((a, b) => RARITY_RANK[b.blook.rarity] - RARITY_RANK[a.blook.rarity]);
 
-  const isOpenedBg = phase === 'BURST' || phase === 'REVEALED';
+  const isOpenedBg = phase === 'BURST' || phase === 'REVEALED' || isSummary;
+  const remainingCount = Math.max(0, pulls.length - currentIndex - 1);
 
   return (
     <div
@@ -407,7 +581,13 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
           : undefined
       }
       onClick={() => {
-        if (phase === 'REVEALED' && !inspectedPull) onClose();
+        if (!isMulti && phase === 'REVEALED') {
+          onClose();
+        } else if (isMulti && isSummary && !inspectedPull) {
+          onClose();
+        } else if (isMulti && !isSummary && phase === 'REVEALED' && !autoOpenActive) {
+          handleAdvanceNextPack();
+        }
       }}
     >
       {/* Dynamic Background Rays during Burst and Revealed */}
@@ -426,7 +606,10 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
 
       {/* Confetti Explosion: Triangle, Rectangle, and Circle in Rarity Color Shades */}
       {isOpenedBg && (
-        <div className="pointer-events-none fixed inset-0 flex items-center justify-center overflow-hidden z-20">
+        <div
+          key={isSummary ? 'summary-confetti' : `pack-confetti-${currentIndex}`}
+          className="pointer-events-none fixed inset-0 flex items-center justify-center overflow-hidden z-20"
+        >
           {confettiParticles.map((p, i) => (
             <div
               key={i}
@@ -448,102 +631,198 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
       )}
 
       {/* Center White Flash Burst */}
-      {phase === 'BURST' && (
+      {phase === 'BURST' && !isSummary && (
         <div className="pointer-events-none fixed z-30 w-72 h-72 rounded-full bg-white animate-flash-burst shadow-[0_0_90px_rgba(255,255,255,1)]" />
       )}
 
-      {/* PHASES 1-3: READY, SHAKING, TEARING */}
-      {phase !== 'REVEALED' && (
+      {/* PHASES 1-3: READY, SHAKING, TEARING (SINGLE OR CURRENT PACK IN MULTI) */}
+      {phase !== 'REVEALED' && !isSummary && (
+        <div className="relative flex flex-col items-center z-10">
+          {isMulti && (
+            <div className="mb-4 px-4 py-1 rounded-full bg-black/50 border border-white/25 text-white font-titan text-base tracking-wide shadow-md">
+              Pack {currentIndex + 1} of {pulls.length}
+            </div>
+          )}
+
+          <div
+            onClick={(e) => {
+              e.stopPropagation();
+              handleStartOpening(autoOpenActive);
+            }}
+            className="relative flex flex-col items-center cursor-pointer group"
+          >
+            <div
+              className={`relative flex items-center justify-center ${
+                pack.id === 'athletes' || pack.id === 'chess'
+                  ? 'w-[340px] h-80'
+                  : pack.id === 'fruit'
+                  ? 'w-[320px] h-80'
+                  : 'w-64 h-80'
+              }`}
+            >
+              {phase === 'READY' && (
+                <div className="w-full h-full animate-float-pack transition-transform group-hover:scale-105 relative">
+                  <PackCoverArt packId={pack.id} className="w-full h-full" />
+                  {isMulti && (
+                    <span className="absolute -top-2 -right-2 bg-[#fbbf24] text-amber-950 font-titan text-xl px-3.5 py-1 rounded-2xl shadow-lg border-2 border-white rotate-6">
+                      {pulls.length - currentIndex} left
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {phase === 'SHAKING' && (
+                <div className="w-full h-full animate-pack-shake-intense">
+                  <PackCoverArt packId={pack.id} className="w-full h-full" />
+                  <div className="absolute inset-0 rounded-2xl bg-amber-400/25 blur-md animate-pulse pointer-events-none" />
+                </div>
+              )}
+
+              {(phase === 'TEARING' || phase === 'BURST') && (
+                <div className="relative w-full h-full">
+                  <div className="absolute inset-x-0 top-0 h-[45%] z-20 animate-foil-top overflow-hidden">
+                    <PackCoverArt packId={pack.id} className="w-full h-80" />
+                  </div>
+                  <div className="absolute top-[38%] inset-x-4 h-16 bg-gradient-to-r from-transparent via-white to-transparent blur-sm z-30 animate-pulse" />
+                  <div className="absolute inset-x-0 bottom-0 h-[60%] z-10 animate-foil-bottom overflow-hidden">
+                    <div className="-translate-y-[40%]">
+                      <PackCoverArt packId={pack.id} className="w-full h-80" />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-7 flex flex-col items-center">
+              <p className="font-titan text-white text-2xl md:text-3xl tracking-wide drop-shadow-[0_4px_0_rgba(0,0,0,0.6)]">
+                {phase === 'READY' &&
+                  (autoOpenActive
+                    ? `Auto Opening Pack ${currentIndex + 1}...`
+                    : isMulti
+                    ? `Click Pack ${currentIndex + 1} to Open!`
+                    : 'Click Pack to Open!')}
+                {phase === 'SHAKING' && 'Opening...'}
+                {(phase === 'TEARING' || phase === 'BURST') && 'Ripping Foil!'}
+              </p>
+              {phase === 'READY' && !isMulti && (
+                <span className="mt-2 text-white/80 font-nunito font-extrabold text-sm bg-black/30 px-3.5 py-1 rounded-full">
+                  Cost: {pack.price.toLocaleString()} Tokens
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Multi-Pack Quick Open & Auto Open Controls */}
+          {isMulti && (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="mt-5 flex flex-wrap items-center justify-center gap-3"
+            >
+              <button
+                type="button"
+                onClick={() => setAutoOpenActive((prev) => !prev)}
+                className={`px-5 py-2.5 rounded-xl font-titan text-base flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  autoOpenActive
+                    ? 'bg-emerald-500 text-white shadow-[0_5px_0_#047857]'
+                    : 'bg-white text-slate-800 shadow-[0_5px_0_#cbd5e1] hover:bg-slate-50'
+                } active:translate-y-0.5 active:shadow-none`}
+              >
+                {autoOpenActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                <span>{autoOpenActive ? 'Pause Auto Open' : 'Auto Open'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleQuickOpen}
+                className="px-5 py-2.5 rounded-xl bg-[#fbbf24] hover:brightness-105 text-amber-950 font-titan text-base shadow-[0_5px_0_#b45309] active:translate-y-0.5 active:shadow-none flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Zap className="w-4 h-4" />
+                <span>Quick Open</span>
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* PHASE 4: SINGLE PACK STAGE REVEAL (OR STEP-BY-STEP IN MULTI) */}
+      {phase === 'REVEALED' && !isSummary && (
         <div
           onClick={(e) => {
             e.stopPropagation();
-            handleStartOpening();
+            if (isMulti && !autoOpenActive) {
+              handleAdvanceNextPack();
+            }
           }}
-          className="relative flex flex-col items-center cursor-pointer group z-10"
+          className={`relative z-30 flex flex-col items-center animate-stage-reveal ${
+            isMulti && !autoOpenActive ? 'cursor-pointer' : ''
+          }`}
         >
-          <div
-            className={`relative flex items-center justify-center ${
-              pack.id === 'athletes' ? 'w-[340px] h-80' : 'w-64 h-80'
-            }`}
-          >
-            {phase === 'READY' && (
-              <div className="w-full h-full animate-float-pack transition-transform group-hover:scale-105 relative">
-                <PackCoverArt packId={pack.id} className="w-full h-full" />
-                {isMulti && (
-                  <span className="absolute -top-2 -right-2 bg-[#fbbf24] text-amber-950 font-titan text-xl px-3.5 py-1 rounded-2xl shadow-lg border-2 border-white rotate-6">
-                    x{pulls.length}
-                  </span>
-                )}
-              </div>
-            )}
+          {isMulti && (
+            <div className="mb-3 px-4 py-1 rounded-full bg-black/50 border border-white/30 text-white font-titan text-base tracking-wide shadow-md">
+              Pack {currentIndex + 1} of {pulls.length}
+            </div>
+          )}
 
-            {phase === 'SHAKING' && (
-              <div className="w-full h-full animate-pack-shake-intense">
-                <PackCoverArt packId={pack.id} className="w-full h-full" />
-                <div className="absolute inset-0 rounded-2xl bg-amber-400/25 blur-md animate-pulse pointer-events-none" />
-              </div>
-            )}
+          <StageRevealCard packId={pack.id} blook={activePull.blook} isNew={activePull.isNew} />
 
-            {(phase === 'TEARING' || phase === 'BURST') && (
-              <div className="relative w-full h-full">
-                <div className="absolute inset-x-0 top-0 h-[45%] z-20 animate-foil-top overflow-hidden">
-                  <PackCoverArt packId={pack.id} className="w-full h-80" />
-                </div>
-                <div className="absolute top-[38%] inset-x-4 h-16 bg-gradient-to-r from-transparent via-white to-transparent blur-sm z-30 animate-pulse" />
-                <div className="absolute inset-x-0 bottom-0 h-[60%] z-10 animate-foil-bottom overflow-hidden">
-                  <div className="-translate-y-[40%]">
-                    <PackCoverArt packId={pack.id} className="w-full h-80" />
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="mt-8 flex flex-col items-center">
-            <p className="font-titan text-white text-2xl md:text-3xl tracking-wide drop-shadow-[0_4px_0_rgba(0,0,0,0.6)]">
-              {phase === 'READY' &&
-                (isMulti ? `Click to Open ${pulls.length} Packs!` : 'Click Pack to Open!')}
-              {phase === 'SHAKING' && 'Opening...'}
-              {(phase === 'TEARING' || phase === 'BURST') && 'Ripping Foil!'}
-            </p>
-            {phase === 'READY' && (
-              <span className="mt-2 text-white/80 font-nunito font-extrabold text-sm bg-black/30 px-3.5 py-1 rounded-full">
-                Cost: {(pack.price * pulls.length).toLocaleString()} Tokens
-              </span>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* PHASE 4: SINGLE PACK STAGE REVEAL */}
-      {phase === 'REVEALED' && !isMulti && (
-        <div
-          onClick={(e) => e.stopPropagation()}
-          className="relative z-30 flex flex-col items-center animate-stage-reveal"
-        >
-          <StageRevealCard packId={pack.id} blook={pulls[0].blook} isNew={pulls[0].isNew} />
-
-          <div className="mt-6 flex items-center gap-3">
-            <button
-              onClick={onClose}
-              className="px-7 py-2.5 rounded-xl bg-white text-[#dc2626] font-titan text-lg shadow-[0_5px_0_#cbd5e1] active:translate-y-1 active:shadow-none hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shrink-0"
+          {isMulti ? (
+            <div
+              onClick={(e) => e.stopPropagation()}
+              className="mt-5 flex flex-wrap items-center justify-center gap-3"
             >
-              OK
-            </button>
-            {onOpenAnother && canAffordAnother && (
               <button
-                onClick={onOpenAnother}
-                className="px-7 py-2.5 rounded-xl bg-[#f87171] text-white font-titan text-lg shadow-[0_5px_0_#dc2626] active:translate-y-1 active:shadow-none hover:brightness-105 transition-all cursor-pointer whitespace-nowrap shrink-0"
+                type="button"
+                onClick={handleAdvanceNextPack}
+                className="px-6 py-2.5 rounded-xl bg-white text-[#dc2626] font-titan text-lg shadow-[0_5px_0_#cbd5e1] active:translate-y-1 active:shadow-none hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shrink-0 flex items-center gap-1.5"
               >
-                Open Another ({pack.price})
+                <span>
+                  {remainingCount > 0 ? `Next Pack (${remainingCount} left)` : 'View All Pulls'}
+                </span>
+                <ChevronRight className="w-5 h-5" />
               </button>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={() => setAutoOpenActive((prev) => !prev)}
+                className={`px-5 py-2.5 rounded-xl font-titan text-base flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                  autoOpenActive
+                    ? 'bg-emerald-500 text-white shadow-[0_5px_0_#047857]'
+                    : 'bg-slate-800 text-white shadow-[0_5px_0_#0f172a] hover:bg-slate-700'
+                } active:translate-y-0.5 active:shadow-none`}
+              >
+                {autoOpenActive ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
+                <span>{autoOpenActive ? 'Pause Auto' : 'Auto Open'}</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleQuickOpen}
+                className="px-5 py-2.5 rounded-xl bg-[#fbbf24] hover:brightness-105 text-amber-950 font-titan text-base shadow-[0_5px_0_#b45309] active:translate-y-0.5 active:shadow-none flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0"
+              >
+                <Zap className="w-4 h-4" />
+                <span>Quick Open</span>
+              </button>
+            </div>
+          ) : (
+            <div className="mt-6 flex items-center gap-3">
+              <button
+                onClick={onClose}
+                className="px-7 py-2.5 rounded-xl bg-white text-[#dc2626] font-titan text-lg shadow-[0_5px_0_#cbd5e1] active:translate-y-1 active:shadow-none hover:bg-slate-50 transition-all cursor-pointer whitespace-nowrap shrink-0"
+              >
+                OK
+              </button>
+              {onOpenAnother && canAffordAnother && (
+                <button
+                  onClick={onOpenAnother}
+                  className="px-7 py-2.5 rounded-xl bg-[#f87171] text-white font-titan text-lg shadow-[0_5px_0_#dc2626] active:translate-y-1 active:shadow-none hover:brightness-105 transition-all cursor-pointer whitespace-nowrap shrink-0"
+                >
+                  Open Another ({pack.price})
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {/* PHASE 4: MULTI-PACK REVEAL GALLERY */}
-      {phase === 'REVEALED' && isMulti && (
+      {/* PHASE 4: MULTI-PACK REVEAL SUMMARY GALLERY */}
+      {isMulti && isSummary && (
         <div
           onClick={(e) => e.stopPropagation()}
           className="relative z-30 flex flex-col items-center max-w-4xl w-full animate-stage-reveal"
@@ -592,8 +871,11 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
                         </span>
                       )}
                       <span
-                        className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md font-titan text-xs text-white"
-                        style={{ backgroundColor: color }}
+                        className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md font-titan text-xs"
+                        style={{
+                          backgroundColor: color,
+                          color: entry.blook.rarity === 'Godly' ? '#422006' : '#ffffff',
+                        }}
                       >
                         x{entry.count}
                       </span>

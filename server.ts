@@ -101,65 +101,6 @@ interface DatabaseSchema {
 
 let dbCache: DatabaseSchema | null = null;
 
-const SEED_GLOBAL_TRADES: GlobalTradeListing[] = [
-  {
-    id: 'gt-seed-1',
-    creatorId: 'seed-trader-1',
-    creatorUsername: 'CircusCollector',
-    creatorAvatarBlookId: 'magician',
-    creatorAchievements: ['day_one'],
-    creatorIsOwner: false,
-    offeredBlookId: 'cotton-candy',
-    requestedBlookId: 'popcorn',
-    requestedRarity: null,
-    note: 'Trading my Rare Cotton Candy for a Popcorn!',
-    status: 'OPEN',
-    createdAt: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: 'gt-seed-2',
-    creatorId: 'seed-trader-2',
-    creatorUsername: 'AthleteFan99',
-    creatorAvatarBlookId: 'athlete-soccer',
-    creatorAchievements: ['day_one'],
-    creatorIsOwner: false,
-    offeredBlookId: 'athlete-basketball',
-    requestedBlookId: 'tightrope-walker',
-    requestedRarity: null,
-    note: '1-to-1 Uncommon swap! Need Tightrope Walker.',
-    status: 'OPEN',
-    createdAt: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: 'gt-seed-3',
-    creatorId: 'seed-trader-3',
-    creatorUsername: 'BlookCollectorPro',
-    creatorAvatarBlookId: 'ring-lion',
-    creatorAchievements: ['day_one', 'legendary'],
-    creatorIsOwner: false,
-    offeredBlookId: 'circus-elephant',
-    requestedBlookId: null,
-    requestedRarity: 'Rare',
-    note: 'Offering Circus Elephant for ANY Rare Blook!',
-    status: 'OPEN',
-    createdAt: new Date(Date.now() - 10800000).toISOString(),
-  },
-  {
-    id: 'gt-seed-4',
-    creatorId: 'seed-trader-4',
-    creatorUsername: 'ClicketTrader',
-    creatorAvatarBlookId: 'jester',
-    creatorAchievements: ['day_one'],
-    creatorIsOwner: false,
-    offeredBlookId: 'magician',
-    requestedBlookId: 'jester',
-    requestedRarity: null,
-    note: 'Need an extra Jester for Bazaar crafting!',
-    status: 'OPEN',
-    createdAt: new Date(Date.now() - 14400000).toISOString(),
-  },
-];
-
 const SEED_CHAT_MESSAGES: ChatMessageRecord[] = [
   {
     id: 'msg-seed-owner-welcome',
@@ -173,6 +114,13 @@ const SEED_CHAT_MESSAGES: ChatMessageRecord[] = [
   },
 ];
 
+function isBotGlobalTrade(t: GlobalTradeListing): boolean {
+  return (
+    String(t.id || '').startsWith('gt-seed-') ||
+    String(t.creatorId || '').startsWith('seed-trader-')
+  );
+}
+
 async function loadDb(): Promise<DatabaseSchema> {
   if (dbCache) return dbCache;
   try {
@@ -184,10 +132,15 @@ async function loadDb(): Promise<DatabaseSchema> {
     if (!Array.isArray(parsed.chatMessages) || parsed.chatMessages.length === 0) {
       parsed.chatMessages = [...SEED_CHAT_MESSAGES];
     }
-    if (!Array.isArray(parsed.globalTrades) || parsed.globalTrades.length === 0) {
-      parsed.globalTrades = [...SEED_GLOBAL_TRADES];
-    }
+    const cleanedTrades = Array.isArray(parsed.globalTrades)
+      ? parsed.globalTrades.filter((t) => !isBotGlobalTrade(t))
+      : [];
+    const hadBots = Array.isArray(parsed.globalTrades) && cleanedTrades.length !== parsed.globalTrades.length;
+    parsed.globalTrades = cleanedTrades;
     dbCache = parsed;
+    if (hadBots) {
+      await saveDb(dbCache);
+    }
   } catch {
     dbCache = {
       users: {},
@@ -195,7 +148,7 @@ async function loadDb(): Promise<DatabaseSchema> {
       setStats: {},
       clans: {},
       chatMessages: [...SEED_CHAT_MESSAGES],
-      globalTrades: [...SEED_GLOBAL_TRADES],
+      globalTrades: [],
     };
     await saveDb(dbCache);
   }
@@ -1053,7 +1006,9 @@ async function createServer() {
   app.get('/api/trades/global', async (_req, res) => {
     try {
       const db = await loadDb();
-      const openTrades = (db.globalTrades || []).filter((t) => t.status === 'OPEN');
+      const openTrades = (db.globalTrades || []).filter(
+        (t) => t.status === 'OPEN' && !isBotGlobalTrade(t)
+      );
       res.json({ trades: openTrades.slice(-80).reverse() });
     } catch (err) {
       console.error('List global trades error:', err);
@@ -2077,6 +2032,17 @@ async function createServer() {
         user.equippedBlookId && (user.inventory?.[user.equippedBlookId] || 0) > 0
           ? user.equippedBlookId
           : '';
+      const userClan = user.clanId && db.clans?.[user.clanId] ? db.clans[user.clanId] : null;
+      const replyToId = req.body?.replyToId ? String(req.body.replyToId).trim().slice(0, 128) : '';
+      const replyToUsername = req.body?.replyToUsername
+        ? String(req.body.replyToUsername).trim().slice(0, 32)
+        : '';
+      const replyToAvatar = req.body?.replyToAvatar
+        ? String(req.body.replyToAvatar).trim().slice(0, 64)
+        : '';
+      const replyToText = req.body?.replyToText
+        ? String(req.body.replyToText).trim().slice(0, 120)
+        : '';
 
       const chatMessage: ChatMessageRecord = {
         id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -2087,6 +2053,12 @@ async function createServer() {
         isOwner,
         text: cleanText,
         createdAt: new Date().toISOString(),
+        ...(userClan?.tag ? { clanTag: userClan.tag } : {}),
+        ...(userClan?.bannerColor ? { clanColor: userClan.bannerColor } : {}),
+        ...(replyToId ? { replyToId } : {}),
+        ...(replyToUsername ? { replyToUsername } : {}),
+        ...(replyToAvatar ? { replyToAvatar } : {}),
+        ...(replyToText ? { replyToText } : {}),
       };
 
       if (!Array.isArray(db.chatMessages)) db.chatMessages = [];
@@ -2236,11 +2208,14 @@ async function createServer() {
         found.equippedBlookId && (found.inventory?.[found.equippedBlookId] || 0) > 0
           ? found.equippedBlookId
           : '';
+      const userClan = found.clanId && db.clans?.[found.clanId] ? db.clans[found.clanId] : null;
       return {
         username: found.username,
         avatarBlookId: safeEquipped,
         achievements,
         isOwner,
+        clanTag: userClan?.tag,
+        clanColor: userClan?.bannerColor,
       };
     },
     onLoadChatMessages: async () => {

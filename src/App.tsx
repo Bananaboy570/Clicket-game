@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
   Play,
   Briefcase,
@@ -31,8 +31,12 @@ import {
 import {
   CIRCUS_PACK,
   ATHLETES_PACK,
+  FRUIT_PACK,
+  CHESS_PACK,
   CIRCUS_BLOOKS,
   ATHLETES_BLOOKS,
+  FRUIT_BLOOKS,
+  CHESS_BLOOKS,
   ALL_BLOOKS,
   BAZAAR_RECIPES,
   RARITY_COLORS,
@@ -45,9 +49,10 @@ import {
 import { BlookArt, BlooketTokenIcon } from './components/BlookArt';
 import {
   PackCoverArt,
-  MarketShopkeeperBooth,
   CircusClownFaceIcon,
   AthletesSoccerBallIcon,
+  FruitBasketCornerIcon,
+  ChessKnightCornerIcon,
 } from './components/PackCoverArt';
 import { PackRevealModal, PackPullResult } from './components/PackRevealModal';
 import {
@@ -75,7 +80,7 @@ import {
   DeveloperAchievementIcon,
 } from './components/AchievementsView';
 import { AdminPanelView } from './components/AdminPanelView';
-import { ChatView, OnlineChatMessage } from './components/ChatView';
+import { ChatView, OnlineChatMessage, ChatReplyTarget } from './components/ChatView';
 import {
   apiFetch,
   getWebSocketUrl,
@@ -96,6 +101,7 @@ import {
   cancelFirestoreTrade,
   type FirestoreChatMessage,
 } from './firebase';
+import { BlookBackground } from './components/BlookBackground';
 
 const OWNER_USERNAME = 'clicketownerofficial';
 
@@ -158,6 +164,9 @@ export default function App() {
 
   // Bazaar state
   const [bazaarFilter, setBazaarFilter] = useState<'All' | Rarity>('All');
+  const [bazaarPackFilter, setBazaarPackFilter] = useState<
+    'all' | 'circus' | 'athletes' | 'fruit' | 'chess'
+  >('all');
   const [bazaarNotice, setBazaarNotice] = useState<{
     text: string;
     targetBlook: BlookItem;
@@ -181,6 +190,10 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<OnlineChatMessage[]>([]);
   const [chatError, setChatError] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
+  const [myClanInfo, setMyClanInfo] = useState<{ tag: string; bannerColor: string } | null>(null);
+  const [typingTick, setTypingTick] = useState<number>(0);
+  const lastFsTypingSyncRef = useRef<number>(0);
+  const typingExpiryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const activeTabRef = useRef<ActiveTab>(activeTab);
   activeTabRef.current = activeTab;
 
@@ -191,7 +204,7 @@ export default function App() {
 
   const [selectedBlook, setSelectedBlook] = useState<BlookItem>(CIRCUS_BLOOKS[0]);
   const [showCircusSheetModal, setShowCircusSheetModal] = useState(false);
-  const [showcasePackTab, setShowcasePackTab] = useState<'circus' | 'athletes'>('circus');
+  const [showcasePackTab, setShowcasePackTab] = useState<'circus' | 'athletes' | 'fruit' | 'chess'>('circus');
   const [pullHistory, setPullHistory] = useState<PullHistoryEntry[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [luckMultiplier, setLuckMultiplier] = useState<number>(1);
@@ -388,8 +401,14 @@ export default function App() {
     const map = new Map<string, OnlinePlayerSummary>();
     // 1. Cloud Firestore presence (syncs cross-device worldwide)
     fsPlayersRef.current.forEach((p) => map.set(p.userId, p));
-    // 2. Overlay live WebSocket connections
-    wsPlayersRef.current.forEach((p) => map.set(p.userId, p));
+    // 2. Overlay live WebSocket connections while preserving newest typingUntil
+    wsPlayersRef.current.forEach((p) => {
+      const prev = map.get(p.userId);
+      map.set(p.userId, {
+        ...p,
+        typingUntil: Math.max(Number(p.typingUntil) || 0, Number(prev?.typingUntil) || 0),
+      });
+    });
 
     // 3. Ensure self is in the online players list if logged in
     if (currentUser) {
@@ -414,6 +433,52 @@ export default function App() {
 
     setOnlinePlayers(Array.from(map.values()));
   }, [currentUser, username, equippedBlookId, inventory, activeTrade, presenceClientId]);
+
+  // Keep current player's Clan Tag & color resolved for chat display
+  useEffect(() => {
+    if (!currentUser?.clanId) {
+      setMyClanInfo(null);
+      return;
+    }
+    let cancelled = false;
+    apiFetch('/api/clans')
+      .then(async (res) => {
+        if (!res.ok || cancelled) return;
+        const data = await res.json();
+        if (!Array.isArray(data?.clans) || cancelled) return;
+        const found = data.clans.find((c: { id: string }) => c.id === currentUser.clanId);
+        if (found) {
+          setMyClanInfo({
+            tag: String(found.tag || '').toUpperCase(),
+            bannerColor: String(found.bannerColor || '#fef08a'),
+          });
+        } else {
+          setMyClanInfo(null);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.id, currentUser?.clanId, activeTab]);
+
+  // Periodically clear expired remote typing banners while on Chat tab
+  useEffect(() => {
+    if (activeTab !== 'Chat') return;
+    const hasActiveTypers = onlinePlayers.some(
+      (p) => p.userId !== currentUser?.id && (p.typingUntil || 0) > Date.now()
+    );
+    if (!hasActiveTypers) return;
+    const timer = setInterval(() => setTypingTick((n) => n + 1), 1000);
+    return () => clearInterval(timer);
+  }, [activeTab, onlinePlayers, currentUser?.id, typingTick]);
+
+  const typingUsernames = useMemo(() => {
+    const now = Date.now();
+    return onlinePlayers
+      .filter((p) => p.userId !== currentUser?.id && (p.typingUntil || 0) > now)
+      .map((p) => p.username);
+  }, [onlinePlayers, currentUser?.id, typingTick]);
 
   // Persistent live WebSocket connection for online players & 1-to-1 Blook trading
   const presencePayloadRef = useRef({
@@ -447,6 +512,7 @@ export default function App() {
         inTrade: false,
         achievements: p.achievements || [],
         isOwner: p.isOwner,
+        typingUntil: p.typingUntil || 0,
       }));
       mergeOnlinePlayers();
     });
@@ -707,7 +773,12 @@ export default function App() {
             prev.forEach((t) => map.set(t.id, t));
             data.trades.forEach((t: GlobalTradeListing) => map.set(t.id, t));
             return Array.from(map.values())
-              .filter((t) => t.status === 'OPEN')
+              .filter(
+                (t) =>
+                  t.status === 'OPEN' &&
+                  !t.id.startsWith('gt-seed-') &&
+                  !(t.creatorId || '').startsWith('seed-trader-')
+              )
               .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           });
         }
@@ -731,7 +802,12 @@ export default function App() {
           prev.forEach((t) => map.set(t.id, t));
           fsTrades.forEach((t) => map.set(t.id, t as GlobalTradeListing));
           return Array.from(map.values())
-            .filter((t) => t.status === 'OPEN')
+            .filter(
+              (t) =>
+                t.status === 'OPEN' &&
+                !t.id.startsWith('gt-seed-') &&
+                !(t.creatorId || '').startsWith('seed-trader-')
+            )
             .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         });
       });
@@ -794,13 +870,89 @@ export default function App() {
     }
   };
 
-  const sendChatMessage = async (text: string) => {
+  const handleChatTyping = useCallback(
+    (isTyping: boolean) => {
+      if (!currentUser) return;
+      const ws = presenceWsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'chat:typing', isTyping }));
+      }
+
+      if (typingExpiryTimerRef.current) {
+        clearTimeout(typingExpiryTimerRef.current);
+        typingExpiryTimerRef.current = null;
+      }
+
+      const now = Date.now();
+      const shouldSyncFs = !isTyping || now - lastFsTypingSyncRef.current >= 1500;
+      if (shouldSyncFs) {
+        lastFsTypingSyncRef.current = isTyping ? now : 0;
+        const isOwnerFlag =
+          currentUser.username?.trim().toLowerCase() === OWNER_USERNAME ||
+          currentUser.email?.trim().toLowerCase() === OWNER_USERNAME;
+        updateFirestorePresence(currentUser.id, {
+          userId: currentUser.id,
+          username,
+          avatarBlookId:
+            equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '',
+          unlockedCount: Object.values(inventory).filter((c) => Number(c) > 0).length,
+          isOwner: isOwnerFlag,
+          achievements: Array.isArray(currentUser.achievements) ? currentUser.achievements : [],
+          typingUntil: isTyping ? now + 4000 : 0,
+        }).catch(() => {});
+      }
+
+      if (isTyping) {
+        typingExpiryTimerRef.current = setTimeout(() => {
+          lastFsTypingSyncRef.current = 0;
+          const wsCurr = presenceWsRef.current;
+          if (wsCurr && wsCurr.readyState === WebSocket.OPEN) {
+            wsCurr.send(JSON.stringify({ type: 'chat:typing', isTyping: false }));
+          }
+          const isOwnerFlag =
+            currentUser.username?.trim().toLowerCase() === OWNER_USERNAME ||
+            currentUser.email?.trim().toLowerCase() === OWNER_USERNAME;
+          updateFirestorePresence(currentUser.id, {
+            userId: currentUser.id,
+            username,
+            avatarBlookId:
+              equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '',
+            unlockedCount: Object.values(inventory).filter((c) => Number(c) > 0).length,
+            isOwner: isOwnerFlag,
+            achievements: Array.isArray(currentUser.achievements) ? currentUser.achievements : [],
+            typingUntil: 0,
+          }).catch(() => {});
+        }, 4000);
+      }
+    },
+    [currentUser, username, equippedBlookId, inventory]
+  );
+
+  const sendChatMessage = async (text: string, replyTo?: ChatReplyTarget | null) => {
     const cleanText = text.trim();
     if (!cleanText || !currentUser) return;
+
+    handleChatTyping(false);
 
     const msgId = `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     const safeEquipped =
       equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '';
+
+    const replyFields = replyTo
+      ? {
+          replyToId: replyTo.id,
+          replyToUsername: replyTo.username,
+          replyToAvatar: replyTo.avatarBlookId || '',
+          replyToText: replyTo.text.slice(0, 120),
+        }
+      : {};
+
+    const clanFields = myClanInfo?.tag
+      ? {
+          clanTag: myClanInfo.tag,
+          clanColor: myClanInfo.bannerColor,
+        }
+      : {};
 
     const newChatMessage: FirestoreChatMessage = {
       id: msgId,
@@ -811,6 +963,8 @@ export default function App() {
       isOwner: hasOwnerBadge || isOwnerAccount,
       text: cleanText,
       createdAt: new Date().toISOString(),
+      ...clanFields,
+      ...replyFields,
     };
 
     // 1. Broadcast to Firestore (visible to all players worldwide on Vercel/Cloud in real time)
@@ -819,7 +973,14 @@ export default function App() {
     // 2. Also send via live WebSocket if open
     const ws = presenceWsRef.current;
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({ type: 'chat:send', text: cleanText }));
+      ws.send(
+        JSON.stringify({
+          type: 'chat:send',
+          text: cleanText,
+          ...clanFields,
+          ...replyFields,
+        })
+      );
       return;
     }
 
@@ -831,7 +992,11 @@ export default function App() {
           'Content-Type': 'application/json',
           ...(sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {}),
         },
-        body: JSON.stringify({ text: cleanText }),
+        body: JSON.stringify({
+          text: cleanText,
+          ...clanFields,
+          ...replyFields,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -1163,9 +1328,10 @@ export default function App() {
   // Loading gate
   if (checkingAuth) {
     return (
-      <div className="h-screen w-screen bg-[#f87171] flex flex-col items-center justify-center text-white select-none">
+      <div className="h-screen w-screen bg-[#ff8585] flex flex-col items-center justify-center text-white select-none relative overflow-hidden">
+        <BlookBackground />
         <span
-          className="tracking-wide mb-3 drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
+          className="tracking-wide mb-3 drop-shadow-[0_3px_0_rgba(0,0,0,0.2)] relative z-10"
           style={{
             fontFamily: "'Lexend Deca', sans-serif",
             fontWeight: 'bold',
@@ -1208,9 +1374,12 @@ export default function App() {
 
   const unlockedCircusCount = CIRCUS_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
   const unlockedAthletesCount = ATHLETES_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
+  const unlockedFruitCount = FRUIT_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
+  const unlockedChessCount = CHESS_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
 
   return (
-    <div className="flex flex-col h-screen w-screen overflow-hidden select-none bg-[#f87171]">
+    <div className="flex flex-col h-screen w-screen overflow-hidden select-none bg-[#ff8585] relative">
+      <BlookBackground />
       {/* TOP GUI BAR */}
       <header className="w-full shrink-0 bg-[#dc2626] px-4 md:px-6 py-2 flex flex-wrap items-center justify-between gap-3 z-30 shadow-[0_4px_15px_rgba(0,0,0,0.18)] overflow-visible">
         {/* CLICKET All-Caps Logo */}
@@ -1590,14 +1759,11 @@ export default function App() {
       </header>
 
       {/* MAIN CANVAS */}
-      <main className="relative flex-1 w-full overflow-y-auto overflow-x-hidden bg-[#f87171]">
-        <div
-          className="pointer-events-none fixed inset-0 opacity-[0.09]"
-          style={{
-            backgroundImage: `radial-gradient(rgba(255,255,255,0.6) 2px, transparent 2px), linear-gradient(15deg, rgba(255,255,255,0.22) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.22) 50%, rgba(255,255,255,0.22) 75%, transparent 75%, transparent)`,
-            backgroundSize: '110px 110px',
-          }}
-        />
+      <main
+        className={`relative flex-1 w-full bg-transparent z-10 ${
+          activeTab === 'Chat' ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'
+        }`}
+      >
 
         {/* TAB 1: MARKET VIEW (CIRCUS PACK + MULTI-PACK PURCHASE IN ONE GO) */}
         {activeTab === 'Market' && (
@@ -1653,7 +1819,27 @@ export default function App() {
                   className="px-3.5 py-2 rounded-xl bg-[#5cb61f] hover:brightness-110 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>Athletes Rates ({unlockedAthletesCount}/11)</span>
+                  <span>Athletes Rates ({unlockedAthletesCount}/{ATHLETES_BLOOKS.length})</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowcasePackTab('fruit');
+                    setShowCircusSheetModal(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#ff7a00] hover:brightness-110 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Fruit Rates ({unlockedFruitCount}/{FRUIT_BLOOKS.length})</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowcasePackTab('chess');
+                    setShowCircusSheetModal(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#4f46e5] hover:brightness-110 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Chess Rates ({unlockedChessCount}/{CHESS_BLOOKS.length})</span>
                 </button>
               </div>
             </div>
@@ -1676,7 +1862,7 @@ export default function App() {
                 {/* Circus Pack Card */}
                 <div
                   onClick={() => openPackPurchaseModal(CIRCUS_PACK)}
-                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px]"
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-[282.996px]"
                   style={{
                     backgroundColor: '#ff4242',
                     borderColor: CIRCUS_PACK.borderColor,
@@ -1717,7 +1903,7 @@ export default function App() {
               <div className="w-full max-w-[310px]">
                 <div
                   onClick={() => openPackPurchaseModal(ATHLETES_PACK)}
-                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px]"
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-[282.992px] -ml-[34px]"
                   style={{
                     backgroundColor: ATHLETES_PACK.bgColor,
                     borderColor: ATHLETES_PACK.borderColor,
@@ -1751,10 +1937,79 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Right Side Shopkeeper Market Stall */}
-              <div className="hidden xl:flex flex-1 items-center justify-center pt-6 pr-6 self-center">
-                <div className="flex flex-col items-center">
-                  <MarketShopkeeperBooth />
+              {/* Fruit Pack Column */}
+              <div className="w-full max-w-[310px]">
+                <div
+                  onClick={() => openPackPurchaseModal(FRUIT_PACK)}
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-[282.992px] -ml-[68px]"
+                  style={{
+                    backgroundColor: FRUIT_PACK.bgColor,
+                    borderColor: FRUIT_PACK.borderColor,
+                  }}
+                >
+                  <div className="relative h-[220px] w-full flex items-center justify-center overflow-hidden p-3">
+                    <div
+                      className="absolute inset-0 opacity-25 pointer-events-none"
+                      style={{
+                        background:
+                          'radial-gradient(circle at center, rgba(255,255,255,0.65) 0%, transparent 70%)',
+                      }}
+                    />
+
+                    <div className="relative z-10 w-[190px] h-[192px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
+                      <PackCoverArt packId="fruit" className="w-full h-full" />
+                    </div>
+
+                    <div className="absolute -bottom-1.5 -right-1.5 w-16 h-16 opacity-45 rotate-12 pointer-events-none">
+                      <FruitBasketCornerIcon className="w-full h-full" />
+                    </div>
+                  </div>
+
+                  {/* Price Bar */}
+                  <div className="bg-[#3898eb] border-t-4 border-white/80 py-2.5 px-4 flex items-center justify-center gap-2 shadow-inner">
+                    <BlooketTokenIcon className="w-7 h-7" />
+                    <span className="font-titan text-white text-[24px] tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]">
+                      {FRUIT_PACK.price}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chess Pack Column */}
+              <div className="w-full max-w-[310px]">
+                <div
+                  onClick={() => openPackPurchaseModal(CHESS_PACK)}
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] ml-[924px] w-[282.992px] pl-0 pr-0 -mt-[320px]"
+                  style={{
+                    backgroundColor: CHESS_PACK.bgColor,
+                    borderColor: CHESS_PACK.borderColor,
+                  }}
+                >
+                  <div className="relative h-[220px] w-full flex items-center justify-center overflow-hidden p-3">
+                    <div
+                      className="absolute inset-0 opacity-25 pointer-events-none"
+                      style={{
+                        background:
+                          'radial-gradient(circle at center, rgba(255,255,255,0.65) 0%, transparent 70%)',
+                      }}
+                    />
+
+                    <div className="relative z-10 w-[220px] h-[196px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
+                      <PackCoverArt packId="chess" className="w-full h-full" />
+                    </div>
+
+                    <div className="absolute -bottom-1.5 -right-1.5 w-16 h-16 opacity-45 rotate-12 pointer-events-none">
+                      <ChessKnightCornerIcon className="w-full h-full" />
+                    </div>
+                  </div>
+
+                  {/* Price Bar */}
+                  <div className="bg-[#3898eb] border-t-4 border-white/80 py-2.5 px-4 flex items-center justify-center gap-2 shadow-inner">
+                    <BlooketTokenIcon className="w-7 h-7" />
+                    <span className="font-titan text-white text-[24px] tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]">
+                      {CHESS_PACK.price}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -1939,8 +2194,155 @@ export default function App() {
 
                           {isUnlocked && (
                             <span
-                              className="absolute -bottom-1 -left-1 min-w-[24px] h-6 px-1.5 rounded-full font-nunito font-black text-xs text-white flex items-center justify-center border-2 border-white/90 shadow-md"
-                              style={{ backgroundColor: rarityColor }}
+                              className="absolute -bottom-1 -left-1 min-w-[24px] h-6 px-1.5 rounded-full font-nunito font-black text-xs flex items-center justify-center border-2 border-white/90 shadow-md"
+                              style={{
+                                backgroundColor: rarityColor,
+                                color: blook.rarity === 'Godly' ? '#422006' : '#ffffff',
+                              }}
+                            >
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* FRUIT PACK BLOOKS */}
+                <div className="bg-orange-900/35 border-2 border-white/15 rounded-3xl p-6 shadow-[0_8px_0_rgba(0,0,0,0.18)] w-full">
+                  <div className="flex items-center justify-between border-b-2 border-white/20 pb-3 mb-6">
+                    <div className="flex items-center gap-3">
+                      <h2 className="font-titan text-2xl text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]">
+                        Fruit Pack
+                      </h2>
+                      <span className="text-sm font-nunito font-extrabold text-white/85">
+                        {unlockedFruitCount} / {FRUIT_BLOOKS.length} Unlocked
+                      </span>
+                    </div>
+                    <span className="text-xs font-nunito font-extrabold text-white/90">
+                      20 Tokens per Pack
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-x-5 gap-y-6 justify-items-center">
+                    {FRUIT_BLOOKS.map((blook) => {
+                      const count = inventory[blook.id] || 0;
+                      const isUnlocked = count > 0;
+                      const isSelected = selectedBlook.id === blook.id;
+                      const rarityColor = RARITY_COLORS[blook.rarity];
+
+                      return (
+                        <button
+                          key={blook.id}
+                          type="button"
+                          title={`${blook.name} (${blook.rarity} ${blook.chanceLabel})`}
+                          onClick={() => setSelectedBlook(blook)}
+                          className={`relative aspect-square w-full max-w-[76px] rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'ring-4 ring-white scale-105 shadow-lg bg-white/15'
+                              : 'hover:scale-105'
+                          }`}
+                        >
+                          <div
+                            className="w-full h-full flex items-center justify-center"
+                            style={!isUnlocked ? { filter: 'brightness(0)' } : undefined}
+                          >
+                            <BlookArt
+                              id={blook.id}
+                              animated
+                              className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
+                            />
+                          </div>
+
+                          {!isUnlocked && (
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                              <Lock
+                                className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]"
+                                strokeWidth={2.6}
+                              />
+                            </div>
+                          )}
+
+                          {isUnlocked && (
+                            <span
+                              className="absolute -bottom-1 -left-1 min-w-[24px] h-6 px-1.5 rounded-full font-nunito font-black text-xs flex items-center justify-center border-2 border-white/90 shadow-md"
+                              style={{
+                                backgroundColor: rarityColor,
+                                color: blook.rarity === 'Godly' ? '#422006' : '#ffffff',
+                              }}
+                            >
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* CHESS PACK BLOOKS */}
+                <div className="bg-slate-900/45 border-2 border-white/15 rounded-3xl p-6 shadow-[0_8px_0_rgba(0,0,0,0.18)] w-full">
+                  <div className="flex items-center justify-between border-b-2 border-white/20 pb-3 mb-6">
+                    <div className="flex items-center gap-3">
+                      <h2 className="font-titan text-2xl text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]">
+                        Chess Pack
+                      </h2>
+                      <span className="text-sm font-nunito font-extrabold text-white/85">
+                        {unlockedChessCount} / {CHESS_BLOOKS.length} Unlocked
+                      </span>
+                    </div>
+                    <span className="text-xs font-nunito font-extrabold text-white/90">
+                      20 Tokens per Pack
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-x-5 gap-y-6 justify-items-center">
+                    {CHESS_BLOOKS.map((blook) => {
+                      const count = inventory[blook.id] || 0;
+                      const isUnlocked = count > 0;
+                      const isSelected = selectedBlook.id === blook.id;
+                      const rarityColor = RARITY_COLORS[blook.rarity];
+
+                      return (
+                        <button
+                          key={blook.id}
+                          type="button"
+                          title={`${blook.name} (${blook.rarity} ${blook.chanceLabel})`}
+                          onClick={() => setSelectedBlook(blook)}
+                          className={`relative aspect-square w-full max-w-[76px] rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'ring-4 ring-white scale-105 shadow-lg bg-white/15'
+                              : 'hover:scale-105'
+                          }`}
+                        >
+                          <div
+                            className="w-full h-full flex items-center justify-center"
+                            style={!isUnlocked ? { filter: 'brightness(0)' } : undefined}
+                          >
+                            <BlookArt
+                              id={blook.id}
+                              animated
+                              className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
+                            />
+                          </div>
+
+                          {!isUnlocked && (
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                              <Lock
+                                className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]"
+                                strokeWidth={2.6}
+                              />
+                            </div>
+                          )}
+
+                          {isUnlocked && (
+                            <span
+                              className="absolute -bottom-1 -left-1 min-w-[24px] h-6 px-1.5 rounded-full font-nunito font-black text-xs flex items-center justify-center border-2 border-white/90 shadow-md"
+                              style={{
+                                backgroundColor: rarityColor,
+                                color: blook.rarity === 'Godly' ? '#422006' : '#ffffff',
+                              }}
                             >
                               {count}
                             </span>
@@ -1966,7 +2368,7 @@ export default function App() {
                       {selectedBlook.name}
                     </h3>
                     <span
-                      className="font-nunito font-black text-sm"
+                      className="font-nunito font-black text-sm drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
                       style={{ color: RARITY_COLORS[selectedBlook.rarity] }}
                     >
                       {selectedBlook.rarity} {selectedBlook.chanceLabel}
@@ -2077,16 +2479,16 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3B: CIRCUS BAZAAR (TRADE BLOOKS UP IN RARITY) */}
+        {/* TAB 3B: BLOOK BAZAAR (TRADE BLOOKS UP IN RARITY ACROSS ALL PACKS) */}
         {activeTab === 'Bazaar' && (
           <div className="relative z-10 px-9 pt-6 pb-16 min-h-full flex flex-col">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
               <div>
                 <h1 className="font-titan text-white text-[44px] leading-none tracking-wide drop-shadow-[0_3px_0_rgba(0,0,0,0.18)]">
-                  Circus Bazaar
+                  Blook Bazaar
                 </h1>
                 <p className="font-nunito font-extrabold text-white/90 text-sm mt-1">
-                  Trade duplicate lower-rarity Blooks to craft rarer Circus Blooks!
+                  Mix and trade Blooks across Circus, Athletes, Fruit, and Chess packs to craft rarer Blooks!
                 </p>
               </div>
               <button
@@ -2122,9 +2524,35 @@ export default function App() {
               </div>
             )}
 
+            {/* Pack Filter Bar */}
+            <div className="inline-flex flex-wrap self-start items-center gap-1.5 p-1.5 rounded-2xl bg-black/20 mb-3">
+              {(
+                [
+                  { id: 'all', label: 'All Packs' },
+                  { id: 'circus', label: 'Circus Pack' },
+                  { id: 'athletes', label: 'Athletes Pack' },
+                  { id: 'fruit', label: 'Fruit Pack' },
+                  { id: 'chess', label: 'Chess Pack' },
+                ] as const
+              ).map((packOpt) => (
+                <button
+                  key={packOpt.id}
+                  type="button"
+                  onClick={() => setBazaarPackFilter(packOpt.id)}
+                  className={`px-4 py-1.5 rounded-xl font-titan text-sm transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                    bazaarPackFilter === packOpt.id
+                      ? 'bg-[#fbbf24] text-amber-950 shadow-sm'
+                      : 'text-white hover:bg-white/15'
+                  }`}
+                >
+                  {packOpt.label}
+                </button>
+              ))}
+            </div>
+
             {/* Rarity Filter Bar */}
             <div className="inline-flex flex-wrap self-start items-center gap-1.5 p-1.5 rounded-2xl bg-white/20 mb-6">
-              {(['All', 'Rare', 'Epic', 'Legendary', 'Chroma', 'Mystic'] as const).map((tier) => (
+              {(['All', 'Rare', 'Epic', 'Legendary', 'Chroma', 'Mystic', 'Clicked', 'Godly'] as const).map((tier) => (
                 <button
                   key={tier}
                   type="button"
@@ -2141,137 +2569,194 @@ export default function App() {
             </div>
 
             {/* Bazaar Recipes Grid */}
-            <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 max-w-6xl">
-              {BAZAAR_RECIPES.filter((recipe) => {
-                if (bazaarFilter === 'All') return true;
-                const target = CIRCUS_BLOOKS.find((b) => b.id === recipe.targetBlookId);
-                return target?.rarity === bazaarFilter;
-              }).map((recipe) => {
-                const target = CIRCUS_BLOOKS.find((b) => b.id === recipe.targetBlookId);
-                if (!target) return null;
+            {(() => {
+              const filteredRecipes = BAZAAR_RECIPES.filter((recipe) => {
+                const target = ALL_BLOOKS.find((b) => b.id === recipe.targetBlookId);
+                if (!target) return false;
+                if (bazaarPackFilter !== 'all' && target.packId !== bazaarPackFilter) {
+                  return false;
+                }
+                if (bazaarFilter !== 'All' && target.rarity !== bazaarFilter) {
+                  return false;
+                }
+                return true;
+              });
 
-                const targetOwned = inventory[target.id] || 0;
-                const targetColor = RARITY_COLORS[target.rarity];
-                const canTrade = recipe.ingredients.every(
-                  (ing) => (inventory[ing.blookId] || 0) >= ing.count
-                );
-                const totalMissing = recipe.ingredients.reduce(
-                  (acc, ing) => acc + Math.max(0, ing.count - (inventory[ing.blookId] || 0)),
-                  0
-                );
-
+              if (filteredRecipes.length === 0) {
                 return (
-                  <div
-                    key={recipe.id}
-                    className="bg-white rounded-3xl p-5 shadow-[0_8px_0_rgba(0,0,0,0.18)] flex flex-col justify-between gap-4 border-2 border-white"
-                  >
-                    {/* Recipe Header */}
-                    <div className="flex items-center justify-between gap-3 border-b-2 border-slate-100 pb-3">
-                      <div className="flex items-center gap-2.5">
-                        <span
-                          className="px-2.5 py-0.5 rounded-lg font-nunito font-black text-xs text-white"
-                          style={{ backgroundColor: targetColor }}
-                        >
-                          {target.rarity}
-                        </span>
-                        <h2 className="font-titan text-2xl text-slate-800">{target.name}</h2>
-                      </div>
-                      <span className="font-nunito font-black text-xs text-slate-500">
-                        You own: {targetOwned}
-                      </span>
-                    </div>
-
-                    {/* Visual Equation: Ingredients -> = Target */}
-                    <div className="flex flex-wrap items-center gap-2.5 py-1">
-                      {recipe.ingredients.map((ing, idx) => {
-                        const ingBlook = CIRCUS_BLOOKS.find((b) => b.id === ing.blookId);
-                        if (!ingBlook) return null;
-                        const have = inventory[ing.blookId] || 0;
-                        const met = have >= ing.count;
-
-                        return (
-                          <React.Fragment key={ing.blookId}>
-                            {idx > 0 && (
-                              <span className="font-titan text-xl text-slate-400 px-0.5">+</span>
-                            )}
-                            <div
-                              className={`rounded-2xl p-2.5 border-2 flex flex-col items-center min-w-[84px] text-center ${
-                                met
-                                  ? 'bg-emerald-50 border-emerald-300'
-                                  : 'bg-slate-50 border-slate-200'
-                              }`}
-                            >
-                              <div
-                                className="w-12 h-12 flex items-center justify-center mb-1"
-                                style={have <= 0 ? { filter: 'brightness(0) invert(72%)' } : undefined}
-                              >
-                                <BlookArt
-                                  id={ingBlook.id}
-                                  animated={have > 0}
-                                  className="w-full h-full"
-                                />
-                              </div>
-                              <span className="font-nunito font-extrabold text-[11px] text-slate-700 leading-tight max-w-[86px] truncate">
-                                {ingBlook.name}
-                              </span>
-                              <span
-                                className={`mt-1 px-2 py-0.5 rounded-md font-nunito font-black text-xs tabular-nums ${
-                                  met
-                                    ? 'bg-emerald-600 text-white'
-                                    : 'bg-rose-100 text-rose-700'
-                                }`}
-                              >
-                                {have}/{ing.count}
-                              </span>
-                            </div>
-                          </React.Fragment>
-                        );
-                      })}
-
-                      <span className="font-titan text-2xl text-[#dc2626] px-1">=</span>
-
-                      {/* Reward Blook Tile */}
-                      <div
-                        className="rounded-2xl p-2.5 border-2 flex flex-col items-center min-w-[96px] text-center ml-auto bg-amber-50/70"
-                        style={{ borderColor: targetColor }}
-                      >
-                        <div className="w-14 h-14 flex items-center justify-center mb-1">
-                          <BlookArt id={target.id} className="w-full h-full" />
-                        </div>
-                        <span className="font-nunito font-black text-xs text-slate-800 leading-tight">
-                          {target.name}
-                        </span>
-                        <span
-                          className="mt-0.5 font-nunito font-black text-[10px]"
-                          style={{ color: targetColor }}
-                        >
-                          {target.chanceLabel}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Trade CTA */}
-                    <button
-                      type="button"
-                      disabled={!canTrade}
-                      onClick={() => handleBazaarTrade(recipe)}
-                      className={`w-full py-2.5 px-4 rounded-xl font-titan text-lg flex items-center justify-center gap-2 transition-all ${
-                        canTrade
-                          ? 'bg-[#fbbf24] hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#b45309] text-amber-950 cursor-pointer'
-                          : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      }`}
-                    >
-                      <ArrowLeftRight className="w-5 h-5" />
-                      <span>
-                        {canTrade
-                          ? `Trade for ${target.name}`
-                          : `Need ${totalMissing} More ${totalMissing === 1 ? 'Blook' : 'Blooks'}`}
-                      </span>
-                    </button>
+                  <div className="bg-white/95 rounded-3xl p-8 max-w-xl text-center shadow-[0_8px_0_rgba(0,0,0,0.18)]">
+                    <p className="font-titan text-2xl text-slate-800 mb-1">
+                      No matching Bazaar offers
+                    </p>
+                    <p className="font-nunito font-bold text-sm text-slate-500">
+                      Try switching the Pack or Rarity filter above to view available trades.
+                    </p>
                   </div>
                 );
-              })}
-            </div>
+              }
+
+              const packBadgeColors: Record<string, { label: string; bg: string; text: string }> = {
+                circus: { label: 'Circus', bg: 'bg-red-100', text: 'text-red-700' },
+                athletes: { label: 'Athletes', bg: 'bg-emerald-100', text: 'text-emerald-700' },
+                fruit: { label: 'Fruit', bg: 'bg-orange-100', text: 'text-orange-700' },
+                chess: { label: 'Chess', bg: 'bg-indigo-100', text: 'text-indigo-700' },
+              };
+
+              return (
+                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 max-w-6xl">
+                  {filteredRecipes.map((recipe) => {
+                    const target = ALL_BLOOKS.find((b) => b.id === recipe.targetBlookId);
+                    if (!target) return null;
+
+                    const targetOwned = inventory[target.id] || 0;
+                    const targetColor = RARITY_COLORS[target.rarity];
+                    const packBadge = packBadgeColors[target.packId] || {
+                      label: target.packId,
+                      bg: 'bg-slate-100',
+                      text: 'text-slate-700',
+                    };
+                    const canTrade = recipe.ingredients.every(
+                      (ing) => (inventory[ing.blookId] || 0) >= ing.count
+                    );
+                    const totalMissing = recipe.ingredients.reduce(
+                      (acc, ing) => acc + Math.max(0, ing.count - (inventory[ing.blookId] || 0)),
+                      0
+                    );
+
+                    return (
+                      <div
+                        key={recipe.id}
+                        className="bg-white rounded-3xl p-5 shadow-[0_8px_0_rgba(0,0,0,0.18)] flex flex-col justify-between gap-4 border-2 border-white"
+                      >
+                        {/* Recipe Header */}
+                        <div className="flex items-center justify-between gap-3 border-b-2 border-slate-100 pb-3">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className="px-2.5 py-0.5 rounded-lg font-nunito font-black text-xs"
+                              style={{
+                                backgroundColor: targetColor,
+                                color: target.rarity === 'Godly' ? '#422006' : '#ffffff',
+                              }}
+                            >
+                              {target.rarity}
+                            </span>
+                            <span
+                              className={`px-2 py-0.5 rounded-lg font-nunito font-black text-[11px] ${packBadge.bg} ${packBadge.text}`}
+                            >
+                              {packBadge.label}
+                            </span>
+                            <h2 className="font-titan text-2xl text-slate-800">{target.name}</h2>
+                          </div>
+                          <span className="font-nunito font-black text-xs text-slate-500 shrink-0">
+                            You own: {targetOwned}
+                          </span>
+                        </div>
+
+                        {/* Visual Equation: Ingredients -> = Target */}
+                        <div className="flex flex-wrap items-center gap-2.5 py-1">
+                          {recipe.ingredients.map((ing, idx) => {
+                            const ingBlook = ALL_BLOOKS.find((b) => b.id === ing.blookId);
+                            if (!ingBlook) return null;
+                            const have = inventory[ing.blookId] || 0;
+                            const met = have >= ing.count;
+                            const ingPackBadge = packBadgeColors[ingBlook.packId] || {
+                              label: ingBlook.packId,
+                              bg: 'bg-slate-200',
+                              text: 'text-slate-700',
+                            };
+
+                            return (
+                              <React.Fragment key={ing.blookId}>
+                                {idx > 0 && (
+                                  <span className="font-titan text-xl text-slate-400 px-0.5">+</span>
+                                )}
+                                <div
+                                  className={`rounded-2xl p-2.5 border-2 flex flex-col items-center min-w-[88px] text-center ${
+                                    met
+                                      ? 'bg-emerald-50 border-emerald-300'
+                                      : 'bg-slate-50 border-slate-200'
+                                  }`}
+                                >
+                                  <span
+                                    className={`mb-1 px-1.5 py-0.5 rounded-md font-nunito font-black text-[9px] uppercase tracking-wide ${ingPackBadge.bg} ${ingPackBadge.text}`}
+                                  >
+                                    {ingPackBadge.label}
+                                  </span>
+                                  <div
+                                    className="w-12 h-12 flex items-center justify-center mb-1"
+                                    style={have <= 0 ? { filter: 'brightness(0) invert(72%)' } : undefined}
+                                  >
+                                    <BlookArt
+                                      id={ingBlook.id}
+                                      animated={have > 0}
+                                      className="w-full h-full"
+                                    />
+                                  </div>
+                                  <span className="font-nunito font-extrabold text-[11px] text-slate-700 leading-tight max-w-[86px] truncate">
+                                    {ingBlook.name}
+                                  </span>
+                                  <span
+                                    className={`mt-1 px-2 py-0.5 rounded-md font-nunito font-black text-xs tabular-nums ${
+                                      met
+                                        ? 'bg-emerald-600 text-white'
+                                        : 'bg-rose-100 text-rose-700'
+                                    }`}
+                                  >
+                                    {have}/{ing.count}
+                                  </span>
+                                </div>
+                              </React.Fragment>
+                            );
+                          })}
+
+                          <span className="font-titan text-2xl text-[#dc2626] px-1">=</span>
+
+                          {/* Reward Blook Tile */}
+                          <div
+                            className="rounded-2xl p-2.5 border-2 flex flex-col items-center min-w-[96px] text-center ml-auto bg-amber-50/70"
+                            style={{ borderColor: targetColor }}
+                          >
+                            <div className="w-14 h-14 flex items-center justify-center mb-1">
+                              <BlookArt id={target.id} className="w-full h-full" />
+                            </div>
+                            <span className="font-nunito font-black text-xs text-slate-800 leading-tight">
+                              {target.name}
+                            </span>
+                            <span
+                              className="mt-0.5 font-nunito font-black text-[10px]"
+                              style={{
+                                color: target.rarity === 'Godly' ? '#a16207' : targetColor,
+                              }}
+                            >
+                              {target.chanceLabel}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Trade CTA */}
+                        <button
+                          type="button"
+                          disabled={!canTrade}
+                          onClick={() => handleBazaarTrade(recipe)}
+                          className={`w-full py-2.5 px-4 rounded-xl font-titan text-lg flex items-center justify-center gap-2 transition-all ${
+                            canTrade
+                              ? 'bg-[#fbbf24] hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#b45309] text-amber-950 cursor-pointer'
+                              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          }`}
+                        >
+                          <ArrowLeftRight className="w-5 h-5" />
+                          <span>
+                            {canTrade
+                              ? `Trade for ${target.name}`
+                              : `Need ${totalMissing} More ${totalMissing === 1 ? 'Blook' : 'Blooks'}`}
+                          </span>
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
@@ -2338,9 +2823,11 @@ export default function App() {
             wsConnected={presenceConnected}
             messages={chatMessages}
             onlinePlayers={onlinePlayers}
+            typingUsernames={typingUsernames}
             chatError={chatError}
             onSendMessage={sendChatMessage}
             onDeleteMessage={deleteChatMessage}
+            onTypingChange={handleChatTyping}
           />
         )}
 
@@ -2587,7 +3074,11 @@ export default function App() {
           <div
             onClick={(e) => e.stopPropagation()}
             className={`w-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl border-4 border-white/30 text-white p-6 md:p-8 max-h-[92vh] overflow-y-auto ${
-              showcasePackTab === 'athletes'
+              showcasePackTab === 'chess'
+                ? 'bg-gradient-to-br from-slate-800 via-indigo-950 to-slate-950'
+                : showcasePackTab === 'fruit'
+                ? 'bg-gradient-to-br from-orange-600 via-amber-600 to-red-800'
+                : showcasePackTab === 'athletes'
                 ? 'bg-gradient-to-br from-emerald-700 via-emerald-600 to-green-900'
                 : 'bg-gradient-to-br from-[#2d46b9] via-[#4361ee] to-[#1e3a8a]'
             }`}
@@ -2595,7 +3086,11 @@ export default function App() {
             <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
               <div>
                 <h2 className="font-titan text-3xl md:text-4xl text-white drop-shadow-[0_3px_0_rgba(0,0,0,0.4)]">
-                  {showcasePackTab === 'athletes'
+                  {showcasePackTab === 'chess'
+                    ? 'Chess Pack — All 12 Blooks & Exact Drop Rates'
+                    : showcasePackTab === 'fruit'
+                    ? 'Fruit Pack — All 12 Blooks & Exact Drop Rates'
+                    : showcasePackTab === 'athletes'
                     ? 'Athletes Pack — All 11 Blooks & Exact Drop Rates'
                     : 'Circus Pack — All 15 Blooks & Exact Drop Rates'}
                 </h2>
@@ -2603,7 +3098,7 @@ export default function App() {
                   Click any Blook below to preview its Reveal Card, or buy the pack in the Market for 20 Tokens!
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setShowcasePackTab('circus')}
@@ -2627,6 +3122,28 @@ export default function App() {
                   Athletes Pack
                 </button>
                 <button
+                  type="button"
+                  onClick={() => setShowcasePackTab('fruit')}
+                  className={`px-4 py-2 rounded-xl font-titan text-sm cursor-pointer transition-all ${
+                    showcasePackTab === 'fruit'
+                      ? 'bg-orange-400 text-orange-950 shadow-md'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                >
+                  Fruit Pack
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowcasePackTab('chess')}
+                  className={`px-4 py-2 rounded-xl font-titan text-sm cursor-pointer transition-all ${
+                    showcasePackTab === 'chess'
+                      ? 'bg-indigo-400 text-indigo-950 shadow-md'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                >
+                  Chess Pack
+                </button>
+                <button
                   onClick={() => setShowCircusSheetModal(false)}
                   className="px-5 py-2 rounded-xl bg-white text-slate-900 font-titan text-base shadow-[0_4px_0_#cbd5e1] cursor-pointer whitespace-nowrap shrink-0"
                 >
@@ -2635,7 +3152,137 @@ export default function App() {
               </div>
             </div>
 
-            {showcasePackTab === 'athletes' ? (
+            {showcasePackTab === 'chess' ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 items-center mb-8">
+                  {CHESS_BLOOKS.slice(0, 7).map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => {
+                        setShowCircusSheetModal(false);
+                        setRevealState({
+                          pack: CHESS_PACK,
+                          pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                        });
+                      }}
+                      className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                    >
+                      <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                        <BlookArt id={b.id} className="w-full h-full" />
+                      </div>
+                      <span
+                        className="font-nunito font-black text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+                        style={{ color: RARITY_COLORS[b.rarity] }}
+                      >
+                        {b.rarity} {b.chanceLabel}
+                      </span>
+                      <span className="font-nunito font-black text-lg text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.7)]">
+                        {b.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl bg-slate-950/75 border-2 border-indigo-400/50 p-6 text-white">
+                  <h3 className="font-titan text-2xl text-indigo-300 mb-4">
+                    Legendary, Chroma, Mystic, Clicked & Godly Chess Blooks
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5 items-center">
+                    {CHESS_BLOOKS.slice(7).map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          setShowCircusSheetModal(false);
+                          setRevealState({
+                            pack: CHESS_PACK,
+                            pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                          });
+                        }}
+                        className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                      >
+                        <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                          <BlookArt id={b.id} className="w-full h-full" />
+                        </div>
+                        <span
+                          className="font-nunito font-black text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]"
+                          style={{ color: RARITY_COLORS[b.rarity] }}
+                        >
+                          {b.rarity} {b.chanceLabel}
+                        </span>
+                        <span className="font-nunito font-black text-lg text-white">
+                          {b.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : showcasePackTab === 'fruit' ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 items-center mb-8">
+                  {FRUIT_BLOOKS.slice(0, 7).map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => {
+                        setShowCircusSheetModal(false);
+                        setRevealState({
+                          pack: FRUIT_PACK,
+                          pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                        });
+                      }}
+                      className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                    >
+                      <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                        <BlookArt id={b.id} className="w-full h-full" />
+                      </div>
+                      <span
+                        className="font-nunito font-black text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+                        style={{ color: RARITY_COLORS[b.rarity] }}
+                      >
+                        {b.rarity} {b.chanceLabel}
+                      </span>
+                      <span className="font-nunito font-black text-lg text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.7)]">
+                        {b.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl bg-slate-900/75 border-2 border-orange-400/50 p-6 text-white">
+                  <h3 className="font-titan text-2xl text-amber-300 mb-4">
+                    Legendary, Chroma, Mystic, Clicked & Godly Fruit Blooks
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5 items-center">
+                    {FRUIT_BLOOKS.slice(7).map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          setShowCircusSheetModal(false);
+                          setRevealState({
+                            pack: FRUIT_PACK,
+                            pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                          });
+                        }}
+                        className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                      >
+                        <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                          <BlookArt id={b.id} className="w-full h-full" />
+                        </div>
+                        <span
+                          className="font-nunito font-black text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]"
+                          style={{ color: RARITY_COLORS[b.rarity] }}
+                        >
+                          {b.rarity} {b.chanceLabel}
+                        </span>
+                        <span className="font-nunito font-black text-lg text-white">
+                          {b.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : showcasePackTab === 'athletes' ? (
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 items-center">
                 {ATHLETES_BLOOKS.map((b) => (
                   <div
@@ -3082,6 +3729,8 @@ export default function App() {
       {/* PACK PURCHASE / BUY MULTIPLE POP-UP MODAL (SHOWN ONLY WHEN CLICKING A PACK) */}
       {purchaseModalPack && (() => {
         const isAthletesModal = purchaseModalPack.id === 'athletes';
+        const isFruitModal = purchaseModalPack.id === 'fruit';
+        const isChessModal = purchaseModalPack.id === 'chess';
         const maxAffordableForModal = Math.max(
           1,
           Math.min(100, Math.floor(tokens / purchaseModalPack.price))
@@ -3113,13 +3762,25 @@ export default function App() {
                   >
                     <PackCoverArt
                       packId={purchaseModalPack.id}
-                      className={isAthletesModal ? 'w-20 h-16' : 'w-14 h-16'}
+                      className={
+                        isAthletesModal || isChessModal
+                          ? 'w-20 h-16'
+                          : isFruitModal
+                          ? 'w-16 h-16'
+                          : 'w-14 h-16'
+                      }
                     />
                   </div>
                   <div>
                     <h2
                       className={`font-titan text-2xl leading-tight ${
-                        isAthletesModal ? 'text-emerald-700' : 'text-[#dc2626]'
+                        isChessModal
+                          ? 'text-indigo-700'
+                          : isFruitModal
+                          ? 'text-orange-600'
+                          : isAthletesModal
+                          ? 'text-emerald-700'
+                          : 'text-[#dc2626]'
                       }`}
                     >
                       {purchaseModalPack.name}
@@ -3161,7 +3822,11 @@ export default function App() {
                       onClick={() => setPurchaseQuantity(preset)}
                       className={`py-2 rounded-xl font-nunito font-black text-xs cursor-pointer transition-colors ${
                         purchaseQuantity === preset
-                          ? isAthletesModal
+                          ? isChessModal
+                            ? 'bg-indigo-600 text-white'
+                            : isFruitModal
+                            ? 'bg-orange-600 text-white'
+                            : isAthletesModal
                             ? 'bg-emerald-600 text-white'
                             : 'bg-[#dc2626] text-white'
                           : 'bg-white border border-slate-200 hover:bg-slate-100 text-slate-700'
@@ -3198,7 +3863,13 @@ export default function App() {
                       }
                     }}
                     className={`w-24 px-3 py-1.5 rounded-xl border-2 border-slate-200 bg-white font-nunito font-black text-sm text-center text-slate-800 focus:outline-none ${
-                      isAthletesModal ? 'focus:border-emerald-600' : 'focus:border-[#dc2626]'
+                      isChessModal
+                        ? 'focus:border-indigo-600'
+                        : isFruitModal
+                        ? 'focus:border-orange-600'
+                        : isAthletesModal
+                        ? 'focus:border-emerald-600'
+                        : 'focus:border-[#dc2626]'
                     }`}
                   />
                   <span className="font-nunito font-black text-sm text-slate-700 ml-auto flex items-center gap-1.5">
@@ -3226,7 +3897,11 @@ export default function App() {
                 }}
                 className={`w-full py-3 rounded-2xl font-titan text-lg flex items-center justify-center gap-2 cursor-pointer transition-all ${
                   canAffordModal
-                    ? isAthletesModal
+                    ? isChessModal
+                      ? 'bg-indigo-600 hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#3730a3] text-white'
+                      : isFruitModal
+                      ? 'bg-orange-500 hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#c2410c] text-white'
+                      : isAthletesModal
                       ? 'bg-emerald-500 hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#15803d] text-white'
                       : 'bg-[#f87171] hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#dc2626] text-white'
                     : 'bg-slate-200 text-slate-500'
@@ -3243,12 +3918,24 @@ export default function App() {
                 <button
                   type="button"
                   onClick={() => {
-                    setShowcasePackTab(isAthletesModal ? 'athletes' : 'circus');
+                    setShowcasePackTab(
+                      isChessModal
+                        ? 'chess'
+                        : isFruitModal
+                        ? 'fruit'
+                        : isAthletesModal
+                        ? 'athletes'
+                        : 'circus'
+                    );
                     setPurchaseModalPack(null);
                     setShowCircusSheetModal(true);
                   }}
                   className={`py-2 rounded-xl font-nunito font-extrabold text-xs transition-colors cursor-pointer ${
-                    isAthletesModal
+                    isChessModal
+                      ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
+                      : isFruitModal
+                      ? 'bg-orange-50 hover:bg-orange-100 text-orange-700'
+                      : isAthletesModal
                       ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700'
                       : 'bg-red-50 hover:bg-red-100 text-[#dc2626]'
                   }`}
