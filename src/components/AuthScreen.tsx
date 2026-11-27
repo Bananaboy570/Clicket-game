@@ -26,6 +26,9 @@ export interface AuthenticatedUser {
   lastDailyPlayAt?: number | null;
   lastWheelSpinAt?: number | null;
   lastHourlyClaimAt?: number | null;
+  dailyStreak?: number;
+  bestDailyStreak?: number;
+  lastDailyStreakAt?: number | null;
   tradeHistory?: TradeHistoryItem[];
   clanId?: string | null;
   achievements?: string[];
@@ -146,7 +149,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({ onAuthenticated }) => {
               lineHeight: '1',
             }}
           >
-            v1.0.0
+            v1.0.1
           </span>
         </div>
       </div>

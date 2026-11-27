@@ -487,6 +487,393 @@ export const ChessPackCoverSVG: React.FC<{ className?: string }> = ({
   </svg>
 );
 
+export const DeepSeaPackCoverSVG: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg viewBox="0 0 200 240" className={className} xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="deepSeaPackBodyClip">
+        <rect x="10" y="42" width="180" height="158" />
+      </clipPath>
+      <linearGradient id="deepSeaWaterGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#0ea5e9" />
+        <stop offset="45%" stopColor="#0369a1" />
+        <stop offset="100%" stopColor="#082f49" />
+      </linearGradient>
+      <linearGradient id="deepSeaBeamGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#bae6fd" stopOpacity="0.45" />
+        <stop offset="100%" stopColor="#0284c7" stopOpacity="0" />
+      </linearGradient>
+    </defs>
+
+    <FoilSealTop />
+
+    <g clipPath="url(#deepSeaPackBodyClip)">
+      <rect x="10" y="42" width="180" height="158" fill="url(#deepSeaWaterGrad)" />
+
+      {/* Ocean Sunbeams */}
+      <polygon points="48,42 78,42 108,200 28,200" fill="url(#deepSeaBeamGrad)" />
+      <polygon points="118,42 152,42 184,200 112,200" fill="url(#deepSeaBeamGrad)" />
+
+      {/* Rising Bubbles */}
+      <circle cx="34" cy="126" r="4.5" fill="#e0f2fe" opacity="0.5" />
+      <circle cx="44" cy="108" r="2.8" fill="#e0f2fe" opacity="0.6" />
+      <circle cx="164" cy="116" r="4" fill="#e0f2fe" opacity="0.5" />
+      <circle cx="154" cy="96" r="2.5" fill="#e0f2fe" opacity="0.6" />
+
+      {/* Ocean Trench Seabed & Coral */}
+      <path d="M10 172 Q55 156 100 170 Q150 154 190 172 V200 H10 Z" fill="#0c4a6e" />
+      <path d="M10 184 Q70 172 130 184 Q165 176 190 186 V200 H10 Z" fill="#082f49" />
+      <path d="M22 184 V162 M22 172 L15 164 M22 170 L29 162" stroke="#f43f5e" strokeWidth="4" strokeLinecap="round" fill="none" />
+      <path d="M174 184 V160 M174 170 L167 162 M174 168 L181 161" stroke="#fb923c" strokeWidth="4" strokeLinecap="round" fill="none" />
+
+      {/* Shark Silhouette Left */}
+      <g transform="translate(22, 128) rotate(-8) scale(0.46)">
+        <path d="M12 52 Q52 24 88 46 L108 32 L100 54 L110 72 L88 60 Q52 80 12 52 Z" fill="#64748b" />
+        <path d="M46 34 L58 10 L66 36 Z" fill="#475569" />
+        <circle cx="28" cy="49" r="4" fill="#0f172a" />
+      </g>
+
+      {/* Glowing Moon Jellyfish Right */}
+      <g transform="translate(132, 118) rotate(8) scale(0.46)">
+        <path d="M20 50 C20 20 80 20 80 50 Z" fill="#a5f3fc" opacity="0.9" />
+        <path d="M32 50 Q28 72 34 90 M46 50 Q50 74 44 92 M60 50 Q56 72 62 90 M70 50 Q74 70 68 88" stroke="#67e8f9" strokeWidth="4" strokeLinecap="round" fill="none" />
+      </g>
+
+      {/* Center Clownfish */}
+      <g transform="translate(74, 134) scale(0.5)">
+        <ellipse cx="52" cy="50" rx="34" ry="24" fill="#f97316" />
+        <path d="M36 27 Q44 50 36 73" stroke="#ffffff" strokeWidth="9" fill="none" />
+        <path d="M62 28 Q68 50 62 72" stroke="#ffffff" strokeWidth="7" fill="none" />
+        <polygon points="82,50 102,34 102,66" fill="#ea580c" />
+        <circle cx="30" cy="45" r="5" fill="#ffffff" />
+        <circle cx="30" cy="45" r="3" fill="#0f172a" />
+      </g>
+
+      {/* Bold DEEP SEA Title */}
+      <text
+        x="100"
+        y="84"
+        textAnchor="middle"
+        fill="#ffffff"
+        stroke="#082f49"
+        strokeWidth="6"
+        paintOrder="stroke fill"
+        fontFamily="'Titan One', cursive, sans-serif"
+        fontSize="26"
+        letterSpacing="1"
+      >
+        DEEP SEA
+      </text>
+
+      {/* Abyssal PACK Banner */}
+      <g transform="translate(62, 92)">
+        <rect x="0" y="0" width="76" height="28" rx="6" fill="#082f49" stroke="#38bdf8" strokeWidth="2.5" />
+        <rect x="3" y="3" width="70" height="22" rx="4" fill="#0369a1" />
+        <text
+          x="38"
+          y="21"
+          textAnchor="middle"
+          fill="#e0f2fe"
+          stroke="#082f49"
+          strokeWidth="4"
+          paintOrder="stroke fill"
+          fontFamily="'Titan One', cursive, sans-serif"
+          fontSize="20"
+        >
+          PACK
+        </text>
+      </g>
+    </g>
+
+    <FoilSealBottom />
+  </svg>
+);
+
+const DrinksPackCoverSVG: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => (
+  <svg viewBox="0 0 200 240" className={className} xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="drinksPackBodyClip">
+        <rect x="10" y="42" width="180" height="158" />
+      </clipPath>
+      <linearGradient id="drinksPackGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#fbcfe8" />
+        <stop offset="42%" stopColor="#f472b6" />
+        <stop offset="100%" stopColor="#9d174d" />
+      </linearGradient>
+    </defs>
+
+    <FoilSealTop />
+
+    <g clipPath="url(#drinksPackBodyClip)">
+      <rect x="10" y="42" width="180" height="158" fill="url(#drinksPackGrad)" />
+
+      {/* Diagonal Fizz Stripes */}
+      <polygon points="10,42 46,42 10,96" fill="#ffffff" opacity="0.18" />
+      <polygon points="190,42 152,42 190,98" fill="#ffffff" opacity="0.16" />
+
+      {/* Fizzy Soda Bubbles */}
+      <circle cx="38" cy="112" r="6" fill="#fdf2f8" opacity="0.6" />
+      <circle cx="52" cy="96" r="3.5" fill="#fdf2f8" opacity="0.7" />
+      <circle cx="158" cy="108" r="5" fill="#fdf2f8" opacity="0.55" />
+      <circle cx="166" cy="92" r="3" fill="#fdf2f8" opacity="0.7" />
+      <circle cx="98" cy="134" r="4" fill="#fef08a" opacity="0.65" />
+
+      {/* Café Counter Bottom */}
+      <rect x="10" y="170" width="180" height="30" fill="#831843" />
+      <rect x="10" y="166" width="180" height="7" fill="#fbcfe8" />
+
+      {/* Left Boba Cup Mini */}
+      <g transform="translate(22, 122) rotate(-10) scale(0.45)">
+        <rect x="34" y="6" width="10" height="34" rx="4" fill="#db2777" />
+        <polygon points="20,34 80,34 72,96 28,96" fill="#fef3c7" />
+        <ellipse cx="50" cy="34" rx="34" ry="8" fill="#ffffff" />
+        <circle cx="38" cy="84" r="6" fill="#292524" />
+        <circle cx="54" cy="86" r="6" fill="#292524" />
+        <circle cx="64" cy="80" r="6" fill="#292524" />
+      </g>
+
+      {/* Right Lemonade Pitcher Mini */}
+      <g transform="translate(132, 120) rotate(8) scale(0.45)">
+        <rect x="52" y="4" width="10" height="32" rx="4" fill="#22c55e" />
+        <rect x="22" y="30" width="56" height="66" rx="12" fill="#fef08a" />
+        <circle cx="68" cy="32" r="14" fill="#facc15" stroke="#ffffff" strokeWidth="3" />
+      </g>
+
+      {/* Center Ice Cream Float Mini */}
+      <g transform="translate(76, 124) scale(0.48)">
+        <circle cx="50" cy="34" r="22" fill="#ffffff" />
+        <polygon points="26,44 74,44 68,94 32,94" fill="#7c2d12" />
+        <circle cx="50" cy="14" r="7" fill="#ef4444" />
+      </g>
+
+      {/* Bold DRINKS Title */}
+      <text
+        x="100"
+        y="84"
+        textAnchor="middle"
+        fill="#ffffff"
+        stroke="#831843"
+        strokeWidth="6"
+        paintOrder="stroke fill"
+        fontFamily="'Titan One', cursive, sans-serif"
+        fontSize="28"
+        letterSpacing="1"
+      >
+        DRINKS
+      </text>
+
+      {/* Berry PACK Banner */}
+      <g transform="translate(62, 92)">
+        <rect x="0" y="0" width="76" height="28" rx="6" fill="#831843" stroke="#fbcfe8" strokeWidth="2.5" />
+        <rect x="3" y="3" width="70" height="22" rx="4" fill="#db2777" />
+        <text
+          x="38"
+          y="21"
+          textAnchor="middle"
+          fill="#fdf2f8"
+          stroke="#831843"
+          strokeWidth="4"
+          paintOrder="stroke fill"
+          fontFamily="'Titan One', cursive, sans-serif"
+          fontSize="20"
+        >
+          PACK
+        </text>
+      </g>
+    </g>
+
+    <FoilSealBottom />
+  </svg>
+);
+
+const BallPackCoverSVG: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => (
+  <svg viewBox="0 0 200 240" className={className} xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="ballPackBodyClip">
+        <rect x="10" y="42" width="180" height="158" />
+      </clipPath>
+      <linearGradient id="ballPackGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#fef08a" />
+        <stop offset="48%" stopColor="#eab308" />
+        <stop offset="100%" stopColor="#a16207" />
+      </linearGradient>
+    </defs>
+
+    <FoilSealTop />
+
+    <g clipPath="url(#ballPackBodyClip)">
+      <rect x="10" y="42" width="180" height="158" fill="url(#ballPackGrad)" />
+
+      {/* Sunburst Arcade Rays */}
+      <polygon points="100,120 10,42 50,42" fill="#ffffff" opacity="0.16" />
+      <polygon points="100,120 150,42 190,42" fill="#ffffff" opacity="0.16" />
+      <polygon points="100,120 85,42 115,42" fill="#ffffff" opacity="0.2" />
+
+      {/* Arcade Court Floor */}
+      <rect x="10" y="168" width="180" height="32" fill="#713f12" />
+      <rect x="10" y="164" width="180" height="6" fill="#fef9c3" />
+
+      {/* Left Basketball Mini */}
+      <g transform="translate(22, 126) rotate(-10) scale(0.45)">
+        <circle cx="50" cy="50" r="42" fill="#ea580c" stroke="#7c2d12" strokeWidth="5" />
+        <line x1="8" y1="50" x2="92" y2="50" stroke="#7c2d12" strokeWidth="4" />
+        <line x1="50" y1="8" x2="50" y2="92" stroke="#7c2d12" strokeWidth="4" />
+      </g>
+
+      {/* Center Soccer Ball Mini */}
+      <g transform="translate(76, 126) scale(0.48)">
+        <circle cx="50" cy="50" r="42" fill="#ffffff" stroke="#0f172a" strokeWidth="5" />
+        <polygon points="50,30 66,42 60,62 40,62 34,42" fill="#0f172a" />
+      </g>
+
+      {/* Right Beach Ball Mini */}
+      <g transform="translate(134, 128) rotate(12) scale(0.45)">
+        <circle cx="50" cy="50" r="42" fill="#38bdf8" stroke="#0f172a" strokeWidth="4" />
+        <path d="M50 8 A42 42 0 0 1 92 50 L50 50 Z" fill="#ef4444" />
+        <path d="M8 50 A42 42 0 0 1 50 8 L50 50 Z" fill="#facc15" />
+        <circle cx="50" cy="50" r="10" fill="#ffffff" />
+      </g>
+
+      {/* Bold BALL Title */}
+      <text
+        x="100"
+        y="84"
+        textAnchor="middle"
+        fill="#ffffff"
+        stroke="#713f12"
+        strokeWidth="6"
+        paintOrder="stroke fill"
+        fontFamily="'Titan One', cursive, sans-serif"
+        fontSize="32"
+        letterSpacing="1.5"
+      >
+        BALL
+      </text>
+
+      {/* Court PACK Banner */}
+      <g transform="translate(62, 92)">
+        <rect x="0" y="0" width="76" height="28" rx="6" fill="#713f12" stroke="#fef08a" strokeWidth="2.5" />
+        <rect x="3" y="3" width="70" height="22" rx="4" fill="#ca8a04" />
+        <text
+          x="38"
+          y="21"
+          textAnchor="middle"
+          fill="#fef9c3"
+          stroke="#713f12"
+          strokeWidth="4"
+          paintOrder="stroke fill"
+          fontFamily="'Titan One', cursive, sans-serif"
+          fontSize="20"
+        >
+          PACK
+        </text>
+      </g>
+    </g>
+
+    <FoilSealBottom />
+  </svg>
+);
+
+const DessertPackCoverSVG: React.FC<{ className?: string }> = ({ className = 'w-full h-full' }) => (
+  <svg viewBox="0 0 200 240" className={className} xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <clipPath id="dessertPackBodyClip">
+        <rect x="10" y="42" width="180" height="158" />
+      </clipPath>
+      <linearGradient id="dessertPackGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+        <stop offset="0%" stopColor="#f3e8ff" />
+        <stop offset="46%" stopColor="#c084fc" />
+        <stop offset="100%" stopColor="#6b21a8" />
+      </linearGradient>
+    </defs>
+
+    <FoilSealTop />
+
+    <g clipPath="url(#dessertPackBodyClip)">
+      <rect x="10" y="42" width="180" height="158" fill="url(#dessertPackGrad)" />
+
+      {/* Frosting Scallop Awning Top */}
+      <path
+        d="M10 42 H190 V54 Q175 64 160 54 Q145 64 130 54 Q115 64 100 54 Q85 64 70 54 Q55 64 40 54 Q25 64 10 54 Z"
+        fill="#fdf4ff"
+        opacity="0.85"
+      />
+
+      {/* Confetti Sprinkles */}
+      <rect x="30" y="102" width="10" height="4" rx="2" fill="#f43f5e" transform="rotate(-25 35 104)" />
+      <rect x="160" y="96" width="10" height="4" rx="2" fill="#facc15" transform="rotate(28 165 98)" />
+      <rect x="150" y="114" width="9" height="4" rx="2" fill="#38bdf8" transform="rotate(-15 154 116)" />
+      <rect x="42" y="118" width="9" height="4" rx="2" fill="#4ade80" transform="rotate(22 46 120)" />
+
+      {/* Bakery Counter Bottom */}
+      <rect x="10" y="170" width="180" height="30" fill="#581c87" />
+      <rect x="10" y="166" width="180" height="6" fill="#fae8ff" />
+
+      {/* Left Glazed Donut Mini */}
+      <g transform="translate(22, 126) rotate(-10) scale(0.45)">
+        <circle cx="50" cy="50" r="38" fill="#f59e0b" stroke="#92400e" strokeWidth="4" />
+        <circle cx="50" cy="46" r="33" fill="#f472b6" />
+        <circle cx="50" cy="48" r="13" fill="#c084fc" />
+        <rect x="30" y="30" width="8" height="3.5" rx="1.5" fill="#fef08a" transform="rotate(-20 34 32)" />
+        <rect x="64" y="34" width="8" height="3.5" rx="1.5" fill="#38bdf8" transform="rotate(25 68 36)" />
+      </g>
+
+      {/* Center Frosted Cupcake Mini */}
+      <g transform="translate(76, 122) scale(0.48)">
+        <polygon points="28,54 72,54 66,94 34,94" fill="#fbbf24" stroke="#92400e" strokeWidth="3" />
+        <ellipse cx="50" cy="48" rx="30" ry="14" fill="#fdf2f8" />
+        <ellipse cx="50" cy="34" rx="22" ry="12" fill="#f9a8d4" />
+        <circle cx="50" cy="18" r="8" fill="#ef4444" />
+      </g>
+
+      {/* Right Ice Cream Cone Mini */}
+      <g transform="translate(134, 122) rotate(10) scale(0.45)">
+        <polygon points="28,48 72,48 50,98" fill="#d97706" stroke="#78350f" strokeWidth="3.5" />
+        <circle cx="50" cy="40" r="21" fill="#86efac" />
+        <circle cx="50" cy="22" r="17" fill="#fda4af" />
+      </g>
+
+      {/* Bold DESSERT Title */}
+      <text
+        x="100"
+        y="84"
+        textAnchor="middle"
+        fill="#ffffff"
+        stroke="#581c87"
+        strokeWidth="6"
+        paintOrder="stroke fill"
+        fontFamily="'Titan One', cursive, sans-serif"
+        fontSize="26"
+        letterSpacing="1"
+      >
+        DESSERT
+      </text>
+
+      {/* Frosting PACK Banner */}
+      <g transform="translate(62, 92)">
+        <rect x="0" y="0" width="76" height="28" rx="6" fill="#581c87" stroke="#f3e8ff" strokeWidth="2.5" />
+        <rect x="3" y="3" width="70" height="22" rx="4" fill="#9333ea" />
+        <text
+          x="38"
+          y="21"
+          textAnchor="middle"
+          fill="#fdf4ff"
+          stroke="#581c87"
+          strokeWidth="4"
+          paintOrder="stroke fill"
+          fontFamily="'Titan One', cursive, sans-serif"
+          fontSize="20"
+        >
+          PACK
+        </text>
+      </g>
+    </g>
+
+    <FoilSealBottom />
+  </svg>
+);
+
 export const PackCoverArt: React.FC<{ packId?: string; className?: string }> = ({
   packId = 'circus',
   className = 'w-36 h-44',
@@ -497,7 +884,7 @@ export const PackCoverArt: React.FC<{ packId?: string; className?: string }> = (
         <img
           src="assets/aistudio/Pack_Designs__2_-removebg-preview_c4530e10.png"
           alt="Athletes Pack"
-          className="w-full h-full object-contain select-none"
+          className="w-full h-full object-contain select-none scale-[1.32]"
           draggable={false}
         />
       </div>
@@ -523,6 +910,58 @@ export const PackCoverArt: React.FC<{ packId?: string; className?: string }> = (
         <img
           src="assets/aistudio/Pack_Designs__7_-removebg-preview_b259eceb.png"
           alt="Chess Pack"
+          className="w-full h-full object-contain select-none"
+          draggable={false}
+        />
+      </div>
+    );
+  }
+
+  if (packId === 'deep-sea') {
+    return (
+      <div className={`${className} drop-shadow-[0_6px_8px_rgba(0,0,0,0.45)] transition-transform duration-200 flex items-center justify-center`}>
+        <img
+          src="/assets/aistudio/Pack_Designs__1_-removebg-preview_15cd2098.png"
+          alt="Deep Sea Pack"
+          className="w-full h-full object-contain select-none"
+          draggable={false}
+        />
+      </div>
+    );
+  }
+
+  if (packId === 'drinks') {
+    return (
+      <div className={`${className} drop-shadow-[0_6px_8px_rgba(0,0,0,0.45)] transition-transform duration-200 flex items-center justify-center`}>
+        <img
+          src="/assets/aistudio/Pack_Designs__2_-removebg-preview_0608ced4.png"
+          alt="Drinks Pack"
+          className="w-full h-full object-contain select-none"
+          draggable={false}
+        />
+      </div>
+    );
+  }
+
+  if (packId === 'ball') {
+    return (
+      <div className={`${className} drop-shadow-[0_6px_8px_rgba(0,0,0,0.45)] transition-transform duration-200 flex items-center justify-center`}>
+        <img
+          src="/assets/aistudio/Pack_Designs__3_-removebg-preview_c408895e.png"
+          alt="Ball Pack"
+          className="w-full h-full object-contain select-none"
+          draggable={false}
+        />
+      </div>
+    );
+  }
+
+  if (packId === 'dessert') {
+    return (
+      <div className={`${className} drop-shadow-[0_6px_8px_rgba(0,0,0,0.45)] transition-transform duration-200 flex items-center justify-center`}>
+        <img
+          src="/assets/aistudio/Pack_Designs__4_-removebg-preview_b0f95d90.png"
+          alt="Desserts Pack"
           className="w-full h-full object-contain select-none"
           draggable={false}
         />
@@ -674,6 +1113,71 @@ export const ChessKnightCornerIcon: React.FC<{ className?: string }> = ({
       fill="none"
     />
     <rect x="24" y="75" width="52" height="12" rx="6" fill="#cbd5e1" />
+  </svg>
+);
+
+/**
+ * Octopus silhouette icon for the bottom-right corner of the Deep Sea Pack card
+ */
+export const DeepSeaOctopusCornerIcon: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="40" r="24" fill="#e0f2fe" />
+    <path
+      d="M28 52 Q16 68 22 82 M40 58 Q34 74 38 86 M52 60 Q50 76 54 88 M64 58 Q68 74 64 86 M74 52 Q84 68 78 82"
+      stroke="#bae6fd"
+      strokeWidth="8"
+      strokeLinecap="round"
+      fill="none"
+    />
+    <circle cx="41" cy="40" r="5" fill="#0c4a6e" />
+    <circle cx="59" cy="40" r="5" fill="#0c4a6e" />
+  </svg>
+);
+
+/**
+ * Boba cup icon for the bottom-right corner of the Drinks Pack card
+ */
+export const DrinksCupCornerIcon: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg">
+    <rect x="46" y="10" width="9" height="28" rx="4" fill="#9d174d" />
+    <ellipse cx="50" cy="36" rx="26" ry="7" fill="#fdf2f8" />
+    <polygon points="26,36 74,36 67,88 33,88" fill="#fbcfe8" />
+    <circle cx="40" cy="78" r="5" fill="#831843" />
+    <circle cx="52" cy="80" r="5" fill="#831843" />
+    <circle cx="60" cy="74" r="5" fill="#831843" />
+  </svg>
+);
+
+/**
+ * Glossy basketball/bouncer icon for the bottom-right corner of the Ball Pack card
+ */
+export const BallCornerIcon: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg">
+    <circle cx="50" cy="50" r="38" fill="#fef08a" stroke="#713f12" strokeWidth="5" />
+    <line x1="12" y1="50" x2="88" y2="50" stroke="#713f12" strokeWidth="4.5" />
+    <line x1="50" y1="12" x2="50" y2="88" stroke="#713f12" strokeWidth="4.5" />
+    <path d="M25 22 Q45 50 25 78" stroke="#713f12" strokeWidth="4" fill="none" />
+    <path d="M75 22 Q55 50 75 78" stroke="#713f12" strokeWidth="4" fill="none" />
+  </svg>
+);
+
+/**
+ * Faceless cupcake icon for the bottom-right corner of the Dessert Pack card
+ */
+export const DessertCupcakeCornerIcon: React.FC<{ className?: string }> = ({
+  className = 'w-full h-full',
+}) => (
+  <svg viewBox="0 0 100 100" className={className} xmlns="http://www.w3.org/2000/svg">
+    <polygon points="24,52 76,52 67,88 33,88" fill="#fde68a" stroke="#78350f" strokeWidth="4" />
+    <ellipse cx="50" cy="48" rx="30" ry="15" fill="#fdf4ff" />
+    <ellipse cx="50" cy="35" rx="22" ry="12" fill="#f5d0fe" />
+    <circle cx="50" cy="20" r="8" fill="#f43f5e" />
   </svg>
 );
 

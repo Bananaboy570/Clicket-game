@@ -16,8 +16,8 @@ import {
   CheckCircle2,
   AlertTriangle,
 } from 'lucide-react';
-import { ALL_BLOOKS, RARITY_COLORS } from '../data/blooks';
-import { BlookArt, BlooketTokenIcon } from './BlookArt';
+import { ALL_BLOOKS, MARKET_PACKS, RARITY_COLORS } from '../data/blooks';
+import { BlookArt, BlooketTokenIcon, DefaultAvatarPfp } from './BlookArt';
 import { OwnerAchievementIcon, DeveloperAchievementIcon } from './AchievementsView';
 import { apiFetch } from '../lib/apiClient';
 import type { AuthenticatedUser } from './AuthScreen';
@@ -556,11 +556,11 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-1 flex items-center justify-center shrink-0">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 p-0.5 flex items-center justify-center shrink-0 overflow-hidden">
                         {u.equippedBlookId ? (
                           <BlookArt id={u.equippedBlookId} className="w-full h-full" />
                         ) : (
-                          <User className="w-5 h-5 text-slate-400" />
+                          <DefaultAvatarPfp className="w-full h-full rounded-lg" />
                         )}
                       </div>
                       <div className="min-w-0">
@@ -600,11 +600,11 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
               {/* Player Header */}
               <div className="flex items-center justify-between gap-3 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-12 h-12 rounded-2xl bg-red-50 border-2 border-red-200 p-1 flex items-center justify-center shrink-0">
+                  <div className="w-12 h-12 rounded-2xl bg-red-50 border-2 border-red-200 p-0.5 flex items-center justify-center shrink-0 overflow-hidden">
                     {selectedUser.equippedBlookId ? (
                       <BlookArt id={selectedUser.equippedBlookId} className="w-full h-full" />
                     ) : (
-                      <User className="w-6 h-6 text-[#dc2626]" />
+                      <DefaultAvatarPfp className="w-full h-full rounded-xl" />
                     )}
                   </div>
                   <div className="min-w-0">
@@ -742,7 +742,7 @@ export const AdminPanelView: React.FC<AdminPanelViewProps> = ({
                     className="mt-1.5 font-nunito font-extrabold text-[11px]"
                     style={{ color: RARITY_COLORS[selectedBlook.rarity] }}
                   >
-                    {selectedBlook.packId === 'athletes' ? 'Athletes Pack' : 'Circus Pack'} ·{' '}
+                    {MARKET_PACKS.find((p) => p.id === selectedBlook.packId)?.name || 'Circus Pack'} ·{' '}
                     {selectedBlook.rarity} ({selectedBlook.chanceLabel})
                   </p>
                 )}

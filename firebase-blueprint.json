@@ -98,9 +98,30 @@
           "type": "number",
           "description": "Player token balance"
         },
+        "blooksWorth": {
+          "type": "number",
+          "description": "Combined sell value of all owned Blooks"
+        },
+        "totalWorth": {
+          "type": "number",
+          "description": "Total player net worth (tokens + blooksWorth)"
+        },
+        "uniqueBlooksCount": {
+          "type": "number",
+          "description": "Number of distinct Blooks owned"
+        },
+        "totalBlooksCount": {
+          "type": "number",
+          "description": "Total quantity of Blooks owned including duplicates"
+        },
         "equippedBlookId": {
           "type": "string",
           "description": "Currently equipped blook ID",
+          "maxLength": 64
+        },
+        "mostValuableBlookId": {
+          "type": "string",
+          "description": "ID of the player's highest-value owned Blook",
           "maxLength": 64
         },
         "clickUpgradeLevel": {
@@ -111,9 +132,35 @@
           "type": "number",
           "description": "Highest clicks record"
         },
+        "dailyStreak": {
+          "type": "number",
+          "description": "Current consecutive daily reward streak"
+        },
+        "bestDailyStreak": {
+          "type": "number",
+          "description": "Highest daily reward streak achieved"
+        },
         "achievements": {
           "type": "array",
           "description": "Array of achievement badge IDs"
+        },
+        "isOwner": {
+          "type": "boolean",
+          "description": "Whether the player is the official Clicket Owner"
+        },
+        "clanTag": {
+          "type": "string",
+          "description": "Optional clan tag badge",
+          "maxLength": 10
+        },
+        "clanColor": {
+          "type": "string",
+          "description": "Optional clan tag hex color",
+          "maxLength": 16
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Epoch timestamp of last worth sync"
         },
         "createdAt": {
           "type": "string",

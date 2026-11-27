@@ -7,6 +7,20 @@ interface BlookArtProps {
   animated?: boolean;
 }
 
+export const DEFAULT_PFP_URL = '/assets/aistudio/I-removebg-preview_65d55998.png';
+
+export const DefaultAvatarPfp: React.FC<{ className?: string; alt?: string }> = ({
+  className = 'w-full h-full',
+  alt = 'Default Clicket PFP',
+}) => (
+  <img
+    src={DEFAULT_PFP_URL}
+    alt={alt}
+    className={`${className} object-contain select-none`}
+    draggable={false}
+  />
+);
+
 /**
  * Circular Clicket Token Icon:
  * Golden circular coin with 3D bottom-right rim, inset ring, subtle shine, and embossed 'C' inside.
@@ -95,7 +109,9 @@ export const BlookArt: React.FC<BlookArtProps> = ({
   const isMystic = meta?.rarity === 'Mystic';
   const isClicked = meta?.rarity === 'Clicked';
   const isGodly = meta?.rarity === 'Godly';
-  const shouldAnimateSpecial = animated && (isChroma || isMystic || isClicked || isGodly);
+  const isSecret = meta?.rarity === 'Secret';
+  const shouldAnimateSpecial =
+    animated && (isChroma || isMystic || isClicked || isGodly || isSecret);
 
   // Special animated Cyborg Coach (blinks + looks around + Chroma float & shine)
   if (id === 'athlete-cyborg') {
@@ -1734,6 +1750,1470 @@ export const BlookArt: React.FC<BlookArtProps> = ({
               <path d="M102 18 L104 23 L109 25 L104 27 L102 32 L100 27 L95 25 L100 23 Z" fill="#ffffff">
                 <animate attributeName="opacity" values="1;0.3;1" dur="1.5s" repeatCount="indefinite" />
               </path>
+            </>
+          )}
+        </svg>
+      );
+    }
+
+    // =========================================================================
+    // DEEP SEA PACK (14 CUSTOM VECTOR BLOOKS)
+    // =========================================================================
+
+    case 'deep-clownfish': {
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Fins */}
+          <path d="M26 42 Q8 30 12 58 Q16 74 28 70 Z" fill="#ea580c" stroke="#1e293b" strokeWidth="3" />
+          <path d="M94 42 Q112 30 108 58 Q104 74 92 70 Z" fill="#ea580c" stroke="#1e293b" strokeWidth="3" />
+          <path d="M44 18 Q60 4 76 18 Z" fill="#f97316" stroke="#1e293b" strokeWidth="3" />
+          {/* Rounded Blook Body */}
+          <rect x="20" y="18" width="80" height="84" rx="22" fill="#f97316" stroke="#9a3412" strokeWidth="2.5" />
+          {/* Classic White Clownfish Stripes */}
+          <path d="M36 20 Q43 60 36 100" stroke="#ffffff" strokeWidth="11" strokeLinecap="round" fill="none" />
+          <path d="M36 20 Q43 60 36 100" stroke="#1e293b" strokeWidth="1.5" strokeDasharray="0" opacity="0.2" fill="none" />
+          <path d="M84 20 Q77 60 84 100" stroke="#ffffff" strokeWidth="10" strokeLinecap="round" fill="none" />
+          {/* Cute Eyes & Smile */}
+          <circle cx="46" cy="54" r="10" fill="#ffffff" />
+          <circle cx="48" cy="54" r="6" fill="#0f172a" />
+          <circle cx="46" cy="51.5" r="2.2" fill="#ffffff" />
+          <circle cx="74" cy="54" r="10" fill="#ffffff" />
+          <circle cx="72" cy="54" r="6" fill="#0f172a" />
+          <circle cx="70" cy="51.5" r="2.2" fill="#ffffff" />
+          <path d="M52 74 Q60 82 68 74" stroke="#7c2d12" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+        </svg>
+      );
+    }
+
+    case 'deep-crab': {
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Legs */}
+          <path d="M24 72 L10 82 M24 84 L12 94 M96 72 L110 82 M96 84 L108 94" stroke="#dc2626" strokeWidth="6" strokeLinecap="round" />
+          {/* Claws */}
+          <circle cx="18" cy="36" r="12" fill="#ef4444" />
+          <path d="M18 36 L10 24 L20 26 Z" fill="#ff8585" />
+          <circle cx="102" cy="36" r="12" fill="#ef4444" />
+          <path d="M102 36 L110 24 L100 26 Z" fill="#ff8585" />
+          {/* Spiral Shell Hat */}
+          <path d="M28 46 C28 16 92 16 92 46 Z" fill="#fde68a" stroke="#b45309" strokeWidth="2.5" />
+          <path d="M40 44 C44 26 76 26 80 44" stroke="#d97706" strokeWidth="3.5" fill="none" />
+          <path d="M52 44 C54 33 66 33 68 44" stroke="#b45309" strokeWidth="3" fill="none" />
+          {/* Crab Body */}
+          <rect x="20" y="44" width="80" height="58" rx="20" fill="#ef4444" />
+          <rect x="28" y="82" width="64" height="14" rx="7" fill="#fca5a5" opacity="0.45" />
+          {/* Eyes */}
+          <circle cx="42" cy="64" r="9" fill="#ffffff" />
+          <circle cx="44" cy="64" r="5.5" fill="#0f172a" />
+          <circle cx="42" cy="61.5" r="2" fill="#ffffff" />
+          <circle cx="78" cy="64" r="9" fill="#ffffff" />
+          <circle cx="76" cy="64" r="5.5" fill="#0f172a" />
+          <circle cx="74" cy="61.5" r="2" fill="#ffffff" />
+          <path d="M52 78 Q60 85 68 78" stroke="#7f1d1d" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+        </svg>
+      );
+    }
+
+    case 'deep-seahorse': {
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Dorsal Fin & Curled Tail */}
+          <path d="M78 44 Q102 42 98 62 Q94 74 78 72 Z" fill="#38bdf8" />
+          <path d="M58 96 Q76 112 88 100 Q96 90 84 84" stroke="#eab308" strokeWidth="10" strokeLinecap="round" fill="none" />
+          {/* Crown Ridge */}
+          <polygon points="40,18 46,8 54,18 62,8 70,18 78,10 80,24 38,24" fill="#38bdf8" />
+          {/* Snout */}
+          <rect x="12" y="46" width="24" height="14" rx="7" fill="#facc15" />
+          {/* Body */}
+          <rect x="26" y="20" width="60" height="78" rx="24" fill="#facc15" />
+          <rect x="34" y="54" width="32" height="36" rx="14" fill="#fef08a" />
+          <line x1="38" y1="64" x2="62" y2="64" stroke="#eab308" strokeWidth="3" strokeLinecap="round" />
+          <line x1="38" y1="74" x2="62" y2="74" stroke="#eab308" strokeWidth="3" strokeLinecap="round" />
+          <line x1="40" y1="84" x2="60" y2="84" stroke="#eab308" strokeWidth="3" strokeLinecap="round" />
+          {/* Eye */}
+          <circle cx="48" cy="40" r="9.5" fill="#ffffff" />
+          <circle cx="46" cy="40" r="6" fill="#0f172a" />
+          <circle cx="44" cy="38" r="2" fill="#ffffff" />
+        </svg>
+      );
+    }
+
+    case 'deep-starfish': {
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Rounded 5-Arm Starfish */}
+          <path
+            d="M60 8 L74 38 L108 42 L82 65 L90 100 L60 82 L30 100 L38 65 L12 42 L46 38 Z"
+            fill="#fb7185"
+            stroke="#e11d48"
+            strokeWidth="5"
+            strokeLinejoin="round"
+          />
+          {/* Cute Dots */}
+          <circle cx="60" cy="24" r="3" fill="#ffe4e6" />
+          <circle cx="28" cy="48" r="3" fill="#ffe4e6" />
+          <circle cx="92" cy="48" r="3" fill="#ffe4e6" />
+          <circle cx="38" cy="86" r="3" fill="#ffe4e6" />
+          <circle cx="82" cy="86" r="3" fill="#ffe4e6" />
+          {/* Face */}
+          <circle cx="48" cy="54" r="7.5" fill="#ffffff" />
+          <circle cx="49" cy="54" r="4.5" fill="#0f172a" />
+          <circle cx="47.5" cy="52" r="1.6" fill="#ffffff" />
+          <circle cx="72" cy="54" r="7.5" fill="#ffffff" />
+          <circle cx="71" cy="54" r="4.5" fill="#0f172a" />
+          <circle cx="69.5" cy="52" r="1.6" fill="#ffffff" />
+          <path d="M53 67 Q60 73 67 67" stroke="#881337" strokeWidth="3.2" strokeLinecap="round" fill="none" />
+        </svg>
+      );
+    }
+
+    case 'deep-octopus': {
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Tentacles */}
+          <path d="M26 76 Q14 96 24 106" stroke="#9333ea" strokeWidth="11" strokeLinecap="round" fill="none" />
+          <path d="M44 82 Q38 100 46 110" stroke="#a855f7" strokeWidth="11" strokeLinecap="round" fill="none" />
+          <path d="M60 84 Q60 102 64 110" stroke="#9333ea" strokeWidth="11" strokeLinecap="round" fill="none" />
+          <path d="M76 82 Q82 100 74 110" stroke="#a855f7" strokeWidth="11" strokeLinecap="round" fill="none" />
+          <path d="M94 76 Q106 96 96 106" stroke="#9333ea" strokeWidth="11" strokeLinecap="round" fill="none" />
+          {/* Dome Head */}
+          <rect x="20" y="16" width="80" height="72" rx="34" fill="#a855f7" />
+          <ellipse cx="38" cy="30" rx="9" ry="5" transform="rotate(-20 38 30)" fill="#e9d5ff" opacity="0.55" />
+          {/* Eyes */}
+          <circle cx="43" cy="54" r="10" fill="#ffffff" />
+          <circle cx="45" cy="54" r="6" fill="#0f172a" />
+          <circle cx="43" cy="51.5" r="2" fill="#ffffff" />
+          <circle cx="77" cy="54" r="10" fill="#ffffff" />
+          <circle cx="75" cy="54" r="6" fill="#0f172a" />
+          <circle cx="73" cy="51.5" r="2" fill="#ffffff" />
+          <circle cx="60" cy="69" r="4" fill="#581c87" />
+        </svg>
+      );
+    }
+
+    case 'deep-pufferfish': {
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Spikes */}
+          {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
+            <polygon
+              key={deg}
+              points="56,6 64,6 60,18"
+              fill="#d97706"
+              transform={`rotate(${deg} 60 60)`}
+            />
+          ))}
+          {/* Side Fins */}
+          <ellipse cx="14" cy="62" rx="9" ry="13" fill="#fde047" />
+          <ellipse cx="106" cy="62" rx="9" ry="13" fill="#fde047" />
+          {/* Puffed Round Body */}
+          <circle cx="60" cy="60" r="44" fill="#facc15" />
+          <ellipse cx="60" cy="76" rx="32" ry="22" fill="#fef9c3" />
+          {/* Eyes & Puffed Lips */}
+          <circle cx="42" cy="52" r="10.5" fill="#ffffff" />
+          <circle cx="44" cy="52" r="6" fill="#0f172a" />
+          <circle cx="42" cy="49.5" r="2" fill="#ffffff" />
+          <circle cx="78" cy="52" r="10.5" fill="#ffffff" />
+          <circle cx="76" cy="52" r="6" fill="#0f172a" />
+          <circle cx="74" cy="49.5" r="2" fill="#ffffff" />
+          <ellipse cx="60" cy="70" rx="8" ry="6" fill="#fb923c" />
+          <circle cx="60" cy="70" r="3" fill="#7c2d12" />
+        </svg>
+      );
+    }
+
+    case 'deep-jellyfish': {
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Glowing Tentacles */}
+          <path d="M32 64 Q24 86 34 106" stroke="#67e8f9" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <path d="M48 66 Q54 88 46 110" stroke="#22d3ee" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <path d="M64 66 Q58 88 66 110" stroke="#67e8f9" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <path d="M80 64 Q88 86 78 106" stroke="#22d3ee" strokeWidth="6" strokeLinecap="round" fill="none" />
+          {/* Translucent Bell */}
+          <path d="M18 64 C18 18 102 18 102 64 C88 70 74 64 60 68 C46 64 32 70 18 64 Z" fill="#06b6d4" />
+          <path d="M26 58 C26 26 94 26 94 58 Z" fill="#a5f3fc" opacity="0.6" />
+          {/* Cute Bioluminescent Spots & Face */}
+          <circle cx="40" cy="34" r="4" fill="#ecfeff" opacity="0.85" />
+          <circle cx="80" cy="34" r="4" fill="#ecfeff" opacity="0.85" />
+          <circle cx="46" cy="50" r="7.5" fill="#ffffff" />
+          <circle cx="47" cy="50" r="4.5" fill="#083344" />
+          <circle cx="74" cy="50" r="7.5" fill="#ffffff" />
+          <circle cx="73" cy="50" r="4.5" fill="#083344" />
+          <path d="M55 58 Q60 62 65 58" stroke="#083344" strokeWidth="2.8" strokeLinecap="round" fill="none" />
+        </svg>
+      );
+    }
+
+    case 'deep-anglerfish': {
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Lure Stalk & Glowing Bulb */}
+          <path d="M60 28 C58 8 34 6 24 22" stroke="#475569" strokeWidth="5" strokeLinecap="round" fill="none" />
+          <circle cx="22" cy="24" r="10" fill="#fef08a" opacity="0.35" />
+          <circle cx="22" cy="24" r="6" fill="#fde047" />
+          {/* Fins */}
+          <path d="M98 52 L114 40 L110 74 L98 66 Z" fill="#334155" />
+          {/* Deep Abyssal Body */}
+          <rect x="18" y="26" width="84" height="76" rx="26" fill="#1e293b" />
+          <rect x="22" y="30" width="76" height="68" rx="22" fill="#334155" />
+          {/* Glowing Eyes */}
+          <circle cx="42" cy="54" r="10.5" fill="#fef08a" />
+          <circle cx="44" cy="54" r="5" fill="#0f172a" />
+          <circle cx="78" cy="54" r="10.5" fill="#fef08a" />
+          <circle cx="76" cy="54" r="5" fill="#0f172a" />
+          {/* Sharp Tooth Grin */}
+          <path d="M32 74 Q60 92 88 74 Q88 94 60 96 Q32 94 32 74 Z" fill="#0f172a" />
+          <polygon points="38,76 43,86 48,77" fill="#f8fafc" />
+          <polygon points="55,79 60,89 65,79" fill="#f8fafc" />
+          <polygon points="72,77 77,86 82,76" fill="#f8fafc" />
+        </svg>
+      );
+    }
+
+    case 'deep-shark': {
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Dorsal Fin */}
+          <path d="M48 26 L62 4 L76 26 Z" fill="#475569" />
+          {/* Side Pectoral Fins */}
+          <path d="M18 66 L4 80 L22 84 Z" fill="#64748b" />
+          <path d="M102 66 L116 80 L98 84 Z" fill="#64748b" />
+          {/* Shark Body */}
+          <rect x="18" y="24" width="84" height="82" rx="24" fill="#64748b" />
+          {/* White Belly */}
+          <path d="M24 68 Q60 58 96 68 V88 C96 98 88 106 78 106 H42 C32 106 24 98 24 88 Z" fill="#f8fafc" />
+          {/* Gill Slits */}
+          <line x1="25" y1="54" x2="25" y2="66" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="95" y1="54" x2="95" y2="66" stroke="#334155" strokeWidth="2.5" strokeLinecap="round" />
+          {/* Fierce Eyes */}
+          <circle cx="42" cy="52" r="9" fill="#ffffff" />
+          <circle cx="43" cy="52" r="5.5" fill="#0f172a" />
+          <path d="M32 42 L51 47" stroke="#1e293b" strokeWidth="4" strokeLinecap="round" />
+          <circle cx="78" cy="52" r="9" fill="#ffffff" />
+          <circle cx="77" cy="52" r="5.5" fill="#0f172a" />
+          <path d="M88 42 L69 47" stroke="#1e293b" strokeWidth="4" strokeLinecap="round" />
+          {/* Tooth Smile */}
+          <path d="M38 78 Q60 92 82 78 Q78 96 60 96 Q42 96 38 78 Z" fill="#991b1b" />
+          <polygon points="44,80 48,88 52,81" fill="#ffffff" />
+          <polygon points="56,82 60,90 64,82" fill="#ffffff" />
+          <polygon points="68,81 72,88 76,80" fill="#ffffff" />
+        </svg>
+      );
+    }
+
+    case 'deep-orca': {
+      const orcaGrad = `deepOrcaGrad-${uid}`;
+      const shineMaskId = `deepOrcaMask-${uid}`;
+      const shineGradId = `deepOrcaShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={orcaGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0f172a" />
+              <stop offset="55%" stopColor="#1e293b" />
+              <stop offset="100%" stopColor="#0284c7" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <rect x="16" y="18" width="88" height="88" rx="24" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Dorsal & Side Fins */}
+          <path d="M50 22 L64 4 L74 22 Z" fill="#0f172a" />
+          <path d="M18 68 L4 80 L20 84 Z" fill="#0284c7" />
+          <path d="M102 68 L116 80 L100 84 Z" fill="#0284c7" />
+          {/* Orca Body */}
+          <rect x="18" y="20" width="84" height="86" rx="24" fill={`url(#${orcaGrad})`} />
+          {/* Classic White Eye Patches */}
+          <ellipse cx="35" cy="46" rx="10" ry="6" transform="rotate(-22 35 46)" fill="#e0f2fe" />
+          <ellipse cx="85" cy="46" rx="10" ry="6" transform="rotate(22 85 46)" fill="#e0f2fe" />
+          {/* White Belly */}
+          <path d="M30 72 Q60 62 90 72 V88 C90 98 82 106 72 106 H48 C38 106 30 98 30 88 Z" fill="#f8fafc" />
+          {/* Eyes */}
+          <circle cx="43" cy="56" r="7.5" fill="#ffffff" />
+          <circle cx="44" cy="56" r="4.5" fill="#0f172a" />
+          <circle cx="77" cy="56" r="7.5" fill="#ffffff" />
+          <circle cx="76" cy="56" r="4.5" fill="#0f172a" />
+          <path d="M50 78 Q60 86 70 78" stroke="#0f172a" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'deep-narwhal': {
+      const tuskGrad = `deepNarwhalTusk-${uid}`;
+      const bodyGrad = `deepNarwhalBody-${uid}`;
+      const shineMaskId = `deepNarwhalMask-${uid}`;
+      const shineGradId = `deepNarwhalShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={tuskGrad} x1="0%" y1="100%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor="#fde68a" />
+              <stop offset="50%" stopColor="#ffffff" />
+              <stop offset="100%" stopColor="#67e8f9" />
+            </linearGradient>
+            <linearGradient id={bodyGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#67e8f9" />
+              <stop offset="55%" stopColor="#0ea5e9" />
+              <stop offset="100%" stopColor="#2563eb" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <rect x="18" y="24" width="84" height="82" rx="24" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Spiraled Crystal Horn */}
+          <polygon points="53,34 67,34 60,4" fill={`url(#${tuskGrad})`} />
+          <line x1="56" y1="24" x2="64" y2="20" stroke="#0284c7" strokeWidth="2" />
+          <line x1="57" y1="15" x2="63" y2="12" stroke="#0284c7" strokeWidth="2" />
+          {/* Flippers */}
+          <ellipse cx="14" cy="74" rx="10" ry="7" transform="rotate(-25 14 74)" fill="#0284c7" />
+          <ellipse cx="106" cy="74" rx="10" ry="7" transform="rotate(25 106 74)" fill="#0284c7" />
+          {/* Narwhal Body */}
+          <rect x="20" y="30" width="80" height="76" rx="26" fill={`url(#${bodyGrad})`} />
+          <ellipse cx="60" cy="84" rx="28" ry="18" fill="#e0f2fe" />
+          {/* Cute Spots */}
+          <circle cx="34" cy="44" r="4" fill="#bae6fd" opacity="0.7" />
+          <circle cx="86" cy="44" r="4" fill="#bae6fd" opacity="0.7" />
+          {/* Eyes & Smile */}
+          <circle cx="42" cy="60" r="8.5" fill="#ffffff" />
+          <circle cx="44" cy="60" r="5" fill="#0f172a" />
+          <circle cx="42" cy="58" r="1.8" fill="#ffffff" />
+          <circle cx="78" cy="60" r="8.5" fill="#ffffff" />
+          <circle cx="76" cy="60" r="5" fill="#0f172a" />
+          <circle cx="74" cy="58" r="1.8" fill="#ffffff" />
+          <path d="M52 74 Q60 80 68 74" stroke="#0c4a6e" strokeWidth="3.2" strokeLinecap="round" fill="none" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'deep-manta': {
+      const mantaGrad = `deepMantaGrad-${uid}`;
+      const shineMaskId = `deepMantaMask-${uid}`;
+      const shineGradId = `deepMantaShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={mantaGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#0f172a" />
+              <stop offset="50%" stopColor="#0369a1" />
+              <stop offset="100%" stopColor="#06b6d4" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <path d="M60 18 C84 26 112 46 112 58 C96 74 78 90 60 100 C42 90 24 74 8 58 C8 46 36 26 60 18 Z" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Tail */}
+          <path d="M60 92 Q66 108 58 116" stroke="#0284c7" strokeWidth="5" strokeLinecap="round" fill="none" />
+          {/* Sweeping Wing Body */}
+          <path
+            d="M60 18 C84 26 114 46 114 58 C96 74 78 90 60 100 C42 90 24 74 6 58 C6 46 36 26 60 18 Z"
+            fill={`url(#${mantaGrad})`}
+          />
+          {/* Bioluminescent Wing Stripes */}
+          <path d="M24 54 Q40 44 46 66" stroke="#67e8f9" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.85" />
+          <path d="M96 54 Q80 44 74 66" stroke="#67e8f9" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.85" />
+          {/* Cephalic Horn Fins */}
+          <path d="M40 26 Q34 14 46 20" stroke="#38bdf8" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <path d="M80 26 Q86 14 74 20" stroke="#38bdf8" strokeWidth="6" strokeLinecap="round" fill="none" />
+          {/* Glowing Eyes */}
+          <circle cx="44" cy="48" r="6.5" fill="#a5f3fc" />
+          <circle cx="45" cy="48" r="3.5" fill="#0f172a" />
+          <circle cx="76" cy="48" r="6.5" fill="#a5f3fc" />
+          <circle cx="75" cy="48" r="3.5" fill="#0f172a" />
+          <path d="M51 64 Q60 70 69 64" stroke="#67e8f9" strokeWidth="3" strokeLinecap="round" fill="none" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'deep-kraken': {
+      const krakenGrad = `deepKrakenGrad-${uid}`;
+      const shineMaskId = `deepKrakenMask-${uid}`;
+      const shineGradId = `deepKrakenShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={krakenGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#c084fc" />
+              <stop offset="50%" stopColor="#7e22ce" />
+              <stop offset="100%" stopColor="#3b0764" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <rect x="16" y="14" width="88" height="94" rx="24" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Tentacle Crown */}
+          <path d="M18 76 Q4 96 16 112" stroke="#6b21a8" strokeWidth="10" strokeLinecap="round" fill="none" />
+          <path d="M38 84 Q28 104 38 114" stroke="#9333ea" strokeWidth="10" strokeLinecap="round" fill="none" />
+          <path d="M60 86 Q60 106 60 116" stroke="#7e22ce" strokeWidth="10" strokeLinecap="round" fill="none" />
+          <path d="M82 84 Q92 104 82 114" stroke="#9333ea" strokeWidth="10" strokeLinecap="round" fill="none" />
+          <path d="M102 76 Q116 96 104 112" stroke="#6b21a8" strokeWidth="10" strokeLinecap="round" fill="none" />
+          {/* Kraken Crest */}
+          <polygon points="34,28 24,8 46,20 60,4 74,20 96,8 86,28" fill="#581c87" />
+          {/* Body */}
+          <rect x="20" y="18" width="80" height="72" rx="30" fill={`url(#${krakenGrad})`} />
+          {/* Mystic Glowing Runes & Eyes */}
+          <circle cx="60" cy="34" r="6" fill="#e9d5ff" opacity="0.85" />
+          <circle cx="42" cy="54" r="10.5" fill="#fef08a" />
+          <ellipse cx="43" cy="54" rx="3.5" ry="7.5" fill="#1e1b4b" />
+          <circle cx="78" cy="54" r="10.5" fill="#fef08a" />
+          <ellipse cx="77" cy="54" rx="3.5" ry="7.5" fill="#1e1b4b" />
+          <path d="M46 72 L60 78 L74 72" stroke="#e9d5ff" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} isMystic />
+          )}
+        </svg>
+      );
+    }
+
+    case 'deep-leviathan': {
+      const voidGrad = `deepLeviathanGrad-${uid}`;
+      const coreGrad = `deepLeviathanCore-${uid}`;
+      const shineMaskId = `deepLeviathanMask-${uid}`;
+      const shineGradId = `deepLeviathanShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={voidGrad} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#18181b" />
+              <stop offset="55%" stopColor="#09090b" />
+              <stop offset="100%" stopColor="#000000" />
+            </linearGradient>
+            <radialGradient id={coreGrad} cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="45%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#000000" stopOpacity="0" />
+            </radialGradient>
+            <mask id={shineMaskId}>
+              <rect x="14" y="14" width="92" height="92" rx="22" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Abyssal Spines & Side Wings */}
+          <path d="M16 48 L4 34 L18 66 Z" fill="#09090b" stroke="#94a3b8" strokeWidth="2" />
+          <path d="M104 48 L116 34 L102 66 Z" fill="#09090b" stroke="#94a3b8" strokeWidth="2" />
+          <polygon points="36,24 28,6 48,18 60,2 72,18 92,6 84,24" fill="#000000" stroke="#e2e8f0" strokeWidth="2" />
+          {/* Void Leviathan Frame */}
+          <rect
+            x="18"
+            y="20"
+            width="84"
+            height="84"
+            rx="22"
+            fill={`url(#${voidGrad})`}
+            stroke="#e2e8f0"
+            strokeWidth="3"
+          />
+          {/* Rift Core */}
+          <circle cx="60" cy="38" r="10" fill={`url(#${coreGrad})`} />
+          <circle cx="60" cy="38" r="3.5" fill="#ffffff" />
+          {/* Piercing Eyes */}
+          <path d="M30 52 L50 58 L34 65 Z" fill="#ffffff" />
+          <path d="M90 52 L70 58 L86 65 Z" fill="#ffffff" />
+          <circle cx="40" cy="58" r="2.6" fill="#000000" />
+          <circle cx="80" cy="58" r="2.6" fill="#000000" />
+          {/* Abyssal Fangs */}
+          <path d="M34 78 Q60 92 86 78" stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" fill="none" />
+          <polygon points="42,80 46,89 50,82" fill="#ffffff" />
+          <polygon points="56,83 60,92 64,83" fill="#ffffff" />
+          <polygon points="70,82 74,89 78,80" fill="#ffffff" />
+          {shouldAnimateSpecial && (
+            <>
+              <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+              <circle cx="16" cy="22" r="2.2" fill="#ffffff">
+                <animate attributeName="opacity" values="0.2;1;0.2" dur="1.6s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="104" cy="22" r="2.2" fill="#ffffff">
+                <animate attributeName="opacity" values="1;0.2;1" dur="1.6s" repeatCount="indefinite" />
+              </circle>
+            </>
+          )}
+        </svg>
+      );
+    }
+
+    /* ==================== DRINKS PACK ==================== */
+    case 'drink-water':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Bottle Cap */}
+          <rect x="44" y="10" width="32" height="12" rx="4" fill="#0284c7" />
+          <line x1="48" y1="12" x2="48" y2="20" stroke="#7dd3fc" strokeWidth="2" />
+          <line x1="56" y1="12" x2="56" y2="20" stroke="#7dd3fc" strokeWidth="2" />
+          <line x1="64" y1="12" x2="64" y2="20" stroke="#7dd3fc" strokeWidth="2" />
+          <line x1="72" y1="12" x2="72" y2="20" stroke="#7dd3fc" strokeWidth="2" />
+          {/* Neck */}
+          <path d="M46 22 L34 38 H86 L74 22 Z" fill="#bae6fd" />
+          {/* Bottle Body */}
+          <rect x="28" y="36" width="64" height="72" rx="16" fill="#7dd3fc" />
+          {/* Water Fill */}
+          <path d="M28 56 Q44 50 60 56 Q76 62 92 56 V92 A16 16 0 0 1 76 108 H44 A16 16 0 0 1 28 92 Z" fill="#0ea5e9" />
+          {/* Label Strip & Water Drop Crest */}
+          <rect x="28" y="60" width="64" height="24" fill="#e0f2fe" opacity="0.92" />
+          <path d="M60 63 C65 69 67 74 67 76 A7 7 0 1 1 53 76 C53 74 55 69 60 63 Z" fill="#0284c7" />
+          <circle cx="57.5" cy="76.5" r="1.5" fill="#bae6fd" />
+          {/* Condensation Droplets & Gloss */}
+          <circle cx="78" cy="49" r="2.2" fill="#ffffff" opacity="0.7" />
+          <circle cx="76" cy="96" r="2.4" fill="#bae6fd" opacity="0.65" />
+          <rect x="35" y="42" width="7" height="54" rx="3.5" fill="#ffffff" opacity="0.45" />
+        </svg>
+      );
+
+    case 'drink-lemonade':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Striped Straw */}
+          <path d="M72 42 L84 12 L94 14 L82 44 Z" fill="#ef4444" />
+          <line x1="77" y1="26" x2="88" y2="29" stroke="#ffffff" strokeWidth="3.5" />
+          <line x1="81" y1="17" x2="91" y2="20" stroke="#ffffff" strokeWidth="3.5" />
+          {/* Lemon Slice on Rim */}
+          <circle cx="30" cy="38" r="15" fill="#facc15" stroke="#fef08a" strokeWidth="3" />
+          <circle cx="30" cy="38" r="9" fill="#fde047" />
+          {/* Glass */}
+          <polygon points="28,36 92,36 82,106 38,106" fill="#fef9c3" stroke="#eab308" strokeWidth="3" />
+          {/* Lemonade Liquid */}
+          <polygon points="32,52 88,52 80,103 40,103" fill="#facc15" />
+          {/* Ice Cubes & Floating Lemon Wheel */}
+          <rect x="40" y="48" width="14" height="14" rx="3" transform="rotate(-12 47 55)" fill="#ffffff" opacity="0.72" />
+          <rect x="64" y="50" width="13" height="13" rx="3" transform="rotate(14 70 56)" fill="#ffffff" opacity="0.72" />
+          <circle cx="58" cy="82" r="10" fill="#fde047" stroke="#fef9c3" strokeWidth="2.5" opacity="0.85" />
+          <rect x="37" y="54" width="5.5" height="42" rx="2.75" fill="#ffffff" opacity="0.38" transform="rotate(-6 39 75)" />
+        </svg>
+      );
+
+    case 'drink-orange-juice':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Carton Top */}
+          <polygon points="34,26 60,12 86,26 86,38 34,38" fill="#fb923c" />
+          <polygon points="34,26 60,12 60,38 34,38" fill="#fdba74" />
+          <rect x="48" y="10" width="24" height="7" rx="2" fill="#ea580c" />
+          {/* Carton Body */}
+          <rect x="30" y="38" width="60" height="70" rx="10" fill="#f97316" />
+          <rect x="30" y="52" width="60" height="40" fill="#ffedd5" />
+          {/* Fresh Orange & Leaf Emblem */}
+          <circle cx="60" cy="73" r="14" fill="#fb923c" stroke="#ea580c" strokeWidth="2" />
+          <circle cx="60" cy="73" r="10.5" fill="#fde047" opacity="0.55" />
+          <path d="M60 59 C64 52 73 53 73 59 C68 62 63 61 60 59 Z" fill="#22c55e" />
+          <rect x="35" y="42" width="5.5" height="60" rx="2.75" fill="#ffffff" opacity="0.28" />
+        </svg>
+      );
+
+    case 'drink-milkshake':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Straw */}
+          <rect x="68" y="8" width="8" height="32" rx="3" transform="rotate(14 72 24)" fill="#ec4899" />
+          {/* Whipped Cream Swirl */}
+          <ellipse cx="60" cy="40" rx="32" ry="12" fill="#ffffff" />
+          <ellipse cx="60" cy="30" rx="22" ry="10" fill="#fdf2f8" />
+          <circle cx="60" cy="18" r="8" fill="#e11d48" />
+          <circle cx="57.5" cy="15.5" r="2.2" fill="#ffffff" opacity="0.85" />
+          {/* Glass Cup */}
+          <polygon points="30,42 90,42 78,108 42,108" fill="#f472b6" stroke="#db2777" strokeWidth="3" />
+          {/* Strawberry Swirls & Sprinkles */}
+          <path d="M35 64 Q48 56 60 64 Q72 72 85 62" stroke="#fbcfe8" strokeWidth="5" strokeLinecap="round" fill="none" opacity="0.7" />
+          <path d="M39 86 Q52 78 64 86 Q74 92 81 84" stroke="#fdf2f8" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.55" />
+          <line x1="46" y1="34" x2="50" y2="37" stroke="#facc15" strokeWidth="2.5" strokeLinecap="round" />
+          <line x1="72" y1="33" x2="68" y2="37" stroke="#38bdf8" strokeWidth="2.5" strokeLinecap="round" />
+          <rect x="37" y="48" width="5.5" height="52" rx="2.75" fill="#ffffff" opacity="0.32" transform="rotate(-7 39 74)" />
+        </svg>
+      );
+
+    case 'drink-boba':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Wide Boba Straw */}
+          <rect x="55" y="6" width="11" height="34" rx="3" fill="#be185d" />
+          {/* Lid */}
+          <rect x="26" y="34" width="68" height="10" rx="5" fill="#fdf2f8" stroke="#be185d" strokeWidth="2.5" />
+          {/* Cup Body */}
+          <polygon points="30,44 90,44 80,108 40,108" fill="#f5d0a9" stroke="#92400e" strokeWidth="2.5" />
+          {/* Brown Sugar Drizzle & Milk Tea Wave */}
+          <path d="M33 52 Q44 64 52 54 Q60 66 70 54 Q80 64 87 52 V44 H33 Z" fill="#b45309" opacity="0.6" />
+          <path d="M35 72 Q50 65 60 72 Q72 79 85 71" stroke="#fef3c7" strokeWidth="4.5" strokeLinecap="round" fill="none" opacity="0.55" />
+          {/* Tapioca Pearls */}
+          <circle cx="46" cy="96" r="5.5" fill="#292524" />
+          <circle cx="59" cy="98" r="5.5" fill="#292524" />
+          <circle cx="72" cy="96" r="5.5" fill="#292524" />
+          <circle cx="52" cy="87" r="5" fill="#44403c" />
+          <circle cx="66" cy="87" r="5" fill="#44403c" />
+          <rect x="36" y="48" width="5.5" height="52" rx="2.75" fill="#ffffff" opacity="0.3" transform="rotate(-6 39 74)" />
+        </svg>
+      );
+
+    case 'drink-iced-coffee':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Dome Lid & Straw */}
+          <rect x="56" y="6" width="8" height="28" rx="3" fill="#16a34a" />
+          <path d="M28 42 C28 20 92 20 92 42 Z" fill="#e2e8f0" opacity="0.85" stroke="#94a3b8" strokeWidth="2" />
+          {/* Cup */}
+          <polygon points="28,42 92,42 82,108 38,108" fill="#78350f" />
+          {/* Cream Swirl */}
+          <path d="M32 52 Q60 66 88 52 L85 74 Q60 86 35 74 Z" fill="#fef3c7" opacity="0.85" />
+          <path d="M36 86 Q60 96 84 86" stroke="#d97706" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.65" />
+          {/* Ice Cubes */}
+          <rect x="40" y="45" width="13" height="12" rx="2.5" transform="rotate(-8 46 51)" fill="#ffffff" opacity="0.68" />
+          <rect x="65" y="46" width="13" height="12" rx="2.5" transform="rotate(10 71 52)" fill="#ffffff" opacity="0.68" />
+          <rect x="36" y="48" width="5.5" height="52" rx="2.75" fill="#ffffff" opacity="0.28" transform="rotate(-6 39 74)" />
+        </svg>
+      );
+
+    case 'drink-root-beer':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Mug Handle */}
+          <path d="M84 54 H98 A10 10 0 0 1 108 64 V82 A10 10 0 0 1 98 92 H84" stroke="#cbd5e1" strokeWidth="9" strokeLinecap="round" fill="none" />
+          {/* Ice Cream Scoop & Foam */}
+          <circle cx="56" cy="34" r="19" fill="#fef3c7" />
+          <circle cx="40" cy="40" r="12" fill="#ffffff" />
+          <circle cx="72" cy="40" r="12" fill="#ffffff" />
+          <circle cx="58" cy="17" r="6" fill="#dc2626" />
+          {/* Mug Body */}
+          <rect x="26" y="42" width="60" height="66" rx="10" fill="#451a03" stroke="#e2e8f0" strokeWidth="3.5" />
+          {/* Foam Drips */}
+          <path d="M28 44 H84 V54 Q76 62 70 52 Q62 64 54 52 Q44 62 36 52 L28 56 Z" fill="#ffffff" />
+          {/* Glass Mug Flutes & Fizz */}
+          <rect x="35" y="64" width="7" height="34" rx="3.5" fill="#78350f" stroke="#92400e" strokeWidth="1.5" />
+          <rect x="52" y="64" width="7" height="34" rx="3.5" fill="#78350f" stroke="#92400e" strokeWidth="1.5" />
+          <rect x="69" y="64" width="7" height="34" rx="3.5" fill="#78350f" stroke="#92400e" strokeWidth="1.5" />
+        </svg>
+      );
+
+    case 'drink-matcha':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Bamboo Straw */}
+          <rect x="66" y="8" width="9" height="32" rx="3" transform="rotate(14 70 24)" fill="#84cc16" />
+          {/* Matcha Foam Top */}
+          <ellipse cx="60" cy="42" rx="33" ry="11" fill="#ecfccb" stroke="#65a30d" strokeWidth="2.5" />
+          <path d="M52 42 Q60 35 68 42 Q60 49 52 42 Z" fill="#4d7c0f" />
+          {/* Layered Matcha Cup */}
+          <polygon points="28,42 92,42 82,108 38,108" fill="#65a30d" />
+          <polygon points="34,76 86,76 82,108 38,108" fill="#fefce8" />
+          <path d="M32 76 Q48 70 60 76 Q74 82 88 76" stroke="#84cc16" strokeWidth="5" fill="none" />
+          {/* Subtle Tea Leaf Crest & Shine */}
+          <path d="M53 60 C58 52 68 53 68 60 C63 64 57 63 53 60 Z" fill="#bef264" opacity="0.85" />
+          <rect x="36" y="48" width="5.5" height="52" rx="2.75" fill="#ffffff" opacity="0.3" transform="rotate(-6 39 74)" />
+        </svg>
+      );
+
+    case 'drink-slushie': {
+      const gradId = `slushGrad-${uid}`;
+      const shineMaskId = `slushMask-${uid}`;
+      const shineGradId = `slushShine-${uid}`;
+      return (
+        <svg
+          viewBox="0 0 120 120"
+          className={`${className} ${shouldAnimateSpecial ? 'animate-chroma-move' : ''}`}
+          xmlns="http://www.w3.org/2000/svg"
+        >
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#ec4899" />
+              <stop offset="50%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#a855f7" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <polygon points="28,42 92,42 82,108 38,108" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Neon Spoon Straw */}
+          <rect x="66" y="6" width="9" height="36" rx="3" transform="rotate(14 70 24)" fill="#22d3ee" />
+          {/* Slushie Dome */}
+          <path d="M28 44 C28 16 92 16 92 44 Z" fill="#f472b6" />
+          <path d="M36 44 C36 22 84 22 84 44 Z" fill="#38bdf8" opacity="0.7" />
+          {/* Cup */}
+          <polygon
+            points="28,44 92,44 82,108 38,108"
+            fill={`url(#${gradId})`}
+          />
+          {/* Neon Fizz Wave & Ice Crystals */}
+          <path d="M34 68 Q48 60 60 68 Q72 76 86 68" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.45" />
+          <circle cx="46" cy="86" r="3" fill="#ffffff" opacity="0.6" />
+          <circle cx="72" cy="82" r="2.5" fill="#bae6fd" opacity="0.7" />
+          <circle cx="60" cy="94" r="2" fill="#ffffff" opacity="0.65" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'drink-galaxy-soda': {
+      const gradId = `galaxySodaGrad-${uid}`;
+      const shineMaskId = `galaxySodaMask-${uid}`;
+      const shineGradId = `galaxySodaShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#1e1b4b" />
+              <stop offset="50%" stopColor="#7e22ce" />
+              <stop offset="100%" stopColor="#06b6d4" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <rect x="28" y="24" width="64" height="84" rx="14" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Soda Can Rim */}
+          <rect x="34" y="16" width="52" height="10" rx="5" fill="#cbd5e1" />
+          <rect x="28" y="24" width="64" height="84" rx="14" fill={`url(#${gradId})`} />
+          {/* Galaxy Planet Ring & Stars */}
+          <ellipse cx="60" cy="66" rx="22" ry="7" transform="rotate(-18 60 66)" stroke="#67e8f9" strokeWidth="3" fill="none" opacity="0.85" />
+          <circle cx="60" cy="66" r="10" fill="#fde047" opacity="0.9" />
+          <circle cx="40" cy="40" r="2.2" fill="#fde047" />
+          <circle cx="80" cy="44" r="2" fill="#ffffff" />
+          <circle cx="60" cy="36" r="2.6" fill="#67e8f9" />
+          <circle cx="42" cy="94" r="2" fill="#f9a8d4" />
+          <circle cx="78" cy="92" r="2.2" fill="#fde047" />
+          <rect x="34" y="32" width="6" height="68" rx="3" fill="#ffffff" opacity="0.22" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'drink-elixir': {
+      const gradId = `elixirGrad-${uid}`;
+      const shineMaskId = `elixirMask-${uid}`;
+      const shineGradId = `elixirShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#c084fc" />
+              <stop offset="50%" stopColor="#9333ea" />
+              <stop offset="100%" stopColor="#4c1d95" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <circle cx="60" cy="72" r="36" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Cork & Flask Neck */}
+          <rect x="49" y="10" width="22" height="14" rx="4" fill="#d97706" />
+          <rect x="45" y="22" width="30" height="18" rx="4" fill="#e9d5ff" />
+          {/* Potion Bulb */}
+          <circle cx="60" cy="72" r="36" fill={`url(#${gradId})`} stroke="#f3e8ff" strokeWidth="3" />
+          {/* Glowing Crescent & Arcane Star Crest */}
+          <path d="M36 58 A26 26 0 0 1 56 42" stroke="#ffffff" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.6" />
+          <polygon points="60,55 64,66 75,70 64,74 60,85 56,74 45,70 56,66" fill="#fef08a" opacity="0.9" />
+          <circle cx="44" cy="84" r="3" fill="#e9d5ff" opacity="0.7" />
+          <circle cx="76" cy="60" r="2.5" fill="#e9d5ff" opacity="0.7" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} isMystic />
+          )}
+        </svg>
+      );
+    }
+
+    case 'drink-golden-nectar': {
+      const gradId = `mangoSmoothieGrad-${uid}`;
+      const shineMaskId = `mangoSmoothieMask-${uid}`;
+      const shineGradId = `mangoSmoothieShine-${uid}`;
+      const cupClipId = `mangoSmoothieCupClip-${uid}`;
+      const liquidClipId = `mangoSmoothieLiquidClip-${uid}`;
+      const whippedClipId = `mangoSmoothieWhippedClip-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#fde047" />
+              <stop offset="50%" stopColor="#f59e0b" />
+              <stop offset="100%" stopColor="#ea580c" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <polygon points="28,42 92,42 82,108 38,108" fill="#ffffff" />
+            </mask>
+            <clipPath id={cupClipId}>
+              <polygon points="28,42 92,42 82,108 38,108" />
+            </clipPath>
+            <clipPath id={whippedClipId}>
+              <rect x="0" y="0" width="120" height="43" />
+              <polygon points="28,42 92,42 82,108 38,108" />
+            </clipPath>
+            <clipPath id={liquidClipId}>
+              <rect x="20" y="42" width="80" height="72">
+                {shouldAnimateSpecial && (
+                  <animate
+                    attributeName="y"
+                    values="42; 42; 108; 108; 42"
+                    keyTimes="0; 0.14; 0.52; 0.64; 1"
+                    dur="4.2s"
+                    repeatCount="indefinite"
+                  />
+                )}
+              </rect>
+            </clipPath>
+          </defs>
+          {/* Radiant Godly Mango Aura */}
+          <circle cx="60" cy="64" r="50" fill="#fde047" opacity="0.22" />
+          {/* Striped Coral Smoothie Straw */}
+          <path d="M68 42 L80 10 L90 12 L78 44 Z" fill="#f97316" />
+          <line x1="73" y1="26" x2="84" y2="29" stroke="#ffffff" strokeWidth="3.5" />
+          <line x1="77" y1="17" x2="87" y2="20" stroke="#ffffff" strokeWidth="3.5" />
+          {/* Fresh Mango Wedge & Mint Leaf on Rim */}
+          <path d="M24 38 C16 26 26 14 40 20 C44 26 38 38 24 38 Z" fill="#fbbf24" stroke="#d97706" strokeWidth="2.5" />
+          <path d="M36 24 C42 12 56 12 56 22 C48 26 42 26 36 24 Z" fill="#22c55e" stroke="#15803d" strokeWidth="1.8" />
+          {/* Frosted Empty Cup Backing + Submerged Straw + Draining & Refilling Smoothie */}
+          <g clipPath={`url(#${cupClipId})`}>
+            <polygon points="28,42 92,42 82,108 38,108" fill="#fffbeb" opacity="0.34" />
+            <line x1="72" y1="42" x2="58" y2="105" stroke="#fb923c" strokeWidth="6" strokeLinecap="round" opacity="0.55" />
+            <g clipPath={`url(#${liquidClipId})`}>
+              <polygon points="28,42 92,42 82,108 38,108" fill={`url(#${gradId})`} />
+              {/* Creamy Mango Swirl Layers */}
+              <path d="M33 62 Q48 54 60 62 Q72 70 87 60" stroke="#fef08a" strokeWidth="5.5" strokeLinecap="round" fill="none" opacity="0.75" />
+              <path d="M35 76 Q50 68 62 76 Q74 84 85 74" stroke="#fffbeb" strokeWidth="4" strokeLinecap="round" fill="none" opacity="0.55" />
+              <path d="M37 90 Q50 84 62 90 Q74 96 83 88" stroke="#fed7aa" strokeWidth="4.5" strokeLinecap="round" fill="none" opacity="0.6" />
+            </g>
+            {shouldAnimateSpecial && (
+              <ellipse cx="60" cy="42" rx="32" ry="4" fill="#fef08a" opacity="0.88">
+                <animate
+                  attributeName="cy"
+                  values="42; 42; 108; 108; 42"
+                  keyTimes="0; 0.14; 0.52; 0.64; 1"
+                  dur="4.2s"
+                  repeatCount="indefinite"
+                />
+                <animate
+                  attributeName="opacity"
+                  values="0; 0.85; 0.35; 0; 0.85; 0"
+                  keyTimes="0; 0.15; 0.5; 0.54; 0.66; 1"
+                  dur="4.2s"
+                  repeatCount="indefinite"
+                />
+              </ellipse>
+            )}
+          </g>
+          {/* Whipped Cream Swirl moving down & refilling with the Mango Smoothie */}
+          <g clipPath={`url(#${whippedClipId})`}>
+            <g>
+              {shouldAnimateSpecial && (
+                <>
+                  <animateTransform
+                    attributeName="transform"
+                    type="translate"
+                    values="0 0; 0 0; 0 65; 0 65; 0 0"
+                    keyTimes="0; 0.14; 0.52; 0.64; 1"
+                    dur="4.2s"
+                    repeatCount="indefinite"
+                  />
+                  <animate
+                    attributeName="opacity"
+                    values="1; 1; 0.85; 0; 0; 0.85; 1"
+                    keyTimes="0; 0.14; 0.48; 0.52; 0.64; 0.68; 1"
+                    dur="4.2s"
+                    repeatCount="indefinite"
+                  />
+                </>
+              )}
+              <g transform="translate(60 40)">
+                <g>
+                  {shouldAnimateSpecial && (
+                    <animateTransform
+                      attributeName="transform"
+                      type="scale"
+                      values="1 1; 1 1; 0.66 0.66; 0.66 0.66; 1 1"
+                      keyTimes="0; 0.14; 0.52; 0.64; 1"
+                      dur="4.2s"
+                      repeatCount="indefinite"
+                    />
+                  )}
+                  <ellipse cx="0" cy="0" rx="31" ry="11" fill="#fffbeb" />
+                  <ellipse cx="0" cy="-9" rx="20" ry="9" fill="#ffffff" />
+                  <circle cx="0" cy="-18" r="6" fill="#f59e0b" />
+                </g>
+              </g>
+            </g>
+          </g>
+          {/* Smoothie Cup Outline */}
+          <polygon points="28,42 92,42 82,108 38,108" fill="none" stroke="#b45309" strokeWidth="3" />
+          {/* Glossy Highlight */}
+          <rect x="36" y="48" width="6" height="50" rx="3" fill="#ffffff" opacity="0.35" transform="rotate(-7 39 73)" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} isMystic />
+          )}
+        </svg>
+      );
+    }
+
+    /* ==================== BALL PACK ==================== */
+    case 'ball-tennis':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="46" fill="#a3e635" stroke="#4d7c0f" strokeWidth="3.5" />
+          <path d="M28 28 Q54 60 28 92" stroke="#fef9c3" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <path d="M92 28 Q66 60 92 92" stroke="#fef9c3" strokeWidth="6" strokeLinecap="round" fill="none" />
+          <ellipse cx="44" cy="34" rx="12" ry="7" transform="rotate(-28 44 34)" fill="#ecfccb" opacity="0.55" />
+        </svg>
+      );
+
+    case 'ball-basketball':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="46" fill="#ea580c" stroke="#7c2d12" strokeWidth="3.5" />
+          <line x1="14" y1="60" x2="106" y2="60" stroke="#431407" strokeWidth="3.5" />
+          <line x1="60" y1="14" x2="60" y2="106" stroke="#431407" strokeWidth="3.5" />
+          <path d="M30 24 Q54 60 30 96" stroke="#431407" strokeWidth="3.5" fill="none" />
+          <path d="M90 24 Q66 60 90 96" stroke="#431407" strokeWidth="3.5" fill="none" />
+          <ellipse cx="42" cy="34" rx="11" ry="6.5" transform="rotate(-28 42 34)" fill="#fdba74" opacity="0.45" />
+        </svg>
+      );
+
+    case 'ball-baseball':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="46" fill="#f8fafc" stroke="#94a3b8" strokeWidth="3.5" />
+          <path d="M32 24 Q54 60 32 96" stroke="#dc2626" strokeWidth="3.2" fill="none" />
+          <path d="M88 24 Q66 60 88 96" stroke="#dc2626" strokeWidth="3.2" fill="none" />
+          <path d="M28 28 Q50 60 28 92" stroke="#dc2626" strokeWidth="3.5" strokeDasharray="5 5" fill="none" />
+          <path d="M92 28 Q70 60 92 92" stroke="#dc2626" strokeWidth="3.5" strokeDasharray="5 5" fill="none" />
+          <ellipse cx="45" cy="34" rx="10" ry="6" transform="rotate(-25 45 34)" fill="#ffffff" opacity="0.75" />
+        </svg>
+      );
+
+    case 'ball-beach':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="46" fill="#ffffff" stroke="#1e293b" strokeWidth="3.5" />
+          <path d="M60 14 A46 46 0 0 0 18 78 L60 60 Z" fill="#ef4444" />
+          <path d="M60 14 A46 46 0 0 1 102 78 L60 60 Z" fill="#3b82f6" />
+          <path d="M18 78 A46 46 0 0 0 102 78 L60 60 Z" fill="#facc15" />
+          <circle cx="60" cy="60" r="10" fill="#ffffff" stroke="#1e293b" strokeWidth="2.5" />
+          <ellipse cx="42" cy="34" rx="10" ry="6" transform="rotate(-25 42 34)" fill="#ffffff" opacity="0.45" />
+        </svg>
+      );
+
+    case 'ball-soccer':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="46" fill="#f8fafc" stroke="#0f172a" strokeWidth="4" />
+          <line x1="60" y1="40" x2="60" y2="20" stroke="#1e293b" strokeWidth="3" />
+          <line x1="76" y1="52" x2="96" y2="46" stroke="#1e293b" strokeWidth="3" />
+          <line x1="44" y1="52" x2="24" y2="46" stroke="#1e293b" strokeWidth="3" />
+          <line x1="70" y1="71" x2="84" y2="90" stroke="#1e293b" strokeWidth="3" />
+          <line x1="50" y1="71" x2="36" y2="90" stroke="#1e293b" strokeWidth="3" />
+          <polygon points="60,40 76,52 70,71 50,71 44,52" fill="#1e293b" />
+          <polygon points="60,14 48,22 72,22" fill="#1e293b" />
+          <polygon points="103,48 93,38 96,60" fill="#1e293b" />
+          <polygon points="17,48 27,38 24,60" fill="#1e293b" />
+          <polygon points="36,100 28,84 48,92" fill="#1e293b" />
+          <polygon points="84,100 92,84 72,92" fill="#1e293b" />
+        </svg>
+      );
+
+    case 'ball-volleyball':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="46" fill="#fef08a" stroke="#1e3a8a" strokeWidth="3.5" />
+          <path d="M18 46 Q56 30 98 42" stroke="#2563eb" strokeWidth="8" fill="none" />
+          <path d="M22 76 Q60 60 100 72" stroke="#eab308" strokeWidth="6" fill="none" />
+          <path d="M46 16 Q60 58 48 104" stroke="#1e3a8a" strokeWidth="3" fill="none" />
+          <path d="M74 18 Q84 58 72 102" stroke="#1e3a8a" strokeWidth="2.8" fill="none" />
+        </svg>
+      );
+
+    case 'ball-bowling':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="46" fill="#4f46e5" stroke="#1e1b4b" strokeWidth="3.5" />
+          <ellipse cx="40" cy="36" rx="13" ry="7.5" transform="rotate(-32 40 36)" fill="#a5b4fc" opacity="0.58" />
+          {/* Three Finger Holes */}
+          <circle cx="50" cy="48" r="5.8" fill="#1e1b4b" />
+          <circle cx="68" cy="44" r="5.8" fill="#1e1b4b" />
+          <circle cx="61" cy="62" r="6" fill="#1e1b4b" />
+        </svg>
+      );
+
+    case 'ball-eight':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <circle cx="60" cy="60" r="46" fill="#18181b" stroke="#52525b" strokeWidth="3.5" />
+          <ellipse cx="39" cy="33" rx="11" ry="6" transform="rotate(-30 39 33)" fill="#ffffff" opacity="0.22" />
+          <circle cx="60" cy="60" r="24" fill="#ffffff" />
+          <text
+            x="60"
+            y="71"
+            textAnchor="middle"
+            fill="#09090b"
+            fontFamily="'Titan One', cursive, sans-serif"
+            fontSize="31"
+          >
+            8
+          </text>
+        </svg>
+      );
+
+    case 'ball-disco': {
+      const gradId = `discoGrad-${uid}`;
+      const shineMaskId = `discoMask-${uid}`;
+      const shineGradId = `discoShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#f0abfc" />
+              <stop offset="50%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#e2e8f0" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <circle cx="60" cy="60" r="46" fill="#ffffff" />
+            </mask>
+          </defs>
+          <circle cx="60" cy="60" r="46" fill={`url(#${gradId})`} stroke="#ffffff" strokeWidth="3" />
+          {/* Mirror Grid Lines */}
+          <line x1="20" y1="42" x2="100" y2="42" stroke="#ffffff" strokeWidth="2" opacity="0.7" />
+          <line x1="14" y1="60" x2="106" y2="60" stroke="#ffffff" strokeWidth="2" opacity="0.7" />
+          <line x1="20" y1="78" x2="100" y2="78" stroke="#ffffff" strokeWidth="2" opacity="0.7" />
+          <line x1="42" y1="18" x2="42" y2="102" stroke="#ffffff" strokeWidth="2" opacity="0.7" />
+          <line x1="60" y1="14" x2="60" y2="106" stroke="#ffffff" strokeWidth="2" opacity="0.7" />
+          <line x1="78" y1="18" x2="78" y2="102" stroke="#ffffff" strokeWidth="2" opacity="0.7" />
+          {/* Reflective Mirror Facets */}
+          <rect x="43" y="43" width="16" height="16" fill="#ffffff" opacity="0.45" />
+          <rect x="61" y="61" width="16" height="16" fill="#f0abfc" opacity="0.45" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'ball-crystal': {
+      const gradId = `crystalOrbGrad-${uid}`;
+      const shineMaskId = `crystalOrbMask-${uid}`;
+      const shineGradId = `crystalOrbShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id={gradId} cx="38%" cy="34%" r="68%">
+              <stop offset="0%" stopColor="#ffffff" />
+              <stop offset="45%" stopColor="#38bdf8" />
+              <stop offset="100%" stopColor="#6366f1" />
+            </radialGradient>
+            <mask id={shineMaskId}>
+              <circle cx="60" cy="56" r="42" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Pedestal */}
+          <polygon points="34,106 86,106 76,90 44,90" fill="#a855f7" stroke="#581c87" strokeWidth="2.5" />
+          {/* Orb */}
+          <circle cx="60" cy="56" r="42" fill={`url(#${gradId})`} stroke="#e0f2fe" strokeWidth="3" />
+          {/* Mystical Nebula Swirl & Specular Highlight */}
+          <path d="M36 62 Q60 40 84 62 Q60 80 36 62 Z" fill="#c084fc" opacity="0.4" />
+          <ellipse cx="44" cy="36" rx="10" ry="6" transform="rotate(-28 44 36)" fill="#ffffff" opacity="0.72" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'ball-plasma': {
+      const gradId = `plasmaGrad-${uid}`;
+      const shineMaskId = `plasmaMask-${uid}`;
+      const shineGradId = `plasmaShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <radialGradient id={gradId} cx="50%" cy="50%" r="55%">
+              <stop offset="0%" stopColor="#f0abfc" />
+              <stop offset="45%" stopColor="#9333ea" />
+              <stop offset="100%" stopColor="#1e1b4b" />
+            </radialGradient>
+            <mask id={shineMaskId}>
+              <circle cx="60" cy="60" r="46" fill="#ffffff" />
+            </mask>
+          </defs>
+          <circle cx="60" cy="60" r="46" fill={`url(#${gradId})`} stroke="#e879f9" strokeWidth="3.5" />
+          {/* Glowing Plasma Core & Lightning Arcs */}
+          <circle cx="60" cy="60" r="14" fill="#fef08a" opacity="0.45" />
+          <circle cx="60" cy="60" r="7" fill="#ffffff" />
+          <polyline points="60,16 50,36 62,42 58,54" stroke="#67e8f9" strokeWidth="3.2" fill="none" strokeLinecap="round" />
+          <polyline points="20,70 38,64 44,76 56,64" stroke="#f0abfc" strokeWidth="3.2" fill="none" strokeLinecap="round" />
+          <polyline points="100,66 82,62 76,74 64,64" stroke="#67e8f9" strokeWidth="3.2" fill="none" strokeLinecap="round" />
+          <polyline points="58,104 66,86 54,78 60,67" stroke="#fef08a" strokeWidth="2.8" fill="none" strokeLinecap="round" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} isMystic />
+          )}
+        </svg>
+      );
+    }
+
+    case 'ball-super': {
+      const gradId = `superBouncerGrad-${uid}`;
+      const shineMaskId = `superBouncerMask-${uid}`;
+      const shineGradId = `superBouncerShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#18181b" />
+              <stop offset="35%" stopColor="#f43f5e" />
+              <stop offset="68%" stopColor="#facc15" />
+              <stop offset="100%" stopColor="#09090b" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <circle cx="60" cy="60" r="46" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Secret Void Orbit Swirl */}
+          <ellipse cx="60" cy="60" rx="54" ry="18" transform="rotate(-20 60 60)" stroke="#e2e8f0" strokeWidth="3.2" fill="none" opacity="0.8" />
+          <circle cx="60" cy="60" r="44" fill={`url(#${gradId})`} stroke="#000000" strokeWidth="4" />
+          <circle cx="60" cy="60" r="41" fill="none" stroke="#ffffff" strokeWidth="2" opacity="0.85" />
+          {/* Bold Super Star Crest & Gloss */}
+          <polygon points="60,34 67,50 84,52 71,63 75,80 60,71 45,80 49,63 36,52 53,50" fill="#ffffff" opacity="0.85" />
+          <ellipse cx="42" cy="34" rx="9" ry="5" transform="rotate(-28 42 34)" fill="#ffffff" opacity="0.5" />
+          {shouldAnimateSpecial && (
+            <>
+              <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+              <circle cx="16" cy="22" r="2.3" fill="#ffffff">
+                <animate attributeName="opacity" values="0.2;1;0.2" dur="1.5s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="104" cy="22" r="2.3" fill="#ffffff">
+                <animate attributeName="opacity" values="1;0.2;1" dur="1.5s" repeatCount="indefinite" />
+              </circle>
+            </>
+          )}
+        </svg>
+      );
+    }
+
+    /* ==================== DESSERT PACK ==================== */
+    case 'dessert-donut':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Baked Dough Ring */}
+          <circle cx="60" cy="62" r="44" fill="#f59e0b" stroke="#92400e" strokeWidth="3.5" />
+          {/* Strawberry Pink Glaze with Scalloped Drips */}
+          <path
+            d="M60 18 A44 44 0 1 0 104 62 A44 44 0 0 0 60 18 Z"
+            fill="#f472b6"
+          />
+          <path
+            d="M22 68 Q30 78 38 69 Q46 79 54 70 Q62 80 70 70 Q78 80 86 69 Q94 78 100 66 A44 44 0 0 1 22 68 Z"
+            fill="#f59e0b"
+          />
+          {/* Donut Center Hole */}
+          <circle cx="60" cy="62" r="15" fill="#fffbeb" stroke="#92400e" strokeWidth="3" />
+          <circle cx="60" cy="62" r="12" fill="rgba(0,0,0,0.08)" />
+          {/* Rainbow Sprinkles */}
+          <rect x="34" y="34" width="11" height="4.5" rx="2.2" fill="#fef08a" transform="rotate(-24 39 36)" />
+          <rect x="66" y="28" width="11" height="4.5" rx="2.2" fill="#38bdf8" transform="rotate(28 71 30)" />
+          <rect x="82" y="48" width="11" height="4.5" rx="2.2" fill="#4ade80" transform="rotate(-35 87 50)" />
+          <rect x="26" y="54" width="10" height="4.5" rx="2.2" fill="#ffffff" transform="rotate(18 31 56)" />
+          <rect x="44" y="84" width="11" height="4.5" rx="2.2" fill="#a855f7" transform="rotate(-15 49 86)" />
+          <rect x="72" y="82" width="10" height="4.5" rx="2.2" fill="#ef4444" transform="rotate(24 77 84)" />
+        </svg>
+      );
+
+    case 'dessert-cupcake':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Pleated Wrapper */}
+          <polygon points="28,62 92,62 82,106 38,106" fill="#fbbf24" stroke="#b45309" strokeWidth="3.2" />
+          <line x1="44" y1="62" x2="48" y2="105" stroke="#d97706" strokeWidth="2.5" />
+          <line x1="60" y1="62" x2="60" y2="105" stroke="#d97706" strokeWidth="2.5" />
+          <line x1="76" y1="62" x2="72" y2="105" stroke="#d97706" strokeWidth="2.5" />
+          {/* Fluffy Swirled Frosting */}
+          <ellipse cx="60" cy="57" rx="37" ry="15" fill="#fbcfe8" stroke="#db2777" strokeWidth="2.8" />
+          <ellipse cx="60" cy="43" rx="28" ry="13" fill="#f9a8d4" stroke="#db2777" strokeWidth="2.5" />
+          <ellipse cx="60" cy="31" rx="18" ry="10" fill="#fdf2f8" stroke="#db2777" strokeWidth="2.2" />
+          {/* Glossy Cherry on Top */}
+          <path d="M60 18 Q68 8 74 10" stroke="#16a34a" strokeWidth="3" strokeLinecap="round" fill="none" />
+          <circle cx="60" cy="21" r="8.5" fill="#ef4444" stroke="#991b1b" strokeWidth="2.2" />
+          <circle cx="57" cy="18.5" r="2.6" fill="#ffffff" opacity="0.75" />
+          {/* Sprinkles */}
+          <circle cx="38" cy="54" r="2.4" fill="#38bdf8" />
+          <circle cx="78" cy="48" r="2.4" fill="#facc15" />
+          <circle cx="48" cy="40" r="2.2" fill="#4ade80" />
+        </svg>
+      );
+
+    case 'dessert-cookie':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Golden-Brown Baked Cookie Base */}
+          <circle cx="60" cy="60" r="45" fill="#d97706" stroke="#78350f" strokeWidth="3.5" />
+          <circle cx="60" cy="60" r="39" fill="#f59e0b" opacity="0.45" />
+          {/* Bite Highlight & Crumb Texture */}
+          <ellipse cx="42" cy="34" rx="14" ry="7" transform="rotate(-25 42 34)" fill="#fde68a" opacity="0.4" />
+          {/* Melty Chocolate Chunks */}
+          <circle cx="42" cy="44" r="7.5" fill="#451a03" />
+          <circle cx="74" cy="38" r="6.5" fill="#451a03" />
+          <circle cx="58" cy="62" r="8" fill="#451a03" />
+          <circle cx="36" cy="72" r="6" fill="#451a03" />
+          <circle cx="78" cy="74" r="7.5" fill="#451a03" />
+          <circle cx="58" cy="88" r="5.5" fill="#451a03" />
+        </svg>
+      );
+
+    case 'dessert-ice-cream':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Crisp Waffle Cone */}
+          <polygon points="34,54 86,54 60,110" fill="#d97706" stroke="#78350f" strokeWidth="3.2" />
+          <line x1="42" y1="68" x2="78" y2="68" stroke="#92400e" strokeWidth="2.2" />
+          <line x1="49" y1="84" x2="71" y2="84" stroke="#92400e" strokeWidth="2.2" />
+          <line x1="52" y1="54" x2="60" y2="108" stroke="#92400e" strokeWidth="2" />
+          <line x1="68" y1="54" x2="60" y2="108" stroke="#92400e" strokeWidth="2" />
+          {/* Bottom Mint Scoop */}
+          <circle cx="60" cy="46" r="26" fill="#86efac" stroke="#15803d" strokeWidth="2.8" />
+          <circle cx="42" cy="54" r="7" fill="#86efac" />
+          <circle cx="78" cy="54" r="7" fill="#86efac" />
+          {/* Top Strawberry Scoop */}
+          <circle cx="60" cy="27" r="21" fill="#fda4af" stroke="#be123c" strokeWidth="2.8" />
+          <ellipse cx="51" cy="19" rx="7" ry="4" transform="rotate(-25 51 19)" fill="#ffffff" opacity="0.5" />
+          {/* Chocolate Drizzle */}
+          <path d="M44 23 Q52 34 60 24 Q68 35 76 23" stroke="#451a03" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+        </svg>
+      );
+
+    case 'dessert-macaron':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Bottom Macaron Shell */}
+          <path d="M22 72 H98 C98 92 80 100 60 100 C40 100 22 92 22 72 Z" fill="#a855f7" stroke="#581c87" strokeWidth="3" />
+          <rect x="20" y="66" width="80" height="8" rx="4" fill="#c084fc" stroke="#581c87" strokeWidth="2.2" />
+          {/* Whipped Vanilla Creme Filling */}
+          <rect x="23" y="52" width="74" height="16" rx="7" fill="#fffbeb" stroke="#e2e8f0" strokeWidth="2.2" />
+          {/* Top Macaron Shell */}
+          <rect x="20" y="46" width="80" height="8" rx="4" fill="#c084fc" stroke="#581c87" strokeWidth="2.2" />
+          <path d="M22 47 C22 26 40 20 60 20 C80 20 98 26 98 47 Z" fill="#a855f7" stroke="#581c87" strokeWidth="3" />
+          {/* Gloss Highlight */}
+          <ellipse cx="44" cy="31" rx="14" ry="4.5" transform="rotate(-12 44 31)" fill="#f3e8ff" opacity="0.65" />
+        </svg>
+      );
+
+    case 'dessert-cheesecake':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Cheesecake Wedge */}
+          <polygon points="18,54 98,38 98,86 18,96" fill="#fef3c7" stroke="#92400e" strokeWidth="3" />
+          {/* Top Cream Wedge */}
+          <polygon points="18,54 78,24 98,38" fill="#fffbeb" stroke="#92400e" strokeWidth="2.8" />
+          {/* Golden Graham Cracker Crust */}
+          <polygon points="18,86 98,76 98,88 18,98" fill="#d97706" stroke="#78350f" strokeWidth="2.5" />
+          {/* Strawberry Topping Glaze & Drips */}
+          <polygon points="22,52 78,25 96,38 72,44" fill="#ef4444" opacity="0.92" />
+          <path d="M36 52 Q40 68 46 50 Q56 72 62 47 Q72 66 78 43" fill="#ef4444" />
+          {/* Fresh Berry On Top */}
+          <circle cx="62" cy="33" r="9" fill="#dc2626" stroke="#7f1d1d" strokeWidth="2" />
+          <path d="M56 26 L62 22 L68 26 Z" fill="#22c55e" />
+        </svg>
+      );
+
+    case 'dessert-cinnamon-roll':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Warm Golden Pastry Base */}
+          <ellipse cx="60" cy="64" rx="44" ry="38" fill="#d97706" stroke="#78350f" strokeWidth="3.5" />
+          <ellipse cx="60" cy="58" rx="40" ry="33" fill="#f59e0b" />
+          {/* Cinnamon Swirl */}
+          <path
+            d="M60 56 C66 56 68 49 60 47 C48 45 45 60 56 66 C71 73 80 57 73 43 C64 28 38 33 34 52 C30 74 52 86 73 80"
+            stroke="#78350f"
+            strokeWidth="5.5"
+            strokeLinecap="round"
+            fill="none"
+          />
+          {/* Glossy White Vanilla Icing Drizzle */}
+          <path
+            d="M28 48 Q44 36 58 50 Q74 64 92 44"
+            stroke="#ffffff"
+            strokeWidth="8"
+            strokeLinecap="round"
+            fill="none"
+            opacity="0.92"
+          />
+          <path
+            d="M36 70 Q54 58 72 72"
+            stroke="#fffbeb"
+            strokeWidth="6.5"
+            strokeLinecap="round"
+            fill="none"
+            opacity="0.88"
+          />
+        </svg>
+      );
+
+    case 'dessert-lava-cake':
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          {/* Rich Chocolate Sponge */}
+          <polygon points="24,48 96,48 88,102 32,102" fill="#451a03" stroke="#1c1917" strokeWidth="3.5" />
+          <ellipse cx="60" cy="48" rx="36" ry="12" fill="#572409" stroke="#1c1917" strokeWidth="3" />
+          {/* Oozing Molten Chocolate Lava */}
+          <path
+            d="M32 48 Q42 84 48 54 Q58 92 66 52 Q76 80 86 48 Z"
+            fill="#92400e"
+          />
+          <path
+            d="M38 48 Q45 76 52 52 Q60 84 68 50 Q75 70 82 48 Z"
+            fill="#f97316"
+            opacity="0.35"
+          />
+          {/* Vanilla Ice Cream Scoop on Top */}
+          <circle cx="60" cy="33" r="18" fill="#fffbeb" stroke="#d6d3d1" strokeWidth="2.5" />
+          <path d="M46 28 Q54 38 60 27 Q68 38 74 28" stroke="#78350f" strokeWidth="3.5" strokeLinecap="round" fill="none" />
+          <circle cx="60" cy="14" r="5.5" fill="#ef4444" />
+        </svg>
+      );
+
+    case 'dessert-aurora-parfait': {
+      const gradId = `auroraParfaitGrad-${uid}`;
+      const shineMaskId = `auroraParfaitMask-${uid}`;
+      const shineGradId = `auroraParfaitShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#f0abfc" />
+              <stop offset="35%" stopColor="#38bdf8" />
+              <stop offset="70%" stopColor="#a855f7" />
+              <stop offset="100%" stopColor="#ec4899" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <polygon points="32,36 88,36 74,92 46,92" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Parfait Glass Stem & Base */}
+          <rect x="55" y="90" width="10" height="14" fill="#e0f2fe" stroke="#0284c7" strokeWidth="2" />
+          <ellipse cx="60" cy="106" rx="22" ry="6" fill="#bae6fd" stroke="#0284c7" strokeWidth="2.2" />
+          {/* Parfait Glass Cup */}
+          <polygon points="32,36 88,36 74,92 46,92" fill={`url(#${gradId})`} stroke="#e0f2fe" strokeWidth="3" />
+          {/* Cream Layer Bands */}
+          <path d="M36 52 Q60 60 84 52" stroke="#ffffff" strokeWidth="5" fill="none" opacity="0.85" />
+          <path d="M41 70 Q60 78 79 70" stroke="#fef08a" strokeWidth="4.5" fill="none" opacity="0.8" />
+          {/* Whipped Cream Dome & Star */}
+          <ellipse cx="60" cy="34" rx="27" ry="11" fill="#ffffff" />
+          <ellipse cx="60" cy="24" rx="18" ry="9" fill="#fdf4ff" />
+          <polygon points="60,8 63,16 71,16 65,21 67,29 60,24 53,29 55,21 49,16 57,16" fill="#facc15" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'dessert-crystal-candy': {
+      const gradId = `crystalCandyGrad-${uid}`;
+      const shineMaskId = `crystalCandyMask-${uid}`;
+      const shineGradId = `crystalCandyShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#67e8f9" />
+              <stop offset="50%" stopColor="#a855f7" />
+              <stop offset="100%" stopColor="#ec4899" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <rect x="20" y="12" width="80" height="72" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Wooden Candy Stick */}
+          <rect x="56" y="72" width="8" height="36" rx="4" fill="#fde68a" stroke="#b45309" strokeWidth="2.2" />
+          {/* Prismatic Sugar Crystals */}
+          <polygon points="60,12 78,32 72,76 48,76 42,32" fill={`url(#${gradId})`} stroke="#ffffff" strokeWidth="2.5" />
+          <polygon points="34,34 48,46 46,74 30,66 26,44" fill="#38bdf8" stroke="#e0f2fe" strokeWidth="2.2" />
+          <polygon points="86,34 94,44 90,66 74,74 72,46" fill="#f472b6" stroke="#fdf2f8" strokeWidth="2.2" />
+          {/* Facet Highlights */}
+          <polygon points="60,12 70,32 60,54 50,32" fill="#ffffff" opacity="0.32" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+          )}
+        </svg>
+      );
+    }
+
+    case 'dessert-mystic-souffle': {
+      const gradId = `mysticSouffleGrad-${uid}`;
+      const shineMaskId = `mysticSouffleMask-${uid}`;
+      const shineGradId = `mysticSouffleShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stopColor="#fde047" />
+              <stop offset="50%" stopColor="#c084fc" />
+              <stop offset="100%" stopColor="#7e22ce" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <ellipse cx="60" cy="48" rx="34" ry="26" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Orbiting Arcane Ring */}
+          <ellipse cx="60" cy="52" rx="52" ry="15" transform="rotate(-12 60 52)" stroke="#e9d5ff" strokeWidth="2.8" fill="none" opacity="0.8" />
+          {/* Risen Soufflé Crown */}
+          <path d="M26 58 C24 28 42 18 60 18 C78 18 96 28 94 58 Z" fill={`url(#${gradId})`} stroke="#fef08a" strokeWidth="2.8" />
+          {/* Powdered Sugar Dusting */}
+          <ellipse cx="60" cy="28" rx="18" ry="6" fill="#ffffff" opacity="0.55" />
+          {/* Porcelain Ramekin Cup */}
+          <polygon points="24,56 96,56 86,100 34,100" fill="#f8fafc" stroke="#581c87" strokeWidth="3" />
+          <line x1="36" y1="62" x2="40" y2="96" stroke="#cbd5e1" strokeWidth="3" />
+          <line x1="48" y1="62" x2="50" y2="96" stroke="#cbd5e1" strokeWidth="3" />
+          <line x1="60" y1="62" x2="60" y2="96" stroke="#cbd5e1" strokeWidth="3" />
+          <line x1="72" y1="62" x2="70" y2="96" stroke="#cbd5e1" strokeWidth="3" />
+          <line x1="84" y1="62" x2="80" y2="96" stroke="#cbd5e1" strokeWidth="3" />
+          {shouldAnimateSpecial && (
+            <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} isMystic />
+          )}
+        </svg>
+      );
+    }
+
+    case 'dessert-nebula-cake': {
+      const gradId = `nebulaCakeGrad-${uid}`;
+      const shineMaskId = `nebulaCakeMask-${uid}`;
+      const shineGradId = `nebulaCakeShine-${uid}`;
+      return (
+        <svg viewBox="0 0 120 120" className={className} xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stopColor="#09090b" />
+              <stop offset="48%" stopColor="#581c87" />
+              <stop offset="100%" stopColor="#1e1b4b" />
+            </linearGradient>
+            <mask id={shineMaskId}>
+              <polygon points="20,66 100,66 100,104 20,104" fill="#ffffff" />
+              <polygon points="34,36 86,36 86,66 34,66" fill="#ffffff" />
+            </mask>
+          </defs>
+          {/* Secret Halo */}
+          <ellipse cx="60" cy="40" rx="50" ry="16" transform="rotate(-14 60 40)" stroke="#fde047" strokeWidth="2.8" fill="none" opacity="0.85" />
+          {/* Bottom Obsidian Cake Tier */}
+          <rect x="20" y="66" width="80" height="36" rx="10" fill={`url(#${gradId})`} stroke="#fde047" strokeWidth="3" />
+          {/* Top Obsidian Cake Tier */}
+          <rect x="34" y="36" width="52" height="32" rx="8" fill={`url(#${gradId})`} stroke="#fde047" strokeWidth="2.8" />
+          {/* Golden Starlight Frosting Drips */}
+          <path
+            d="M34 38 Q42 52 50 40 Q60 55 68 40 Q78 52 86 38 V36 H34 Z"
+            fill="#facc15"
+          />
+          <path
+            d="M20 68 Q30 82 40 70 Q50 84 60 70 Q70 84 80 70 Q90 82 100 68 V66 H20 Z"
+            fill="#facc15"
+          />
+          {/* Radiant Star Topper */}
+          <polygon points="60,8 65,20 78,21 68,29 71,41 60,34 49,41 52,29 42,21 55,20" fill="#fef08a" stroke="#ca8a04" strokeWidth="1.8" />
+          {shouldAnimateSpecial && (
+            <>
+              <SvgShineSweep maskId={shineMaskId} gradId={shineGradId} width={120} height={120} />
+              <circle cx="16" cy="24" r="2.2" fill="#ffffff">
+                <animate attributeName="opacity" values="0.2;1;0.2" dur="1.4s" repeatCount="indefinite" />
+              </circle>
+              <circle cx="104" cy="22" r="2.2" fill="#fde047">
+                <animate attributeName="opacity" values="1;0.2;1" dur="1.4s" repeatCount="indefinite" />
+              </circle>
             </>
           )}
         </svg>

@@ -7,7 +7,7 @@ import {
   X,
   MessageSquare,
 } from 'lucide-react';
-import { BlookArt } from './BlookArt';
+import { BlookArt, DefaultAvatarPfp } from './BlookArt';
 import { OwnerAchievementIcon, DeveloperAchievementIcon } from './AchievementsView';
 import type { OnlinePlayerSummary } from './TradingView';
 
@@ -45,6 +45,8 @@ interface ChatViewProps {
   wsConnected: boolean;
   messages: OnlineChatMessage[];
   onlinePlayers: OnlinePlayerSummary[];
+  knownAvatarsByUserId?: Record<string, string>;
+  knownAvatarsByUsername?: Record<string, string>;
   typingUsernames?: string[];
   chatError: string | null;
   onSendMessage: (text: string, replyTo?: ChatReplyTarget | null) => void | Promise<void>;
@@ -88,6 +90,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
   wsConnected,
   messages,
   onlinePlayers,
+  knownAvatarsByUserId = {},
+  knownAvatarsByUsername = {},
   typingUsernames = [],
   chatError,
   onSendMessage,
@@ -102,6 +106,43 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const inputRef = useRef<HTMLInputElement | null>(null);
   const onlineMenuRef = useRef<HTMLDivElement | null>(null);
   const prevCountRef = useRef<number>(0);
+
+  // Build live avatar lookup maps so whenever any player updates their PFP (or unequips to default),
+  // every comment and reply preview beside their name updates immediately.
+  const liveAvatarsByUserId = new Map<string, string>(Object.entries(knownAvatarsByUserId));
+  const liveAvatarsByUsername = new Map<string, string>();
+  for (const [uname, av] of Object.entries(knownAvatarsByUsername)) {
+    liveAvatarsByUsername.set(uname.trim().toLowerCase(), av);
+  }
+  for (const p of onlinePlayers) {
+    if (p.userId) {
+      liveAvatarsByUserId.set(p.userId, p.avatarBlookId || '');
+    }
+    if (p.username) {
+      liveAvatarsByUsername.set(p.username.trim().toLowerCase(), p.avatarBlookId || '');
+    }
+  }
+  if (myUserId) {
+    liveAvatarsByUserId.set(myUserId, myAvatarBlookId || '');
+  }
+  if (myUsername) {
+    liveAvatarsByUsername.set(myUsername.trim().toLowerCase(), myAvatarBlookId || '');
+  }
+
+  const resolveCommentAvatar = (
+    userId: string | undefined,
+    username: string | undefined,
+    fallbackAvatar: string | undefined
+  ): string => {
+    if (userId && liveAvatarsByUserId.has(userId)) {
+      return liveAvatarsByUserId.get(userId) || '';
+    }
+    const cleanName = (username || '').trim().toLowerCase();
+    if (cleanName && liveAvatarsByUsername.has(cleanName)) {
+      return liveAvatarsByUsername.get(cleanName) || '';
+    }
+    return fallbackAvatar || '';
+  };
 
   // Auto-scroll to bottom on initial load or when new messages arrive
   useEffect(() => {
@@ -153,7 +194,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
     setReplyingTo({
       id: msg.id,
       username: msg.username,
-      avatarBlookId: msg.avatarBlookId,
+      avatarBlookId: resolveCommentAvatar(msg.userId, msg.username, msg.avatarBlookId),
       text: msg.text.slice(0, 120),
     });
     if (!draft.trim()) {
@@ -253,9 +294,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         {p.avatarBlookId ? (
                           <BlookArt id={p.avatarBlookId} className="w-full h-full" />
                         ) : (
-                          <div className="w-7 h-7 rounded-lg bg-white/10 flex items-center justify-center">
-                            <User className="w-4 h-4 text-white/75" />
-                          </div>
+                          <DefaultAvatarPfp className="w-7 h-7 rounded-lg" />
                         )}
                       </div>
                       <div className="min-w-0 flex-1">
@@ -314,6 +353,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
           messages.map((msg) => {
             const msgIsOwner = msg.isOwner || msg.achievements?.includes('owner');
             const msgIsDev = !msgIsOwner && msg.achievements?.includes('developer');
+            const resolvedAvatar = resolveCommentAvatar(
+              msg.userId,
+              msg.username,
+              msg.avatarBlookId
+            );
+            const resolvedReplyAvatar = msg.replyToUsername
+              ? resolveCommentAvatar(undefined, msg.replyToUsername, msg.replyToAvatar)
+              : '';
 
             return (
               <div key={msg.id} className="group flex flex-col">
@@ -324,10 +371,10 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       aria-hidden="true"
                       className="w-3.5 h-2.5 border-l-2 border-t-2 border-white/45 rounded-tl-md shrink-0 mt-1"
                     />
-                    {msg.replyToAvatar ? (
-                      <BlookArt id={msg.replyToAvatar} className="w-4 h-4 shrink-0" />
+                    {resolvedReplyAvatar ? (
+                      <BlookArt id={resolvedReplyAvatar} className="w-4 h-4 shrink-0" />
                     ) : (
-                      <User className="w-3.5 h-3.5 text-white/75 shrink-0" />
+                      <DefaultAvatarPfp className="w-4 h-4 rounded shrink-0" />
                     )}
                     <span className="font-nunito font-black text-white shrink-0">
                       @{msg.replyToUsername}
@@ -342,15 +389,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 <div className="flex items-start gap-3">
                   {/* Blook Avatar directly on background */}
                   <div className="w-10 h-10 sm:w-11 sm:h-11 shrink-0 flex items-center justify-center">
-                    {msg.avatarBlookId ? (
+                    {resolvedAvatar ? (
                       <BlookArt
-                        id={msg.avatarBlookId}
+                        id={resolvedAvatar}
                         className="w-full h-full drop-shadow-[0_2px_4px_rgba(0,0,0,0.28)]"
                       />
                     ) : (
-                      <div className="w-9 h-9 rounded-xl bg-black/25 border border-white/15 flex items-center justify-center">
-                        <User className="w-5 h-5 text-white/85" />
-                      </div>
+                      <DefaultAvatarPfp className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl drop-shadow-[0_2px_4px_rgba(0,0,0,0.28)]" />
                     )}
                   </div>
 

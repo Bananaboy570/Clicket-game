@@ -824,13 +824,22 @@ export function attachMultiplayerServer(
           const unlockedCount = Object.values(inv).filter((c) => Number(c) > 0).length;
           const existing = onlineClients.get(meta.clientId);
           const serverProfile = await deps.onGetUserChatMeta(userId).catch(() => null);
+          const resolvedUsername = serverProfile?.username || fallbackUsername;
+          const nextAvatar =
+            typeof msg.avatarBlookId === 'string'
+              ? msg.avatarBlookId.trim().slice(0, 64)
+              : String(serverProfile?.avatarBlookId || '');
+          const avatarChanged =
+            msg.type === 'presence:update' &&
+            existing !== undefined &&
+            existing.avatarBlookId !== nextAvatar;
           meta.userId = userId;
           onlineClients.set(meta.clientId, {
             clientId: meta.clientId,
             ws,
             userId,
-            username: serverProfile?.username || fallbackUsername,
-            avatarBlookId: String(msg.avatarBlookId || serverProfile?.avatarBlookId || ''),
+            username: resolvedUsername,
+            avatarBlookId: nextAvatar,
             unlockedCount,
             inventory: inv,
             achievements: serverProfile?.achievements || [],
@@ -838,6 +847,14 @@ export function attachMultiplayerServer(
             activeTradeId: existing?.activeTradeId ?? null,
           });
           broadcastPresence();
+          if (avatarChanged) {
+            broadcastChatPayload({
+              type: 'chat:avatar_updated',
+              userId,
+              username: resolvedUsername,
+              avatarBlookId: nextAvatar,
+            });
+          }
           if (msg.type === 'presence:register' && ws.readyState === WebSocket.OPEN) {
             const history = await deps.onLoadChatMessages().catch(() => []);
             ws.send(JSON.stringify({ type: 'chat:history', messages: history }));
@@ -899,7 +916,7 @@ export function attachMultiplayerServer(
             id: `msg-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
             userId: targetUserId,
             username: serverProfile.username,
-            avatarBlookId: sender?.avatarBlookId || serverProfile.avatarBlookId || '',
+            avatarBlookId: sender ? sender.avatarBlookId : (serverProfile.avatarBlookId || ''),
             achievements: serverProfile.achievements,
             isOwner: serverProfile.isOwner,
             text: cleanText,
@@ -1228,6 +1245,13 @@ export function attachMultiplayerServer(
     },
     broadcastChatDeleted: (messageId: string) => {
       broadcastChatPayload({ type: 'chat:deleted', messageId });
+    },
+    broadcastChatAvatarUpdated: (payload: {
+      userId: string;
+      username: string;
+      avatarBlookId: string;
+    }) => {
+      broadcastChatPayload({ type: 'chat:avatar_updated', ...payload });
     },
     broadcastGlobalTradesUpdated: () => {
       broadcastChatPayload({ type: 'trades:global_update' });

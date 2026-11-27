@@ -1,7 +1,7 @@
 // Unified API client that uses the live Express backend (/api/*) when available,
 // and seamlessly falls back to browser-local persistence when hosted as a static website (e.g. GitHub Pages).
 
-import { ALL_BLOOKS } from '../data/blooks';
+import { ALL_BLOOKS, calculateInventoryWorth } from '../data/blooks';
 import {
   BUILTIN_PROMO_CODES,
   type CustomPromoCodeRecord,
@@ -37,6 +37,9 @@ interface StaticStoredUser {
   lastDailyPlayAt: number | null;
   lastWheelSpinAt: number | null;
   lastHourlyClaimAt: number | null;
+  dailyStreak?: number;
+  bestDailyStreak?: number;
+  lastDailyStreakAt?: number | null;
   tradeHistory: StaticTradeHistoryEntry[];
   clanId: string | null;
   achievements: string[];
@@ -262,6 +265,32 @@ function saveStaticDb(db: StaticDatabase): void {
   }
 }
 
+function updateStaticChatAvatars(
+  db: StaticDatabase,
+  userId: string,
+  username: string,
+  avatarBlookId: string
+): boolean {
+  if (!Array.isArray(db.chatMessages) || db.chatMessages.length === 0) return false;
+  let changed = false;
+  const cleanName = username.trim().toLowerCase();
+  for (const m of db.chatMessages) {
+    if (m.userId === userId && m.avatarBlookId !== avatarBlookId) {
+      m.avatarBlookId = avatarBlookId;
+      changed = true;
+    }
+    if (
+      m.replyToUsername &&
+      m.replyToUsername.trim().toLowerCase() === cleanName &&
+      (m.replyToAvatar || '') !== avatarBlookId
+    ) {
+      m.replyToAvatar = avatarBlookId;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 function randomId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -316,7 +345,7 @@ function resolveAchievements(u: StaticStoredUser): string[] {
     const rarity = BLOOK_RARITY_BY_ID.get(blookId);
     if (rarity === 'Legendary' && !revoked.has('legendary')) set.add('legendary');
     if (rarity === 'Chroma' && !revoked.has('chroma')) set.add('chroma');
-    if (rarity === 'Mystic' && !revoked.has('op')) set.add('op');
+    if ((rarity === 'Mystic' || rarity === 'Godly' || rarity === 'Secret') && !revoked.has('op')) set.add('op');
   }
   return Array.from(set).filter((a) => VALID_ACHIEVEMENTS.has(a));
 }
@@ -339,6 +368,9 @@ function sanitizeStaticUser(u: StaticStoredUser) {
     lastDailyPlayAt: u.lastDailyPlayAt ?? null,
     lastWheelSpinAt: u.lastWheelSpinAt ?? null,
     lastHourlyClaimAt: u.lastHourlyClaimAt ?? null,
+    dailyStreak: Math.max(0, Math.floor(u.dailyStreak || 0)),
+    bestDailyStreak: Math.max(0, Math.floor(u.bestDailyStreak || 0)),
+    lastDailyStreakAt: u.lastDailyStreakAt ?? null,
     tradeHistory: (u.tradeHistory || []).slice(0, 50),
     clanId: u.clanId ?? null,
     achievements: resolveAchievements(u),
@@ -467,6 +499,9 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
       lastDailyPlayAt: null,
       lastWheelSpinAt: null,
       lastHourlyClaimAt: null,
+      dailyStreak: 0,
+      bestDailyStreak: 0,
+      lastDailyStreakAt: null,
       tradeHistory: [],
       clanId: null,
       achievements: [],
@@ -542,6 +577,10 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
     const auth = getUserByBearer(db, headers);
     if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
     const { user } = auth;
+    const prevEquipped =
+      user.equippedBlookId && (user.inventory?.[user.equippedBlookId] || 0) > 0
+        ? user.equippedBlookId
+        : '';
     if (typeof body.tokens === 'number' && Number.isFinite(body.tokens) && body.tokens >= 0) {
       user.tokens = Math.floor(body.tokens);
     }
@@ -563,7 +602,10 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
       user.bestDailyClicks = Math.max(user.bestDailyClicks, Math.floor(body.bestDailyClicks));
     }
     if (typeof body.equippedBlookId === 'string') {
-      user.equippedBlookId = body.equippedBlookId;
+      const cleanId = body.equippedBlookId.trim();
+      user.equippedBlookId = cleanId && (user.inventory?.[cleanId] || 0) > 0 ? cleanId : '';
+    } else if (user.equippedBlookId && (user.inventory?.[user.equippedBlookId] || 0) <= 0) {
+      user.equippedBlookId = '';
     }
     if (typeof body.lastDailyPlayAt === 'number' || body.lastDailyPlayAt === null) {
       user.lastDailyPlayAt = body.lastDailyPlayAt as number | null;
@@ -571,8 +613,13 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
     if (typeof body.lastWheelSpinAt === 'number' || body.lastWheelSpinAt === null) {
       user.lastWheelSpinAt = body.lastWheelSpinAt as number | null;
     }
+    const nextEquipped = user.equippedBlookId || '';
+    const chatChanged = updateStaticChatAvatars(db, user.id, user.username, nextEquipped);
     user.achievements = resolveAchievements(user);
     saveStaticDb(db);
+    if (chatChanged || prevEquipped !== nextEquipped) {
+      notifyStaticChatUpdated();
+    }
     return jsonRes({ ok: true, user: sanitizeStaticUser(user) });
   }
 
@@ -602,6 +649,50 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
       reward,
       tokens: auth.user.tokens,
       lastHourlyClaimAt: now,
+    });
+  }
+
+  // REWARDS: DAILY STREAK
+  if (url === '/api/rewards/daily-streak' && method === 'POST') {
+    const auth = getUserByBearer(db, headers);
+    if (!auth) return jsonRes({ error: 'Not authenticated' }, 401);
+    const now = Date.now();
+    const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+    const STREAK_GRACE_MS = 48 * 60 * 60 * 1000;
+    const lastClaim = auth.user.lastDailyStreakAt ?? 0;
+    const elapsed = now - lastClaim;
+    if (lastClaim > 0 && elapsed < ONE_DAY_MS) {
+      return jsonRes(
+        {
+          error: 'Daily Streak is still on cooldown.',
+          remainingMs: ONE_DAY_MS - elapsed,
+          lastDailyStreakAt: lastClaim,
+          dailyStreak: auth.user.dailyStreak ?? 0,
+          bestDailyStreak: auth.user.bestDailyStreak ?? 0,
+        },
+        429
+      );
+    }
+    const prevStreak = Math.max(0, Math.floor(auth.user.dailyStreak || 0));
+    const nextStreak = lastClaim > 0 && elapsed < STREAK_GRACE_MS ? prevStreak + 1 : 1;
+    const baseTiers = [150, 225, 300, 400, 500, 650];
+    const reward =
+      nextStreak <= baseTiers.length
+        ? baseTiers[Math.max(0, nextStreak - 1)]
+        : 800 + Math.min(nextStreak - 7, 23) * 50;
+
+    auth.user.dailyStreak = nextStreak;
+    auth.user.bestDailyStreak = Math.max(auth.user.bestDailyStreak || 0, nextStreak);
+    auth.user.lastDailyStreakAt = now;
+    auth.user.tokens = (auth.user.tokens || 0) + reward;
+    saveStaticDb(db);
+    return jsonRes({
+      ok: true,
+      reward,
+      tokens: auth.user.tokens,
+      dailyStreak: auth.user.dailyStreak,
+      bestDailyStreak: auth.user.bestDailyStreak,
+      lastDailyStreakAt: now,
     });
   }
 
@@ -828,6 +919,57 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
       uniquePlayers: db.setStats[setId].uniquePlayerIds.length,
       totalPlays: db.setStats[setId].totalPlays,
     });
+  }
+
+  // LEADERBOARD: WORTH (Tokens + All Blooks)
+  if (url === '/api/leaderboard' && method === 'GET') {
+    const mapped = Object.values(db.users || {})
+      .map((u) => {
+        const worth = calculateInventoryWorth(u.inventory);
+        const tokens = Math.max(0, Math.floor(Number(u.tokens) || 0));
+        const totalWorth = tokens + worth.blooksWorth;
+        const achievements = resolveAchievements(u);
+        const isOwner =
+          achievements.includes('owner') ||
+          OWNER_IDENTIFIERS.has((u.username || '').trim().toLowerCase());
+        const safeEquipped =
+          u.equippedBlookId && (u.inventory?.[u.equippedBlookId] || 0) > 0
+            ? u.equippedBlookId
+            : '';
+        const userClan = u.clanId && db.clans?.[u.clanId] ? db.clans[u.clanId] : null;
+        return {
+          id: u.id,
+          username: u.username,
+          tokens,
+          blooksWorth: worth.blooksWorth,
+          totalWorth,
+          uniqueBlooksCount: worth.uniqueBlooksCount,
+          totalBlooksCount: worth.totalBlooksCount,
+          mostValuableBlookId: worth.mostValuableBlookId,
+          equippedBlookId: safeEquipped,
+          achievements,
+          isOwner,
+          ...(userClan?.tag ? { clanTag: userClan.tag } : {}),
+          ...(userClan?.bannerColor ? { clanColor: userClan.bannerColor } : {}),
+        };
+      })
+      .sort(
+        (a, b) =>
+          b.totalWorth - a.totalWorth ||
+          b.blooksWorth - a.blooksWorth ||
+          b.tokens - a.tokens
+      );
+
+    const seenNames = new Set<string>();
+    const leaderboard = mapped
+      .filter((entry) => {
+        const nameKey = (entry.username || '').trim().toLowerCase();
+        if (!nameKey || seenNames.has(nameKey)) return false;
+        seenNames.add(nameKey);
+        return true;
+      })
+      .slice(0, 100);
+    return jsonRes({ leaderboard });
   }
 
   // CLANS: LIST
@@ -1160,6 +1302,8 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
         else targetUser.inventory[blookId] = nextCount;
         if (targetUser.equippedBlookId === blookId && !targetUser.inventory[blookId]) {
           targetUser.equippedBlookId = '';
+          updateStaticChatAvatars(db, targetUser.id, targetUser.username, '');
+          notifyStaticChatUpdated();
         }
       } else {
         return jsonRes({ error: 'Missing Blook details.' }, 400);
@@ -1180,6 +1324,10 @@ async function handleStaticApi(input: string, init?: RequestInit): Promise<Respo
       targetUser.lastDailyPlayAt = null;
       targetUser.lastWheelSpinAt = null;
       targetUser.lastHourlyClaimAt = null;
+      targetUser.lastDailyStreakAt =
+        targetUser.dailyStreak && targetUser.dailyStreak > 0
+          ? Date.now() - 25 * 60 * 60 * 1000
+          : null;
       saveStaticDb(db);
       return jsonRes({
         ok: true,

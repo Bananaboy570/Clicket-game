@@ -5,7 +5,7 @@ import http from 'node:http';
 import path from 'node:path';
 import dotenv from 'dotenv';
 import { attachMultiplayerServer, type ChatMessageRecord } from './serverMultiplayer.ts';
-import { ALL_BLOOKS } from './src/data/blooks.ts';
+import { ALL_BLOOKS, calculateInventoryWorth } from './src/data/blooks.ts';
 import {
   BUILTIN_PROMO_CODES,
   type CustomPromoCodeRecord,
@@ -45,6 +45,9 @@ interface StoredUser {
   lastDailyPlayAt?: number | null;
   lastWheelSpinAt?: number | null;
   lastHourlyClaimAt?: number | null;
+  dailyStreak?: number;
+  bestDailyStreak?: number;
+  lastDailyStreakAt?: number | null;
   tradeHistory?: TradeHistoryEntry[];
   clanId?: string | null;
   achievements?: string[];
@@ -220,7 +223,7 @@ function resolveUserAchievements(u: StoredUser): string[] {
     const rarity = BLOOK_RARITY_BY_ID.get(blookId);
     if (rarity === 'Legendary' && !revoked.has('legendary')) set.add('legendary');
     if (rarity === 'Chroma' && !revoked.has('chroma')) set.add('chroma');
-    if (rarity === 'Mystic' && !revoked.has('op')) set.add('op');
+    if ((rarity === 'Mystic' || rarity === 'Godly' || rarity === 'Secret') && !revoked.has('op')) set.add('op');
   }
   return Array.from(set).filter((a) => VALID_ACHIEVEMENT_IDS.has(a));
 }
@@ -243,11 +246,40 @@ function sanitizeUser(u: StoredUser) {
     lastDailyPlayAt: u.lastDailyPlayAt ?? null,
     lastWheelSpinAt: u.lastWheelSpinAt ?? null,
     lastHourlyClaimAt: u.lastHourlyClaimAt ?? null,
+    dailyStreak: Math.max(0, Math.floor(u.dailyStreak || 0)),
+    bestDailyStreak: Math.max(0, Math.floor(u.bestDailyStreak || 0)),
+    lastDailyStreakAt: u.lastDailyStreakAt ?? null,
     tradeHistory: (u.tradeHistory || []).slice(0, 50),
     clanId: u.clanId ?? null,
     achievements: resolveUserAchievements(u),
     redeemedCodes: (u.redeemedCodes || []).slice(0, 100),
   };
+}
+
+function updateStoredChatAvatars(
+  db: DatabaseSchema,
+  userId: string,
+  username: string,
+  avatarBlookId: string
+): boolean {
+  if (!Array.isArray(db.chatMessages) || db.chatMessages.length === 0) return false;
+  let changed = false;
+  const cleanName = username.trim().toLowerCase();
+  for (const m of db.chatMessages) {
+    if (m.userId === userId && m.avatarBlookId !== avatarBlookId) {
+      m.avatarBlookId = avatarBlookId;
+      changed = true;
+    }
+    if (
+      m.replyToUsername &&
+      m.replyToUsername.trim().toLowerCase() === cleanName &&
+      (m.replyToAvatar || '') !== avatarBlookId
+    ) {
+      m.replyToAvatar = avatarBlookId;
+      changed = true;
+    }
+  }
+  return changed;
 }
 
 function findUserByUsername(db: DatabaseSchema, username: string): StoredUser | undefined {
@@ -392,6 +424,7 @@ async function dispatchVerificationEmail(
 
 async function createServer() {
   const app = express();
+  let multiplayerApi: ReturnType<typeof attachMultiplayerServer> | null = null;
   app.use(express.json({ limit: '2mb' }));
 
   // Enable CORS for cross-origin frontend hosts (e.g. Vercel, GitHub Pages, custom domains)
@@ -451,6 +484,9 @@ async function createServer() {
         clickUpgradeLevel: 0,
         bestDailyClicks: 0,
         equippedBlookId: '',
+        dailyStreak: 0,
+        bestDailyStreak: 0,
+        lastDailyStreakAt: null,
         achievements: [],
         createdAt: new Date().toISOString(),
       };
@@ -792,6 +828,11 @@ async function createServer() {
         lastWheelSpinAt,
       } = req.body ?? {};
 
+      const prevEquipped =
+        user.equippedBlookId && (user.inventory?.[user.equippedBlookId] || 0) > 0
+          ? user.equippedBlookId
+          : '';
+      const prevUsername = user.username;
       if (typeof username === 'string' && username.trim().length >= 2 && username.trim().length <= 30) {
         const conflict = findUserByUsername(db, username.trim());
         if (!conflict || conflict.id === user.id) {
@@ -824,8 +865,25 @@ async function createServer() {
         user.lastWheelSpinAt = Math.max(user.lastWheelSpinAt ?? 0, lastWheelSpinAt);
       }
 
+      const nextEquipped = user.equippedBlookId || '';
+      updateStoredChatAvatars(db, user.id, user.username, nextEquipped);
+      if (prevUsername !== user.username && Array.isArray(db.chatMessages)) {
+        for (const m of db.chatMessages) {
+          if (m.userId === user.id) {
+            m.username = user.username;
+          }
+        }
+      }
+
       user.achievements = resolveUserAchievements(user);
       await saveDb(db);
+      if (prevEquipped !== nextEquipped) {
+        multiplayerApi?.broadcastChatAvatarUpdated({
+          userId: user.id,
+          username: user.username,
+          avatarBlookId: nextEquipped,
+        });
+      }
       res.json({ ok: true, user: sanitizeUser(user) });
     } catch (err) {
       console.error('Sync error:', err);
@@ -1313,6 +1371,63 @@ async function createServer() {
     };
   };
 
+  // Global Net Worth Leaderboard (Tokens + Total Worth of all owned Blooks)
+  app.get('/api/leaderboard', async (_req, res) => {
+    try {
+      const db = await loadDb();
+      const mapped = Object.values(db.users)
+        .map((u) => {
+          const worth = calculateInventoryWorth(u.inventory);
+          const tokens = Math.max(0, Math.floor(Number(u.tokens) || 0));
+          const totalWorth = tokens + worth.blooksWorth;
+          const achievements = resolveUserAchievements(u);
+          const isOwner =
+            achievements.includes('owner') ||
+            OWNER_IDENTIFIERS.has((u.username || '').trim().toLowerCase());
+          const safeEquipped =
+            u.equippedBlookId && (u.inventory?.[u.equippedBlookId] || 0) > 0
+              ? u.equippedBlookId
+              : '';
+          const userClan = u.clanId && db.clans?.[u.clanId] ? db.clans[u.clanId] : null;
+          return {
+            id: u.id,
+            username: u.username,
+            tokens,
+            blooksWorth: worth.blooksWorth,
+            totalWorth,
+            uniqueBlooksCount: worth.uniqueBlooksCount,
+            totalBlooksCount: worth.totalBlooksCount,
+            mostValuableBlookId: worth.mostValuableBlookId,
+            equippedBlookId: safeEquipped,
+            achievements,
+            isOwner,
+            ...(userClan?.tag ? { clanTag: userClan.tag } : {}),
+            ...(userClan?.bannerColor ? { clanColor: userClan.bannerColor } : {}),
+          };
+        })
+        .sort(
+          (a, b) =>
+            b.totalWorth - a.totalWorth ||
+            b.blooksWorth - a.blooksWorth ||
+            b.tokens - a.tokens
+        );
+
+      const seenNames = new Set<string>();
+      const leaderboard = mapped
+        .filter((entry) => {
+          const nameKey = (entry.username || '').trim().toLowerCase();
+          if (!nameKey || seenNames.has(nameKey)) return false;
+          seenNames.add(nameKey);
+          return true;
+        })
+        .slice(0, 100);
+      res.json({ leaderboard });
+    } catch (err) {
+      console.error('Leaderboard error:', err);
+      res.status(500).json({ error: 'Failed to load leaderboard' });
+    }
+  });
+
   // List all clans (sorted by powerScore descending)
   app.get('/api/clans', async (_req, res) => {
     try {
@@ -1747,6 +1862,64 @@ async function createServer() {
     }
   });
 
+  // Daily Streak Reward: claim once every 24h; keeps streak if claimed within 48h of previous claim
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  const STREAK_GRACE_MS = 48 * 60 * 60 * 1000;
+  const getDailyStreakReward = (streakDay: number): number => {
+    const baseTiers = [150, 225, 300, 400, 500, 650];
+    if (streakDay <= baseTiers.length) return baseTiers[Math.max(0, streakDay - 1)];
+    return 800 + Math.min(streakDay - 7, 23) * 50;
+  };
+
+  app.post('/api/rewards/daily-streak', async (req, res) => {
+    try {
+      const auth = await getAuthenticatedUser(req);
+      if (!auth) {
+        res.status(401).json({ error: 'Not authenticated' });
+        return;
+      }
+      const { db, user } = auth;
+      const now = Date.now();
+      const lastClaim = user.lastDailyStreakAt ?? 0;
+      const elapsed = now - lastClaim;
+
+      if (lastClaim > 0 && elapsed < ONE_DAY_MS) {
+        const remainingMs = ONE_DAY_MS - elapsed;
+        res.status(429).json({
+          error: 'Daily Streak is still on cooldown.',
+          remainingMs,
+          lastDailyStreakAt: lastClaim,
+          dailyStreak: user.dailyStreak ?? 0,
+          bestDailyStreak: user.bestDailyStreak ?? 0,
+        });
+        return;
+      }
+
+      const prevStreak = Math.max(0, Math.floor(user.dailyStreak || 0));
+      const keptStreak = lastClaim > 0 && elapsed < STREAK_GRACE_MS;
+      const nextStreak = keptStreak ? prevStreak + 1 : 1;
+      const reward = getDailyStreakReward(nextStreak);
+
+      user.dailyStreak = nextStreak;
+      user.bestDailyStreak = Math.max(user.bestDailyStreak || 0, nextStreak);
+      user.lastDailyStreakAt = now;
+      user.tokens = (user.tokens || 0) + reward;
+      await saveDb(db);
+
+      res.json({
+        ok: true,
+        reward,
+        tokens: user.tokens,
+        dailyStreak: user.dailyStreak,
+        bestDailyStreak: user.bestDailyStreak,
+        lastDailyStreakAt: now,
+      });
+    } catch (err) {
+      console.error('Daily streak reward error:', err);
+      res.status(500).json({ error: 'Failed to claim daily streak reward.' });
+    }
+  });
+
   // Owner-only helper
   const requireOwner = async (req: express.Request, res: express.Response) => {
     const auth = await getAuthenticatedUser(req);
@@ -2138,6 +2311,12 @@ async function createServer() {
         }
         if (targetUser.equippedBlookId === blookId && !targetUser.inventory[blookId]) {
           targetUser.equippedBlookId = '';
+          updateStoredChatAvatars(db, targetUser.id, targetUser.username, '');
+          multiplayerApi?.broadcastChatAvatarUpdated({
+            userId: targetUser.id,
+            username: targetUser.username,
+            avatarBlookId: '',
+          });
         }
       } else {
         res.status(400).json({ error: 'Missing Blook details.' });
@@ -2171,6 +2350,10 @@ async function createServer() {
       targetUser.lastDailyPlayAt = null;
       targetUser.lastWheelSpinAt = null;
       targetUser.lastHourlyClaimAt = null;
+      targetUser.lastDailyStreakAt =
+        targetUser.dailyStreak && targetUser.dailyStreak > 0
+          ? Date.now() - 25 * 60 * 60 * 1000
+          : null;
       await saveDb(db);
       res.json({
         ok: true,
@@ -2253,8 +2436,7 @@ async function createServer() {
     }
   });
 
-  // Online Chat & Global Trades WebSocket broadcast instance
-  let multiplayerApi: ReturnType<typeof attachMultiplayerServer> | null = null;
+  // Online Chat & Global Trades WebSocket broadcast routes follow
 
   app.get('/api/chat/messages', async (_req, res) => {
     try {
@@ -2409,9 +2591,21 @@ async function createServer() {
 
     if (userA.equippedBlookId && (userA.inventory[userA.equippedBlookId] || 0) <= 0) {
       userA.equippedBlookId = '';
+      updateStoredChatAvatars(db, userA.id, userA.username, '');
+      multiplayerApi?.broadcastChatAvatarUpdated({
+        userId: userA.id,
+        username: userA.username,
+        avatarBlookId: '',
+      });
     }
     if (userB.equippedBlookId && (userB.inventory[userB.equippedBlookId] || 0) <= 0) {
       userB.equippedBlookId = '';
+      updateStoredChatAvatars(db, userB.id, userB.username, '');
+      multiplayerApi?.broadcastChatAvatarUpdated({
+        userId: userB.id,
+        username: userB.username,
+        avatarBlookId: '',
+      });
     }
 
     const nowIso = new Date().toISOString();

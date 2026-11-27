@@ -146,12 +146,20 @@ const StageRevealCard: React.FC<{ packId: string; blook: BlookItem; isNew: boole
   const isAthletes = packId === 'athletes' || blook.packId === 'athletes';
   const isFruit = packId === 'fruit' || blook.packId === 'fruit';
   const isChess = packId === 'chess' || blook.packId === 'chess';
+  const isDeepSea = packId === 'deep-sea' || blook.packId === 'deep-sea';
+  const isDrinks = packId === 'drinks' || blook.packId === 'drinks';
+  const isBall = packId === 'ball' || blook.packId === 'ball';
+  const isDessert = packId === 'dessert' || blook.packId === 'dessert';
 
   return (
     <div className="flex flex-col items-center">
       {/* Rarity Pill Badge */}
       <div
-        className="mb-3 px-6 py-1.5 rounded-full font-nunito font-black text-lg tracking-wide shadow-xl border-2 border-white/50 animate-new-badge"
+        className={`mb-3 px-6 py-1.5 rounded-full font-nunito font-black text-lg tracking-wide shadow-xl border-2 animate-new-badge ${
+          blook.rarity === 'Secret'
+            ? 'border-white/90 shadow-[0_0_24px_rgba(255,255,255,0.45)]'
+            : 'border-white/50'
+        }`}
         style={{
           backgroundColor: rarityColor,
           color: blook.rarity === 'Godly' ? '#422006' : '#ffffff',
@@ -162,7 +170,133 @@ const StageRevealCard: React.FC<{ packId: string; blook: BlookItem; isNew: boole
 
       {/* Rounded Black Frame matching real Blooket pack reveal card */}
       <div className="relative w-[340px] h-[360px] bg-black rounded-[38px] p-4 shadow-[0_20px_50px_rgba(0,0,0,0.65)] flex items-center justify-center overflow-hidden border-2 border-white/20">
-        {isChess ? (
+        {isDessert ? (
+          <svg viewBox="0 0 300 320" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="dessertWindowClip">
+                <rect x="14" y="12" width="272" height="296" rx="28" />
+              </clipPath>
+              <linearGradient id="dessertStageGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#f3e8ff" />
+                <stop offset="50%" stopColor="#c084fc" />
+                <stop offset="100%" stopColor="#7e22ce" />
+              </linearGradient>
+            </defs>
+            <g clipPath="url(#dessertWindowClip)">
+              <rect x="14" y="12" width="272" height="296" fill="url(#dessertStageGrad)" />
+              {/* Pastel Bakery Scallop Awning */}
+              <path
+                d="M14 12 H286 V36 Q262 50 238 36 Q214 50 190 36 Q166 50 142 36 Q118 50 94 36 Q70 50 46 36 Q30 48 14 36 Z"
+                fill="#fdf4ff"
+                opacity="0.72"
+              />
+              {/* Floating Sugar Sprinkles */}
+              <rect x="46" y="96" width="14" height="5" rx="2.5" fill="#f43f5e" transform="rotate(-22 53 98)" opacity="0.65" />
+              <rect x="236" y="88" width="14" height="5" rx="2.5" fill="#facc15" transform="rotate(26 243 90)" opacity="0.65" />
+              <rect x="64" y="158" width="12" height="5" rx="2.5" fill="#38bdf8" transform="rotate(18 70 160)" opacity="0.6" />
+              <rect x="224" y="148" width="12" height="5" rx="2.5" fill="#4ade80" transform="rotate(-24 230 150)" opacity="0.6" />
+              <circle cx="150" cy="148" r="84" fill="#fae8ff" opacity="0.2" />
+              {/* Bakery Marble Countertop */}
+              <rect x="14" y="226" width="272" height="82" fill="#581c87" />
+              <rect x="14" y="226" width="272" height="10" fill="#fae8ff" />
+            </g>
+          </svg>
+        ) : isBall ? (
+          <svg viewBox="0 0 300 320" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="ballWindowClip">
+                <rect x="14" y="12" width="272" height="296" rx="28" />
+              </clipPath>
+              <linearGradient id="ballStageGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#fde047" />
+                <stop offset="55%" stopColor="#eab308" />
+                <stop offset="100%" stopColor="#a16207" />
+              </linearGradient>
+            </defs>
+            <g clipPath="url(#ballWindowClip)">
+              <rect x="14" y="12" width="272" height="296" fill="url(#ballStageGrad)" />
+              {/* Court / Arcade Sunburst Rays */}
+              <g opacity="0.24" transform="translate(150, 150)">
+                {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
+                  <polygon
+                    key={deg}
+                    points="0,0 -18,-210 18,-210"
+                    fill="#ffffff"
+                    transform={`rotate(${deg})`}
+                  />
+                ))}
+              </g>
+              {/* Polished Hardwood Court Floor */}
+              <rect x="14" y="218" width="272" height="90" fill="#92400e" />
+              <line x1="14" y1="218" x2="286" y2="218" stroke="#fef08a" strokeWidth="4" />
+              <ellipse cx="150" cy="262" rx="88" ry="24" fill="none" stroke="#fde047" strokeWidth="3.5" opacity="0.65" />
+            </g>
+          </svg>
+        ) : isDrinks ? (
+          <svg viewBox="0 0 300 320" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="drinksWindowClip">
+                <rect x="14" y="12" width="272" height="296" rx="28" />
+              </clipPath>
+              <linearGradient id="drinksStageGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#f472b6" />
+                <stop offset="55%" stopColor="#ec4899" />
+                <stop offset="100%" stopColor="#9d174d" />
+              </linearGradient>
+            </defs>
+            <g clipPath="url(#drinksWindowClip)">
+              <rect x="14" y="12" width="272" height="296" fill="url(#drinksStageGrad)" />
+              {/* Fizzy Soda Bubbles */}
+              <circle cx="54" cy="96" r="14" fill="#ffffff" opacity="0.18" />
+              <circle cx="78" cy="146" r="8" fill="#ffffff" opacity="0.22" />
+              <circle cx="242" cy="88" r="16" fill="#ffffff" opacity="0.16" />
+              <circle cx="226" cy="138" r="9" fill="#ffffff" opacity="0.22" />
+              <circle cx="150" cy="148" r="82" fill="#fbcfe8" opacity="0.18" />
+              {/* Striped Cafe Awning */}
+              <rect x="14" y="12" width="272" height="32" fill="#fdf2f8" opacity="0.25" />
+              {/* Marble Cafe Countertop */}
+              <rect x="14" y="232" width="272" height="76" fill="#831843" />
+              <rect x="14" y="232" width="272" height="12" fill="#fdf2f8" />
+            </g>
+          </svg>
+        ) : isDeepSea ? (
+          <svg viewBox="0 0 300 320" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <clipPath id="deepSeaWindowClip">
+                <rect x="14" y="12" width="272" height="296" rx="28" />
+              </clipPath>
+              <linearGradient id="deepSeaStageGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stopColor="#0369a1" />
+                <stop offset="48%" stopColor="#0c4a6e" />
+                <stop offset="100%" stopColor="#020617" />
+              </linearGradient>
+            </defs>
+
+            <g clipPath="url(#deepSeaWindowClip)">
+              <rect x="14" y="12" width="272" height="296" fill="url(#deepSeaStageGrad)" />
+
+              {/* Abyssal Sunbeams */}
+              <polygon points="75,12 125,12 175,260 28,260" fill="#38bdf8" opacity="0.16" />
+              <polygon points="175,12 225,12 272,260 128,260" fill="#7dd3fc" opacity="0.14" />
+              <circle cx="150" cy="148" r="82" fill="#38bdf8" opacity="0.12" />
+
+              {/* Floating Ocean Bubbles */}
+              <circle cx="48" cy="94" r="6" fill="#e0f2fe" opacity="0.35" />
+              <circle cx="64" cy="126" r="3.5" fill="#e0f2fe" opacity="0.45" />
+              <circle cx="248" cy="84" r="7" fill="#e0f2fe" opacity="0.3" />
+              <circle cx="232" cy="118" r="4" fill="#e0f2fe" opacity="0.45" />
+              <circle cx="195" cy="64" r="3" fill="#bae6fd" opacity="0.45" />
+              <circle cx="96" cy="68" r="4" fill="#bae6fd" opacity="0.4" />
+
+              {/* Seabed Trench & Coral Silhouettes */}
+              <path d="M14 242 Q85 218 152 240 Q222 216 286 242 V308 H14 Z" fill="#082f49" />
+              <path d="M14 264 Q95 246 175 264 Q235 248 286 266 V308 H14 Z" fill="#020617" />
+              <path d="M36 268 V228 M36 244 L24 232 M36 242 L48 230" stroke="#f43f5e" strokeWidth="6" strokeLinecap="round" fill="none" />
+              <path d="M262 270 V226 M262 246 L250 234 M262 240 L274 230" stroke="#fb923c" strokeWidth="6" strokeLinecap="round" fill="none" />
+              <ellipse cx="150" cy="264" rx="86" ry="10" fill="#38bdf8" opacity="0.15" />
+            </g>
+          </svg>
+        ) : isChess ? (
           <svg viewBox="0 0 300 320" className="w-full h-full" xmlns="http://www.w3.org/2000/svg">
             <defs>
               <clipPath id="chessWindowClip">
@@ -351,7 +485,15 @@ const StageRevealCard: React.FC<{ packId: string; blook: BlookItem; isNew: boole
           <h3
             className="font-titan text-white text-[26px] leading-tight tracking-wide drop-shadow-[0_3px_2px_rgba(0,0,0,0.65)]"
             style={{
-              WebkitTextStroke: isChess
+              WebkitTextStroke: isDessert
+                ? '2px #581c87'
+                : isBall
+                ? '2px #713f12'
+                : isDrinks
+                ? '2px #831843'
+                : isDeepSea
+                ? '2px #082f49'
+                : isChess
                 ? '2px #0f172a'
                 : isFruit
                 ? '2px #7c2d12'
@@ -375,7 +517,15 @@ const StageRevealCard: React.FC<{ packId: string; blook: BlookItem; isNew: boole
           <span
             className="font-titan text-white text-[22px] tracking-wide drop-shadow-[0_2px_2px_rgba(0,0,0,0.85)]"
             style={{
-              WebkitTextStroke: isChess
+              WebkitTextStroke: isDessert
+                ? '1.8px #581c87'
+                : isBall
+                ? '1.8px #713f12'
+                : isDrinks
+                ? '1.8px #831843'
+                : isDeepSea
+                ? '1.8px #082f49'
+                : isChess
                 ? '1.8px #0f172a'
                 : isFruit
                 ? '1.8px #7c2d12'
@@ -459,7 +609,8 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
             targetPull.blook.rarity === 'Mystic' ||
             targetPull.blook.rarity === 'Chroma' ||
             targetPull.blook.rarity === 'Clicked' ||
-            targetPull.blook.rarity === 'Godly'
+            targetPull.blook.rarity === 'Godly' ||
+            targetPull.blook.rarity === 'Secret'
           ) {
             playSfx('mystic');
           } else {
@@ -497,7 +648,8 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
       bestPull.blook.rarity === 'Mystic' ||
       bestPull.blook.rarity === 'Chroma' ||
       bestPull.blook.rarity === 'Clicked' ||
-      bestPull.blook.rarity === 'Godly'
+      bestPull.blook.rarity === 'Godly' ||
+      bestPull.blook.rarity === 'Secret'
     ) {
       playSfx('mystic');
     } else {
@@ -871,7 +1023,9 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
                         </span>
                       )}
                       <span
-                        className="absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md font-titan text-xs"
+                        className={`absolute top-1.5 right-1.5 px-2 py-0.5 rounded-md font-titan text-xs ${
+                          entry.blook.rarity === 'Secret' ? 'border border-white/50' : ''
+                        }`}
                         style={{
                           backgroundColor: color,
                           color: entry.blook.rarity === 'Godly' ? '#422006' : '#ffffff',
@@ -886,8 +1040,12 @@ export const PackRevealModal: React.FC<PackRevealModalProps> = ({
                         {entry.blook.name}
                       </span>
                       <span
-                        className="font-nunito font-black text-[11px] mt-0.5"
-                        style={{ color }}
+                        className={`font-nunito font-black text-[11px] mt-0.5 ${
+                          entry.blook.rarity === 'Secret'
+                            ? 'bg-black text-white px-1.5 py-0.5 rounded border border-white/40'
+                            : ''
+                        }`}
+                        style={entry.blook.rarity === 'Secret' ? undefined : { color }}
                       >
                         {entry.blook.rarity} {entry.blook.chanceLabel}
                       </span>

@@ -9,6 +9,8 @@ import {
   Sparkles,
   Gift,
   Clock,
+  Flame,
+  Check,
 } from 'lucide-react';
 import { BlookArt, BlooketTokenIcon } from './BlookArt';
 import { apiFetch } from '../lib/apiClient';
@@ -28,6 +30,9 @@ interface DailyClickerViewProps {
   lastDailyPlayAt: number | null;
   lastWheelSpinAt: number | null;
   lastHourlyClaimAt: number | null;
+  dailyStreak: number;
+  bestDailyStreak: number;
+  lastDailyStreakAt: number | null;
   sessionToken: string | null;
   onEarnTokens: (amount: number) => void;
   onBuyClickUpgrade: (cost: number) => void;
@@ -35,10 +40,24 @@ interface DailyClickerViewProps {
   onLockDaily: (timestamp: number) => void;
   onRecordWheelSpin: (timestamp: number) => void;
   onClaimHourlyReward: (reward: number, newTokens: number, claimedAt: number) => void;
+  onClaimDailyStreak: (
+    reward: number,
+    newTokens: number,
+    dailyStreak: number,
+    bestDailyStreak: number,
+    claimedAt: number
+  ) => void;
 }
 
 const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
+const FORTY_EIGHT_HOURS_MS = 48 * 60 * 60 * 1000;
 const ONE_HOUR_MS = 60 * 60 * 1000;
+
+function getDailyStreakReward(streakDay: number): number {
+  const baseTiers = [150, 225, 300, 400, 500, 650];
+  if (streakDay <= baseTiers.length) return baseTiers[Math.max(0, streakDay - 1)];
+  return 800 + Math.min(streakDay - 7, 23) * 50;
+}
 
 const WHEEL_SEGMENTS = [
   { amount: 1000, label: '+1.0k', color: '#dc2626', text: '#ffffff' },
@@ -93,6 +112,9 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
   lastDailyPlayAt,
   lastWheelSpinAt,
   lastHourlyClaimAt,
+  dailyStreak,
+  bestDailyStreak,
+  lastDailyStreakAt,
   sessionToken,
   onEarnTokens,
   onBuyClickUpgrade,
@@ -100,9 +122,10 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
   onLockDaily,
   onRecordWheelSpin,
   onClaimHourlyReward,
+  onClaimDailyStreak,
 }) => {
   const ROUND_DURATION = 30.0;
-  const [subTab, setSubTab] = useState<'CLICKER' | 'WHEEL' | 'HOURLY'>('CLICKER');
+  const [subTab, setSubTab] = useState<'CLICKER' | 'STREAK' | 'WHEEL' | 'HOURLY'>('CLICKER');
   const [now, setNow] = useState<number>(() => Date.now());
 
   const [phase, setPhase] = useState<'READY' | 'ACTIVE' | 'FINISHED'>('READY');
@@ -121,6 +144,11 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
   const [claimingHourly, setClaimingHourly] = useState<boolean>(false);
   const [hourlyPrize, setHourlyPrize] = useState<number | null>(null);
   const [hourlyError, setHourlyError] = useState<string | null>(null);
+
+  // Daily Streak state
+  const [claimingStreak, setClaimingStreak] = useState<boolean>(false);
+  const [streakPrize, setStreakPrize] = useState<{ reward: number; day: number } | null>(null);
+  const [streakError, setStreakError] = useState<string | null>(null);
 
   const endTimeRef = useRef<number | null>(null);
   const clicksRef = useRef<number>(0);
@@ -162,6 +190,21 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
   const hourlyUnlockAt = lastHourlyClaimAt ? lastHourlyClaimAt + ONE_HOUR_MS : 0;
   const hourlyRemainingMs = Math.max(0, hourlyUnlockAt - now);
   const isHourlyLocked = hourlyRemainingMs > 0;
+
+  const streakElapsedMs = lastDailyStreakAt ? Math.max(0, now - lastDailyStreakAt) : 0;
+  const streakUnlockAt = lastDailyStreakAt ? lastDailyStreakAt + TWENTY_FOUR_HOURS_MS : 0;
+  const streakRemainingMs = Math.max(0, streakUnlockAt - now);
+  const isStreakLocked = Boolean(lastDailyStreakAt && streakRemainingMs > 0);
+  const isStreakExpired = Boolean(lastDailyStreakAt && streakElapsedMs >= FORTY_EIGHT_HOURS_MS);
+  const activeStreak = isStreakExpired ? 0 : Math.max(0, dailyStreak);
+  const nextStreakDay = activeStreak + 1;
+  const nextStreakReward = getDailyStreakReward(nextStreakDay);
+  const streakExpireRemainingMs =
+    lastDailyStreakAt && !isStreakExpired
+      ? Math.max(0, lastDailyStreakAt + FORTY_EIGHT_HOURS_MS - now)
+      : 0;
+  const streakLadderStart = Math.max(1, nextStreakDay > 7 ? nextStreakDay - 5 : 1);
+  const streakLadderDays = Array.from({ length: 7 }, (_, idx) => streakLadderStart + idx);
 
   useEffect(() => {
     if (phase !== 'ACTIVE') return;
@@ -279,6 +322,36 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
     }
   };
 
+  const handleClaimDailyStreak = async () => {
+    if (isStreakLocked || claimingStreak) return;
+    setClaimingStreak(true);
+    setStreakError(null);
+    try {
+      const res = await apiFetch('/api/rewards/daily-streak', {
+        method: 'POST',
+        headers: sessionToken ? { Authorization: `Bearer ${sessionToken}` } : {},
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStreakError(data.error || 'Daily Streak is not ready yet.');
+        return;
+      }
+      setStreakPrize({ reward: data.reward, day: data.dailyStreak });
+      onClaimDailyStreak(
+        data.reward,
+        data.tokens,
+        data.dailyStreak,
+        data.bestDailyStreak,
+        data.lastDailyStreakAt
+      );
+      playTone(587, 1175, 0.24);
+    } catch {
+      setStreakError('Network error claiming daily streak.');
+    } finally {
+      setClaimingStreak(false);
+    }
+  };
+
   const elapsed = phase === 'READY' ? 0 : ROUND_DURATION - timeLeft;
   const currentCps = elapsed > 0.2 ? (clicksThisRun / elapsed).toFixed(1) : '0.0';
   const progressPercent = Math.max(0, Math.min(100, (timeLeft / ROUND_DURATION) * 100));
@@ -292,11 +365,18 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
             Rewards
           </h1>
           <p className="font-nunito font-extrabold text-white/90 text-sm mt-1">
-            Hourly Reward (300–900 Tokens) · 30s Clicker Sprint (24h) · Daily Token Wheel
+            Daily Streak (150+ Tokens) · Hourly Reward (300–900) · 30s Clicker Sprint · Daily Token Wheel
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5 flex-wrap">
+          <div className="bg-orange-500/85 border border-amber-200/50 text-white px-4 py-2 rounded-xl font-nunito font-black text-sm flex items-center gap-2 shadow-sm">
+            <Flame className="w-4 h-4 text-amber-200 fill-amber-300" />
+            <span className="tabular-nums">
+              {activeStreak} Day Streak
+              {bestDailyStreak > 0 ? ` (Best: ${bestDailyStreak})` : ''}
+            </span>
+          </div>
           <div className="bg-white/20 text-white px-4 py-2 rounded-xl font-nunito font-black text-sm flex items-center gap-2">
             <Zap className="w-4 h-4 text-amber-300" />
             <span className="tabular-nums">Best 30s: {bestDailyClicks} Clicks</span>
@@ -304,8 +384,25 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
         </div>
       </div>
 
-      {/* Sub-Tab Switcher: 30s Clicker vs Daily Token Wheel vs Hourly Reward */}
+      {/* Sub-Tab Switcher: Daily Streak vs 30s Clicker vs Daily Token Wheel vs Hourly Reward */}
       <div className="inline-flex flex-wrap self-start items-center gap-1.5 p-1.5 rounded-2xl bg-white/20 mb-6">
+        <button
+          type="button"
+          onClick={() => setSubTab('STREAK')}
+          className={`px-5 py-2 rounded-xl font-titan text-base flex items-center gap-2 transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+            subTab === 'STREAK'
+              ? 'bg-white text-[#dc2626] shadow-sm'
+              : 'text-white hover:bg-white/10'
+          }`}
+        >
+          <Flame className="w-4 h-4" />
+          <span>Daily Streak</span>
+          {!isStreakLocked && (
+            <span className="text-xs font-nunito font-black text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-md">
+              Ready
+            </span>
+          )}
+        </button>
         <button
           type="button"
           onClick={() => setSubTab('CLICKER')}
@@ -473,6 +570,144 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
                 </div>
               )}
             </>
+          ) : subTab === 'STREAK' ? (
+            /* DAILY STREAK REWARD LADDER */
+            <div className="w-full flex flex-col items-center py-2 text-center">
+              <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-orange-400 via-red-500 to-amber-500 border-4 border-white shadow-[0_10px_24px_rgba(239,68,68,0.3)] flex items-center justify-center mb-3">
+                <Flame className="w-11 h-11 text-white fill-amber-200 drop-shadow-sm" />
+              </div>
+
+              <h2 className="font-titan text-3xl text-[#dc2626]">Daily Streak</h2>
+              <p className="font-nunito font-bold text-xs text-slate-500 mt-1 max-w-md">
+                Claim every 24 hours (within 48h) to grow your streak and earn bigger daily Token drops!
+              </p>
+
+              {/* Streak Stats Row */}
+              <div className="w-full grid grid-cols-3 gap-3 mt-4 mb-5">
+                <div className="bg-orange-50 border-2 border-orange-200 rounded-2xl p-3">
+                  <span className="block font-nunito font-black text-[11px] text-orange-600 uppercase">
+                    Current Streak
+                  </span>
+                  <p className="font-titan text-2xl text-slate-900 tabular-nums mt-0.5">
+                    {activeStreak} {activeStreak === 1 ? 'Day' : 'Days'}
+                  </p>
+                </div>
+                <div className="bg-amber-50 border-2 border-amber-200 rounded-2xl p-3">
+                  <span className="block font-nunito font-black text-[11px] text-amber-700 uppercase">
+                    Next Reward
+                  </span>
+                  <p className="font-titan text-2xl text-amber-600 tabular-nums mt-0.5">
+                    +{nextStreakReward.toLocaleString()}
+                  </p>
+                </div>
+                <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-3">
+                  <span className="block font-nunito font-black text-[11px] text-[#dc2626] uppercase">
+                    Best Streak
+                  </span>
+                  <p className="font-titan text-2xl text-slate-900 tabular-nums mt-0.5">
+                    {bestDailyStreak} {bestDailyStreak === 1 ? 'Day' : 'Days'}
+                  </p>
+                </div>
+              </div>
+
+              {/* 7-Day Milestone Ladder */}
+              <div className="w-full grid grid-cols-7 gap-1.5 sm:gap-2 mb-5">
+                {streakLadderDays.map((dayNum) => {
+                  const rewardAmt = getDailyStreakReward(dayNum);
+                  const isCompleted = dayNum <= activeStreak;
+                  const isNextTarget = dayNum === nextStreakDay;
+                  return (
+                    <div
+                      key={dayNum}
+                      className={`rounded-2xl p-2 border-2 flex flex-col items-center justify-between transition-all ${
+                        isCompleted
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
+                          : isNextTarget && !isStreakLocked
+                          ? 'bg-amber-100 border-amber-400 text-amber-950 ring-2 ring-amber-300/60 scale-[1.03]'
+                          : isNextTarget
+                          ? 'bg-orange-50 border-orange-300 text-orange-900'
+                          : 'bg-slate-50 border-slate-200 text-slate-500'
+                      }`}
+                    >
+                      <span className="font-nunito font-black text-[10px] uppercase">
+                        Day {dayNum}
+                      </span>
+                      <div className="my-1.5">
+                        {isCompleted ? (
+                          <div className="w-6 h-6 rounded-full bg-emerald-500 text-white flex items-center justify-center">
+                            <Check className="w-3.5 h-3.5" strokeWidth={3} />
+                          </div>
+                        ) : (
+                          <BlooketTokenIcon className="w-6 h-6" />
+                        )}
+                      </div>
+                      <span className="font-titan text-xs tabular-nums">
+                        +{rewardAmt}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {streakError && (
+                <div className="mb-3 px-4 py-2 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 font-nunito font-extrabold text-xs">
+                  {streakError}
+                </div>
+              )}
+
+              {streakPrize && (
+                <div className="mb-4 px-5 py-2.5 rounded-2xl bg-amber-100 border-2 border-amber-300 flex items-center gap-2 animate-pop-reveal shadow-sm">
+                  <Sparkles className="w-5 h-5 text-amber-700" />
+                  <BlooketTokenIcon className="w-5 h-5" />
+                  <span className="font-titan text-xl text-amber-900">
+                    Day {streakPrize.day} Streak! +{streakPrize.reward.toLocaleString()} Tokens!
+                  </span>
+                </div>
+              )}
+
+              {isStreakLocked ? (
+                <div className="w-full max-w-sm px-6 py-3.5 rounded-2xl bg-slate-100 border-2 border-slate-200 text-center">
+                  <span className="flex items-center justify-center gap-1.5 font-nunito font-black text-xs text-slate-500">
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>NEXT STREAK CLAIM IN</span>
+                  </span>
+                  <span className="block font-titan text-3xl text-slate-800 tabular-nums mt-0.5">
+                    {formatRemaining(streakRemainingMs)}
+                  </span>
+                  {streakExpireRemainingMs > 0 && (
+                    <span className="block font-nunito font-bold text-[11px] text-orange-600 mt-1 tabular-nums">
+                      Streak stays safe for {formatRemaining(streakExpireRemainingMs)}
+                    </span>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={claimingStreak}
+                    onClick={handleClaimDailyStreak}
+                    className="px-9 py-3.5 rounded-2xl bg-gradient-to-r from-[#fbbf24] to-[#f97316] hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_6px_0_#b45309] text-amber-950 font-titan text-2xl cursor-pointer transition-all disabled:opacity-60 flex items-center gap-2.5"
+                  >
+                    <Flame className="w-6 h-6 text-[#991b1b] fill-[#fde047]" />
+                    <span>
+                      {claimingStreak
+                        ? 'Claiming...'
+                        : `Claim Day ${nextStreakDay} (+${nextStreakReward.toLocaleString()})`}
+                    </span>
+                  </button>
+                  {isStreakExpired && dailyStreak > 0 && (
+                    <span className="font-nunito font-extrabold text-xs text-rose-600">
+                      Previous {dailyStreak}-day streak expired — claim now to start Day 1!
+                    </span>
+                  )}
+                  {!isStreakExpired && activeStreak > 0 && streakExpireRemainingMs > 0 && (
+                    <span className="font-nunito font-bold text-xs text-emerald-700 tabular-nums">
+                      Claim within {formatRemaining(streakExpireRemainingMs)} to keep your streak alive!
+                    </span>
+                  )}
+                </div>
+              )}
+            </div>
           ) : subTab === 'WHEEL' ? (
             /* DAILY TOKEN WHEEL */
             <div className="w-full flex flex-col items-center py-2">
@@ -649,8 +884,61 @@ export const DailyClickerView: React.FC<DailyClickerViewProps> = ({
           )}
         </div>
 
-        {/* RIGHT COLUMN: HOURLY REWARD QUICK-CLAIM + CLICK UPGRADES */}
+        {/* RIGHT COLUMN: DAILY STREAK + HOURLY REWARD QUICK-CLAIM + CLICK UPGRADES */}
         <div className="lg:col-span-5 flex flex-col gap-6">
+          {/* Daily Streak Quick-Claim Card */}
+          <div className="bg-white rounded-3xl p-5 shadow-[0_8px_0_rgba(0,0,0,0.18)] flex flex-col gap-3.5 border-2 border-orange-200">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-orange-100 text-orange-600 flex items-center justify-center shrink-0">
+                  <Flame className="w-6 h-6 fill-amber-300" />
+                </div>
+                <div>
+                  <h2 className="font-titan text-xl text-slate-800 leading-tight">
+                    Daily Streak
+                  </h2>
+                  <p className="font-nunito font-bold text-xs text-slate-500">
+                    {activeStreak > 0
+                      ? `${activeStreak} Day Streak · Day ${nextStreakDay} gives +${nextStreakReward.toLocaleString()}`
+                      : `Start your streak for +${nextStreakReward.toLocaleString()} Tokens!`}
+                  </p>
+                </div>
+              </div>
+
+              {!isStreakLocked && (
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-700 font-nunito font-black text-xs shrink-0">
+                  Ready!
+                </span>
+              )}
+            </div>
+
+            {isStreakLocked ? (
+              <div className="px-4 py-2.5 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-between">
+                <span className="font-nunito font-black text-xs text-slate-500 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>Next Day</span>
+                </span>
+                <span className="font-titan text-lg text-slate-800 tabular-nums">
+                  {formatRemaining(streakRemainingMs)}
+                </span>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={claimingStreak}
+                onClick={handleClaimDailyStreak}
+                className="w-full py-2.5 px-4 rounded-xl font-titan text-lg flex items-center justify-center gap-2 transition-all cursor-pointer bg-gradient-to-r from-[#fbbf24] to-[#fb923c] hover:brightness-105 text-amber-950 shadow-[0_5px_0_#b45309] active:translate-y-0.5 active:shadow-none disabled:opacity-60"
+              >
+                <Flame className="w-5 h-5 text-[#991b1b] fill-[#fde047]" />
+                <span>
+                  {claimingStreak
+                    ? 'Claiming...'
+                    : `Claim Day ${nextStreakDay} (+${nextStreakReward.toLocaleString()})`}
+                </span>
+              </button>
+            )}
+          </div>
+
           {/* Hourly Reward Quick-Claim Card */}
           <div className="bg-white rounded-3xl p-5 shadow-[0_8px_0_rgba(0,0,0,0.18)] flex flex-col gap-3.5 border-2 border-amber-200">
             <div className="flex items-center justify-between gap-3">

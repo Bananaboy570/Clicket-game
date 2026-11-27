@@ -302,7 +302,7 @@ export const ACHIEVEMENTS_LIST: AchievementDefinition[] = [
     accentColor: '#ff910f',
     bgGradient: 'from-amber-400 via-orange-500 to-red-600',
     description: 'Obtained a Legendary Blook!',
-    howToUnlock: 'Unlock any Legendary Blook from a Pack, Bazaar, or Trade.',
+    howToUnlock: 'Unlock any Legendary Blook from a Pack, Crafting, Bazaar, or Trade.',
   },
   {
     id: 'chroma',
@@ -311,7 +311,7 @@ export const ACHIEVEMENTS_LIST: AchievementDefinition[] = [
     accentColor: '#00ccff',
     bgGradient: 'from-cyan-400 via-sky-500 to-blue-700',
     description: 'Obtained an ultra-rare Chroma Blook!',
-    howToUnlock: 'Unlock any Chroma Blook from a Pack, Bazaar, or Trade.',
+    howToUnlock: 'Unlock any Chroma Blook from a Pack, Crafting, Bazaar, or Trade.',
   },
   {
     id: 'op',
@@ -320,7 +320,7 @@ export const ACHIEVEMENTS_LIST: AchievementDefinition[] = [
     accentColor: '#9900ff',
     bgGradient: 'from-fuchsia-500 via-purple-600 to-indigo-900',
     description: 'Obtained a Mystical Blook — unstoppable luck!',
-    howToUnlock: 'Unlock any Mystical Blook from a Pack, Bazaar, or Trade.',
+    howToUnlock: 'Unlock any Mystical Blook from a Pack, Crafting, Bazaar, or Trade.',
   },
   {
     id: 'owner',

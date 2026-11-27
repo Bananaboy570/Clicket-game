@@ -28,16 +28,28 @@ import {
   Crown,
   MessageSquare,
   Ticket,
+  BarChart3,
+  Flame,
+  Hammer,
+  Globe,
 } from 'lucide-react';
 import {
   CIRCUS_PACK,
   ATHLETES_PACK,
   FRUIT_PACK,
   CHESS_PACK,
+  DEEP_SEA_PACK,
+  DRINKS_PACK,
+  BALL_PACK,
+  DESSERT_PACK,
   CIRCUS_BLOOKS,
   ATHLETES_BLOOKS,
   FRUIT_BLOOKS,
   CHESS_BLOOKS,
+  DEEP_SEA_BLOOKS,
+  DRINKS_BLOOKS,
+  BALL_BLOOKS,
+  DESSERT_BLOOKS,
   ALL_BLOOKS,
   BAZAAR_RECIPES,
   RARITY_COLORS,
@@ -46,14 +58,19 @@ import {
   PackInfo,
   Rarity,
   rollBlookFromPack,
+  calculateInventoryWorth,
 } from './data/blooks';
-import { BlookArt, BlooketTokenIcon } from './components/BlookArt';
+import { BlookArt, BlooketTokenIcon, DefaultAvatarPfp } from './components/BlookArt';
 import {
   PackCoverArt,
   CircusClownFaceIcon,
   AthletesSoccerBallIcon,
   FruitBasketCornerIcon,
   ChessKnightCornerIcon,
+  DeepSeaOctopusCornerIcon,
+  DrinksCupCornerIcon,
+  BallCornerIcon,
+  DessertCupcakeCornerIcon,
 } from './components/PackCoverArt';
 import { PackRevealModal, PackPullResult } from './components/PackRevealModal';
 import {
@@ -74,6 +91,7 @@ import {
   LiveTradeSession,
   TradeCompletedNotice,
 } from './components/TradingView';
+import { BazaarView } from './components/BazaarView';
 import { ClansView } from './components/ClansView';
 import {
   AchievementsView,
@@ -82,6 +100,7 @@ import {
 } from './components/AchievementsView';
 import { AdminPanelView } from './components/AdminPanelView';
 import { CodesView } from './components/CodesView';
+import { LeaderboardView } from './components/LeaderboardView';
 import { ChatView, OnlineChatMessage, ChatReplyTarget } from './components/ChatView';
 import {
   apiFetch,
@@ -101,6 +120,8 @@ import {
   createFirestoreTrade,
   fulfillFirestoreTrade,
   cancelFirestoreTrade,
+  syncFirestoreLeaderboardProfile,
+  fetchFirestoreLeaderboard,
   type FirestoreChatMessage,
 } from './firebase';
 import { BlookBackground } from './components/BlookBackground';
@@ -112,10 +133,12 @@ type ActiveTab =
   | 'Daily'
   | 'Blooks'
   | 'Market'
+  | 'Crafting'
   | 'Bazaar'
   | 'Trading'
   | 'Clans'
   | 'Chat'
+  | 'Leaderboard'
   | 'Achievements'
   | 'Codes'
   | 'Admin'
@@ -147,6 +170,9 @@ export default function App() {
   const [lastDailyPlayAt, setLastDailyPlayAt] = useState<number | null>(null);
   const [lastWheelSpinAt, setLastWheelSpinAt] = useState<number | null>(null);
   const [lastHourlyClaimAt, setLastHourlyClaimAt] = useState<number | null>(null);
+  const [dailyStreak, setDailyStreak] = useState<number>(0);
+  const [bestDailyStreak, setBestDailyStreak] = useState<number>(0);
+  const [lastDailyStreakAt, setLastDailyStreakAt] = useState<number | null>(null);
   const tokenCounterRef = useRef<HTMLDivElement | null>(null);
   const [hourlyTokenBurst, setHourlyTokenBurst] = useState<HourlyTokenBurst | null>(null);
   const [tokenDisplayOverride, setTokenDisplayOverride] = useState<number | null>(null);
@@ -168,7 +194,7 @@ export default function App() {
   // Bazaar state
   const [bazaarFilter, setBazaarFilter] = useState<'All' | Rarity>('All');
   const [bazaarPackFilter, setBazaarPackFilter] = useState<
-    'all' | 'circus' | 'athletes' | 'fruit' | 'chess'
+    'all' | 'circus' | 'athletes' | 'fruit' | 'chess' | 'deep-sea' | 'drinks' | 'ball' | 'dessert'
   >('all');
   const [bazaarNotice, setBazaarNotice] = useState<{
     text: string;
@@ -191,6 +217,8 @@ export default function App() {
 
   // Real-time Online Chat state
   const [chatMessages, setChatMessages] = useState<OnlineChatMessage[]>([]);
+  const [knownAvatarsByUserId, setKnownAvatarsByUserId] = useState<Record<string, string>>({});
+  const [knownAvatarsByUsername, setKnownAvatarsByUsername] = useState<Record<string, string>>({});
   const [chatError, setChatError] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState<number>(0);
   const [myClanInfo, setMyClanInfo] = useState<{ tag: string; bannerColor: string } | null>(null);
@@ -205,9 +233,9 @@ export default function App() {
     pulls: PackPullResult[];
   } | null>(null);
 
-  const [selectedBlook, setSelectedBlook] = useState<BlookItem>(CIRCUS_BLOOKS[0]);
+  const [selectedBlook, setSelectedBlook] = useState<BlookItem | null>(null);
   const [showCircusSheetModal, setShowCircusSheetModal] = useState(false);
-  const [showcasePackTab, setShowcasePackTab] = useState<'circus' | 'athletes' | 'fruit' | 'chess'>('circus');
+  const [showcasePackTab, setShowcasePackTab] = useState<'circus' | 'athletes' | 'fruit' | 'chess' | 'deep-sea' | 'drinks' | 'ball' | 'dessert'>('circus');
   const [pullHistory, setPullHistory] = useState<PullHistoryEntry[]>([]);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [luckMultiplier, setLuckMultiplier] = useState<number>(1);
@@ -246,6 +274,9 @@ export default function App() {
     setLastDailyPlayAt(user.lastDailyPlayAt ?? null);
     setLastWheelSpinAt(user.lastWheelSpinAt ?? null);
     setLastHourlyClaimAt(user.lastHourlyClaimAt ?? null);
+    setDailyStreak(Math.max(0, Math.floor(user.dailyStreak || 0)));
+    setBestDailyStreak(Math.max(0, Math.floor(user.bestDailyStreak || 0)));
+    setLastDailyStreakAt(user.lastDailyStreakAt ?? null);
     setTradeHistory(Array.isArray(user.tradeHistory) ? user.tradeHistory : []);
   }, []);
 
@@ -465,6 +496,63 @@ export default function App() {
     };
   }, [currentUser?.id, currentUser?.clanId, activeTab]);
 
+  // Debounced change-only sync of player's net worth profile to Cloud Firestore /users/{id}
+  const lastSyncedWorthSigRef = useRef<string>('');
+  useEffect(() => {
+    if (!currentUser) {
+      lastSyncedWorthSigRef.current = '';
+      return;
+    }
+    const worth = calculateInventoryWorth(inventory);
+    const safeTokens = Math.max(0, Math.floor(Number(tokens) || 0));
+    const totalWorth = safeTokens + worth.blooksWorth;
+    const safeAvatar =
+      equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '';
+    const isOwner =
+      currentUser.username?.trim().toLowerCase() === OWNER_USERNAME ||
+      currentUser.email?.trim().toLowerCase() === OWNER_USERNAME ||
+      (Array.isArray(currentUser.achievements) && currentUser.achievements.includes('owner'));
+    const achievements = Array.isArray(currentUser.achievements) ? currentUser.achievements : [];
+
+    const sig = JSON.stringify([
+      currentUser.id,
+      username,
+      safeTokens,
+      worth.blooksWorth,
+      worth.totalBlooksCount,
+      safeAvatar,
+      myClanInfo?.tag || '',
+      achievements.join(','),
+      dailyStreak,
+      bestDailyStreak,
+    ]);
+    if (sig === lastSyncedWorthSigRef.current) return;
+
+    const timer = setTimeout(() => {
+      lastSyncedWorthSigRef.current = sig;
+      syncFirestoreLeaderboardProfile({
+        id: currentUser.id,
+        username,
+        tokens: safeTokens,
+        blooksWorth: worth.blooksWorth,
+        totalWorth,
+        uniqueBlooksCount: worth.uniqueBlooksCount,
+        totalBlooksCount: worth.totalBlooksCount,
+        equippedBlookId: safeAvatar,
+        mostValuableBlookId: worth.mostValuableBlookId,
+        achievements,
+        isOwner,
+        clanTag: myClanInfo?.tag,
+        clanColor: myClanInfo?.bannerColor,
+        dailyStreak,
+        bestDailyStreak,
+        updatedAt: Date.now(),
+      }).catch(() => {});
+    }, 2500);
+
+    return () => clearTimeout(timer);
+  }, [currentUser, username, tokens, inventory, equippedBlookId, myClanInfo, dailyStreak, bestDailyStreak]);
+
   // Periodically clear expired remote typing banners while on Chat tab
   useEffect(() => {
     if (activeTab !== 'Chat') return;
@@ -662,6 +750,29 @@ export default function App() {
             }
           } else if (msg.type === 'chat:deleted' && msg.messageId) {
             setChatMessages((prev) => prev.filter((m) => m.id !== msg.messageId));
+          } else if (msg.type === 'chat:avatar_updated' && msg.userId) {
+            const updatedUserId = String(msg.userId);
+            const updatedUsername = String(msg.username || '').trim().toLowerCase();
+            const updatedAvatar = typeof msg.avatarBlookId === 'string' ? msg.avatarBlookId : '';
+            setKnownAvatarsByUserId((prev) => ({ ...prev, [updatedUserId]: updatedAvatar }));
+            if (updatedUsername) {
+              setKnownAvatarsByUsername((prev) => ({ ...prev, [updatedUsername]: updatedAvatar }));
+            }
+            setChatMessages((prev) =>
+              prev.map((m) => {
+                const matchAuthor = m.userId === updatedUserId;
+                const matchReply =
+                  updatedUsername &&
+                  m.replyToUsername &&
+                  m.replyToUsername.trim().toLowerCase() === updatedUsername;
+                if (!matchAuthor && !matchReply) return m;
+                return {
+                  ...m,
+                  ...(matchAuthor ? { avatarBlookId: updatedAvatar } : {}),
+                  ...(matchReply ? { replyToAvatar: updatedAvatar } : {}),
+                };
+              })
+            );
           } else if (msg.type === 'chat:error') {
             setChatError(msg.error || 'Chat error.');
             setTimeout(() => setChatError(null), 4000);
@@ -696,15 +807,95 @@ export default function App() {
 
   // Keep live presence inventory & avatar updated whenever player's profile changes
   useEffect(() => {
-    const ws = presenceWsRef.current;
-    if (!currentUser || !ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(
-      JSON.stringify({
-        type: 'presence:update',
-        ...presencePayloadRef.current,
+    if (!currentUser) return;
+    const safeAvatar =
+      equippedBlookId && (inventory[equippedBlookId] || 0) > 0 ? equippedBlookId : '';
+    const cleanMyName = username.trim().toLowerCase();
+
+    // Update local chat comments & reply previews immediately when the user changes their own PFP
+    setKnownAvatarsByUserId((prev) => ({ ...prev, [currentUser.id]: safeAvatar }));
+    if (cleanMyName) {
+      setKnownAvatarsByUsername((prev) => ({ ...prev, [cleanMyName]: safeAvatar }));
+    }
+    setChatMessages((prev) =>
+      prev.map((m) => {
+        const matchAuthor = m.userId === currentUser.id;
+        const matchReply =
+          cleanMyName && m.replyToUsername && m.replyToUsername.trim().toLowerCase() === cleanMyName;
+        if (!matchAuthor && !matchReply) return m;
+        return {
+          ...m,
+          ...(matchAuthor ? { avatarBlookId: safeAvatar } : {}),
+          ...(matchReply ? { replyToAvatar: safeAvatar } : {}),
+        };
       })
     );
+
+    const ws = presenceWsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(
+        JSON.stringify({
+          type: 'presence:update',
+          ...presencePayloadRef.current,
+        })
+      );
+    }
+
+    // Push updated avatar to Cloud Firestore presence immediately so remote devices update PFPs right away
+    const meta = fsPresenceMetaRef.current;
+    if (meta.userId) {
+      updateFirestorePresence(currentUser.id, {
+        userId: meta.userId,
+        username: meta.username,
+        avatarBlookId: safeAvatar,
+        unlockedCount: meta.unlockedCount,
+        isOwner: meta.isOwner,
+        achievements: meta.achievements,
+      }).catch(() => {});
+    }
   }, [currentUser, username, inventory, equippedBlookId]);
+
+  // Refresh known user avatars from server + Firestore when Chat is open so offline commenters also show latest PFPs
+  const refreshKnownChatAvatars = useCallback(async () => {
+    if (!currentUser) return;
+    const nextById: Record<string, string> = {};
+    const nextByName: Record<string, string> = {};
+
+    try {
+      const [apiRes, fsProfiles] = await Promise.all([
+        apiFetch('/api/leaderboard').catch(() => null),
+        fetchFirestoreLeaderboard().catch(() => []),
+      ]);
+      if (apiRes && apiRes.ok) {
+        const data = await apiRes.json();
+        if (Array.isArray(data?.leaderboard)) {
+          for (const p of data.leaderboard) {
+            const av = typeof p.equippedBlookId === 'string' ? p.equippedBlookId : '';
+            if (p.id) nextById[String(p.id)] = av;
+            if (p.username) nextByName[String(p.username).trim().toLowerCase()] = av;
+          }
+        }
+      }
+      for (const p of fsProfiles) {
+        const av = typeof p.equippedBlookId === 'string' ? p.equippedBlookId : '';
+        if (p.id) nextById[p.id] = av;
+        if (p.username) nextByName[p.username.trim().toLowerCase()] = av;
+      }
+      if (Object.keys(nextById).length > 0 || Object.keys(nextByName).length > 0) {
+        setKnownAvatarsByUserId((prev) => ({ ...prev, ...nextById }));
+        setKnownAvatarsByUsername((prev) => ({ ...prev, ...nextByName }));
+      }
+    } catch {
+      // Ignore transient avatar lookup error
+    }
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (activeTab === 'Chat' || Object.keys(knownAvatarsByUserId).length === 0) {
+      void refreshKnownChatAvatars();
+    }
+  }, [currentUser?.id, activeTab, refreshKnownChatAvatars]);
 
   const fetchChatHistory = useCallback(async () => {
     try {
@@ -874,9 +1065,9 @@ export default function App() {
     };
   }, [currentUser?.id, fetchGlobalTrades]);
 
-  // Periodic refresh when on Trading tab if WebSocket is not connected
+  // Periodic refresh when on Bazaar or Trading tab if WebSocket is not connected
   useEffect(() => {
-    if (!currentUser || activeTab !== 'Trading') return;
+    if (!currentUser || (activeTab !== 'Trading' && activeTab !== 'Bazaar')) return;
     void fetchGlobalTrades();
     if (presenceConnected) return;
 
@@ -1338,7 +1529,7 @@ export default function App() {
     }
 
     setBazaarNotice({
-      text: `Bazaar Trade Complete! You received 1x ${targetBlook.name}!`,
+      text: `Crafting Complete! You crafted 1x ${targetBlook.name}!`,
       targetBlook,
     });
     setTimeout(() => setBazaarNotice(null), 4000);
@@ -1385,10 +1576,12 @@ export default function App() {
     { label: 'Daily', icon: <MousePointerClick className="w-5 h-5" /> },
     { label: 'Blooks', icon: <Briefcase className="w-5 h-5" /> },
     { label: 'Market', icon: <Store className="w-5 h-5" /> },
-    { label: 'Bazaar', icon: <ArrowLeftRight className="w-5 h-5" /> },
+    { label: 'Crafting', icon: <Hammer className="w-5 h-5" /> },
+    { label: 'Bazaar', icon: <Globe className="w-5 h-5" /> },
     { label: 'Trading', icon: <Handshake className="w-5 h-5" /> },
     { label: 'Clans', icon: <Shield className="w-5 h-5" /> },
     { label: 'Chat', icon: <MessageSquare className="w-5 h-5" /> },
+    { label: 'Leaderboard', icon: <BarChart3 className="w-5 h-5" /> },
     { label: 'Achievements', icon: <Trophy className="w-5 h-5" /> },
     { label: 'Codes', icon: <Ticket className="w-5 h-5" /> },
     ...(isPrivilegedTokenUser ? [{ label: 'Admin' as ActiveTab, icon: <Crown className="w-5 h-5" /> }] : []),
@@ -1402,6 +1595,10 @@ export default function App() {
   const unlockedAthletesCount = ATHLETES_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
   const unlockedFruitCount = FRUIT_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
   const unlockedChessCount = CHESS_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
+  const unlockedDeepSeaCount = DEEP_SEA_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
+  const unlockedDrinksCount = DRINKS_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
+  const unlockedBallCount = BALL_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
+  const unlockedDessertCount = DESSERT_BLOOKS.filter((b) => (inventory[b.id] || 0) > 0).length;
 
   return (
     <div className="flex flex-col h-screen w-screen overflow-hidden select-none bg-[#ff8585] relative">
@@ -1431,7 +1628,7 @@ export default function App() {
               lineHeight: '1',
             }}
           >
-            v1.0.0
+            v1.0.1
           </span>
         </div>
 
@@ -1467,6 +1664,10 @@ export default function App() {
             const isActive = activeTab === item.label;
             const showUnreadChat =
               item.label === 'Chat' && unreadChatCount > 0 && activeTab !== 'Chat';
+            const showDailyStreakReady =
+              item.label === 'Daily' &&
+              activeTab !== 'Daily' &&
+              (!lastDailyStreakAt || Date.now() - lastDailyStreakAt >= 24 * 60 * 60 * 1000);
             return (
               <div key={item.label} className="relative group">
                 <button
@@ -1474,6 +1675,9 @@ export default function App() {
                   aria-label={item.label}
                   onClick={() => {
                     setActiveTab(item.label);
+                    if (item.label === 'Blooks') {
+                      setSelectedBlook(null);
+                    }
                     if (item.label === 'Chat') {
                       setUnreadChatCount(0);
                       if (presenceWsRef.current?.readyState === WebSocket.OPEN) {
@@ -1491,6 +1695,14 @@ export default function App() {
                   {showUnreadChat && (
                     <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-[#fbbf24] text-amber-950 font-nunito font-black text-[10px] flex items-center justify-center border-2 border-[#dc2626] shadow">
                       {unreadChatCount > 9 ? '9+' : unreadChatCount}
+                    </span>
+                  )}
+                  {showDailyStreakReady && (
+                    <span
+                      title="Daily Streak Ready!"
+                      className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-orange-500 text-white flex items-center justify-center border-2 border-[#dc2626] shadow"
+                    >
+                      <Flame className="w-2.5 h-2.5 fill-amber-200" />
                     </span>
                   )}
                 </button>
@@ -1602,7 +1814,7 @@ export default function App() {
                 {activeAvatarBlookId ? (
                   <BlookArt id={activeAvatarBlookId} className="w-full h-full" />
                 ) : (
-                  <User className="w-4 h-4 text-white" />
+                  <DefaultAvatarPfp className="w-full h-full rounded-md" />
                 )}
               </div>
               <span className="font-nunito font-bold text-[15px] tracking-tight max-w-[120px] truncate">
@@ -1625,11 +1837,11 @@ export default function App() {
               <div className="absolute right-0 mt-2 w-64 bg-white rounded-2xl shadow-2xl border-2 border-[#dc2626] p-3 text-slate-800 z-50">
                 <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2 overflow-hidden">
-                    <div className="w-8 h-8 rounded-lg bg-red-100 p-0.5 shrink-0 flex items-center justify-center">
+                    <div className="w-8 h-8 rounded-lg bg-red-100 p-0.5 shrink-0 flex items-center justify-center overflow-hidden">
                       {activeAvatarBlookId ? (
                         <BlookArt id={activeAvatarBlookId} className="w-full h-full" />
                       ) : (
-                        <User className="w-5 h-5 text-[#dc2626]" />
+                        <DefaultAvatarPfp className="w-full h-full rounded-lg" />
                       )}
                     </div>
                     <div className="min-w-0">
@@ -1867,6 +2079,46 @@ export default function App() {
                   <Sparkles className="w-4 h-4" />
                   <span>Chess Rates ({unlockedChessCount}/{CHESS_BLOOKS.length})</span>
                 </button>
+                <button
+                  onClick={() => {
+                    setShowcasePackTab('deep-sea');
+                    setShowCircusSheetModal(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#0284c7] hover:brightness-110 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Deep Sea Rates ({unlockedDeepSeaCount}/{DEEP_SEA_BLOOKS.length})</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowcasePackTab('drinks');
+                    setShowCircusSheetModal(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#db2777] hover:brightness-110 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Drinks Rates ({unlockedDrinksCount}/{DRINKS_BLOOKS.length})</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowcasePackTab('ball');
+                    setShowCircusSheetModal(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#ca8a04] hover:brightness-110 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Ball Rates ({unlockedBallCount}/{BALL_BLOOKS.length})</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setShowcasePackTab('dessert');
+                    setShowCircusSheetModal(true);
+                  }}
+                  className="px-3.5 py-2 rounded-xl bg-[#9333ea] hover:brightness-110 text-white font-nunito font-extrabold text-sm flex items-center gap-1.5 cursor-pointer transition-colors whitespace-nowrap shrink-0"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span>Dessert Rates ({unlockedDessertCount}/{DESSERT_BLOOKS.length})</span>
+                </button>
               </div>
             </div>
 
@@ -1882,13 +2134,13 @@ export default function App() {
               </div>
             )}
 
-            {/* Circus Pack, Athletes Pack & Shopkeeper Booth */}
-            <div className="flex flex-col lg:flex-row items-start gap-8 flex-1 flex-wrap">
-              <div className="w-full max-w-[310px]">
+            {/* Market Packs Grid — Row 1: Circus, Athletes, Fruit, Chess; Row 2: Deep Sea, Drinks, Ball, Dessert */}
+            <div className="mt-2 md:mt-3 w-full overflow-x-auto pb-3">
+              <div className="grid grid-cols-4 gap-4 lg:gap-6 min-w-[760px] w-full max-w-[1260px] items-stretch">
                 {/* Circus Pack Card */}
                 <div
                   onClick={() => openPackPurchaseModal(CIRCUS_PACK)}
-                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-[282.996px]"
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-full"
                   style={{
                     backgroundColor: '#ff4242',
                     borderColor: CIRCUS_PACK.borderColor,
@@ -1906,7 +2158,7 @@ export default function App() {
                       }}
                     />
 
-                    <div className="relative z-10 w-[160px] h-[184px] transition-transform duration-200 group-hover:scale-105 -rotate-3">
+                    <div className="relative z-10 w-full max-w-[160px] h-[184px] transition-transform duration-200 group-hover:scale-105 -rotate-3">
                       <PackCoverArt packId="circus" className="w-full h-full" />
                     </div>
 
@@ -1923,13 +2175,11 @@ export default function App() {
                     </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Athletes Pack Column */}
-              <div className="w-full max-w-[310px]">
+                {/* Athletes Pack Card */}
                 <div
                   onClick={() => openPackPurchaseModal(ATHLETES_PACK)}
-                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-[282.992px] -ml-[34px]"
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-full"
                   style={{
                     backgroundColor: ATHLETES_PACK.bgColor,
                     borderColor: ATHLETES_PACK.borderColor,
@@ -1944,7 +2194,7 @@ export default function App() {
                       }}
                     />
 
-                    <div className="relative z-10 w-[235px] h-[192px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
+                    <div className="relative z-10 w-full max-w-[168px] h-[184px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
                       <PackCoverArt packId="athletes" className="w-full h-full" />
                     </div>
 
@@ -1961,13 +2211,11 @@ export default function App() {
                     </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Fruit Pack Column */}
-              <div className="w-full max-w-[310px]">
+                {/* Fruit Pack Card */}
                 <div
                   onClick={() => openPackPurchaseModal(FRUIT_PACK)}
-                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-[282.992px] -ml-[68px]"
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-full"
                   style={{
                     backgroundColor: FRUIT_PACK.bgColor,
                     borderColor: FRUIT_PACK.borderColor,
@@ -1982,7 +2230,7 @@ export default function App() {
                       }}
                     />
 
-                    <div className="relative z-10 w-[190px] h-[192px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
+                    <div className="relative z-10 w-full max-w-[184px] h-[184px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
                       <PackCoverArt packId="fruit" className="w-full h-full" />
                     </div>
 
@@ -1999,13 +2247,11 @@ export default function App() {
                     </span>
                   </div>
                 </div>
-              </div>
 
-              {/* Chess Pack Column */}
-              <div className="w-full max-w-[310px]">
+                {/* Chess Pack Card */}
                 <div
                   onClick={() => openPackPurchaseModal(CHESS_PACK)}
-                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] ml-[924px] w-[282.992px] pl-0 pr-0 -mt-[333px]"
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-full"
                   style={{
                     backgroundColor: CHESS_PACK.bgColor,
                     borderColor: CHESS_PACK.borderColor,
@@ -2020,7 +2266,7 @@ export default function App() {
                       }}
                     />
 
-                    <div className="relative z-10 w-[220px] h-[196px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
+                    <div className="relative z-10 w-full max-w-[205px] h-[186px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
                       <PackCoverArt packId="chess" className="w-full h-full" />
                     </div>
 
@@ -2034,6 +2280,150 @@ export default function App() {
                     <BlooketTokenIcon className="w-7 h-7" />
                     <span className="font-titan text-white text-[24px] tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]">
                       {CHESS_PACK.price}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Deep Sea Pack Card */}
+                <div
+                  onClick={() => openPackPurchaseModal(DEEP_SEA_PACK)}
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-full"
+                  style={{
+                    backgroundColor: DEEP_SEA_PACK.bgColor,
+                    borderColor: DEEP_SEA_PACK.borderColor,
+                  }}
+                >
+                  <div className="relative h-[220px] w-full flex items-center justify-center overflow-hidden p-3">
+                    <div
+                      className="absolute inset-0 opacity-25 pointer-events-none"
+                      style={{
+                        background:
+                          'radial-gradient(circle at center, rgba(255,255,255,0.65) 0%, transparent 70%)',
+                      }}
+                    />
+
+                    <div className="relative z-10 w-full max-w-[166px] h-[188px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
+                      <PackCoverArt packId="deep-sea" className="w-full h-full" />
+                    </div>
+
+                    <div className="absolute -bottom-1.5 -right-1.5 w-16 h-16 opacity-45 rotate-12 pointer-events-none">
+                      <DeepSeaOctopusCornerIcon className="w-full h-full" />
+                    </div>
+                  </div>
+
+                  {/* Price Bar */}
+                  <div className="bg-[#3898eb] border-t-4 border-white/80 py-2.5 px-4 flex items-center justify-center gap-2 shadow-inner">
+                    <BlooketTokenIcon className="w-7 h-7" />
+                    <span className="font-titan text-white text-[24px] tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]">
+                      {DEEP_SEA_PACK.price}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Drinks Pack Card */}
+                <div
+                  onClick={() => openPackPurchaseModal(DRINKS_PACK)}
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-full"
+                  style={{
+                    backgroundColor: DRINKS_PACK.bgColor,
+                    borderColor: DRINKS_PACK.borderColor,
+                  }}
+                >
+                  <div className="relative h-[220px] w-full flex items-center justify-center overflow-hidden p-3">
+                    <div
+                      className="absolute inset-0 opacity-25 pointer-events-none"
+                      style={{
+                        background:
+                          'radial-gradient(circle at center, rgba(255,255,255,0.65) 0%, transparent 70%)',
+                      }}
+                    />
+
+                    <div className="relative z-10 w-full max-w-[166px] h-[188px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
+                      <PackCoverArt packId="drinks" className="w-full h-full" />
+                    </div>
+
+                    <div className="absolute -bottom-1.5 -right-1.5 w-16 h-16 opacity-45 rotate-12 pointer-events-none">
+                      <DrinksCupCornerIcon className="w-full h-full" />
+                    </div>
+                  </div>
+
+                  {/* Price Bar */}
+                  <div className="bg-[#3898eb] border-t-4 border-white/80 py-2.5 px-4 flex items-center justify-center gap-2 shadow-inner">
+                    <BlooketTokenIcon className="w-7 h-7" />
+                    <span className="font-titan text-white text-[24px] tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]">
+                      {DRINKS_PACK.price}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Ball Pack Card */}
+                <div
+                  onClick={() => openPackPurchaseModal(BALL_PACK)}
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-full"
+                  style={{
+                    backgroundColor: BALL_PACK.bgColor,
+                    borderColor: BALL_PACK.borderColor,
+                  }}
+                >
+                  <div className="relative h-[220px] w-full flex items-center justify-center overflow-hidden p-3">
+                    <div
+                      className="absolute inset-0 opacity-25 pointer-events-none"
+                      style={{
+                        background:
+                          'radial-gradient(circle at center, rgba(255,255,255,0.65) 0%, transparent 70%)',
+                      }}
+                    />
+
+                    <div className="relative z-10 w-full max-w-[166px] h-[188px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
+                      <PackCoverArt packId="ball" className="w-full h-full" />
+                    </div>
+
+                    <div className="absolute -bottom-1.5 -right-1.5 w-16 h-16 opacity-45 rotate-12 pointer-events-none">
+                      <BallCornerIcon className="w-full h-full" />
+                    </div>
+                  </div>
+
+                  {/* Price Bar */}
+                  <div className="bg-[#3898eb] border-t-4 border-white/80 py-2.5 px-4 flex items-center justify-center gap-2 shadow-inner">
+                    <BlooketTokenIcon className="w-7 h-7" />
+                    <span className="font-titan text-white text-[24px] tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]">
+                      {BALL_PACK.price}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Dessert Pack Card */}
+                <div
+                  onClick={() => openPackPurchaseModal(DESSERT_PACK)}
+                  className="group rounded-2xl overflow-hidden shadow-[0_7px_0_rgba(0,0,0,0.22)] hover:-translate-y-1 transition-all duration-150 cursor-pointer flex flex-col border-[5px] w-full"
+                  style={{
+                    backgroundColor: DESSERT_PACK.bgColor,
+                    borderColor: DESSERT_PACK.borderColor,
+                  }}
+                >
+                  <div className="relative h-[220px] w-full flex items-center justify-center overflow-hidden p-3">
+                    <div
+                      className="absolute inset-0 opacity-25 pointer-events-none"
+                      style={{
+                        background:
+                          'radial-gradient(circle at center, rgba(255,255,255,0.65) 0%, transparent 70%)',
+                      }}
+                    />
+
+                    <div className="relative z-10 w-full max-w-[166px] h-[188px] transition-transform duration-200 group-hover:scale-105 -rotate-2">
+                      <PackCoverArt packId="dessert" className="w-full h-full" />
+                    </div>
+
+                    <div className="absolute -bottom-1.5 -right-1.5 w-16 h-16 opacity-45 rotate-12 pointer-events-none">
+                      <DessertCupcakeCornerIcon className="w-full h-full" />
+                    </div>
+                  </div>
+
+                  {/* Price Bar */}
+                  <div className="bg-[#3898eb] border-t-4 border-white/80 py-2.5 px-4 flex items-center justify-center gap-2 shadow-inner">
+                    <BlooketTokenIcon className="w-7 h-7" />
+                    <span className="font-titan text-white text-[24px] tracking-wide drop-shadow-[0_2px_0_rgba(0,0,0,0.2)]">
+                      {DESSERT_PACK.price}
                     </span>
                   </div>
                 </div>
@@ -2052,6 +2442,9 @@ export default function App() {
             lastDailyPlayAt={lastDailyPlayAt}
             lastWheelSpinAt={lastWheelSpinAt}
             lastHourlyClaimAt={lastHourlyClaimAt}
+            dailyStreak={dailyStreak}
+            bestDailyStreak={bestDailyStreak}
+            lastDailyStreakAt={lastDailyStreakAt}
             sessionToken={sessionToken}
             onEarnTokens={(amt) => setTokens((prev) => prev + amt)}
             onBuyClickUpgrade={handleBuyClickUpgrade}
@@ -2071,6 +2464,20 @@ export default function App() {
               });
               setTokens(newTokens);
               setLastHourlyClaimAt(claimedAt);
+            }}
+            onClaimDailyStreak={(reward, newTokens, newStreak, newBestStreak, claimedAt) => {
+              const fromTokens = Math.max(0, newTokens - reward);
+              setTokenDisplayOverride(fromTokens);
+              setHourlyTokenBurst({
+                id: Date.now(),
+                reward,
+                fromTokens,
+                toTokens: newTokens,
+              });
+              setTokens(newTokens);
+              setDailyStreak(newStreak);
+              setBestDailyStreak(newBestStreak);
+              setLastDailyStreakAt(claimedAt);
             }}
           />
         )}
@@ -2114,7 +2521,7 @@ export default function App() {
                     {CIRCUS_BLOOKS.map((blook) => {
                       const count = inventory[blook.id] || 0;
                       const isUnlocked = count > 0;
-                      const isSelected = selectedBlook.id === blook.id;
+                      const isSelected = selectedBlook?.id === blook.id;
                       const rarityColor = RARITY_COLORS[blook.rarity];
 
                       return (
@@ -2183,7 +2590,7 @@ export default function App() {
                     {ATHLETES_BLOOKS.map((blook) => {
                       const count = inventory[blook.id] || 0;
                       const isUnlocked = count > 0;
-                      const isSelected = selectedBlook.id === blook.id;
+                      const isSelected = selectedBlook?.id === blook.id;
                       const rarityColor = RARITY_COLORS[blook.rarity];
 
                       return (
@@ -2255,7 +2662,7 @@ export default function App() {
                     {FRUIT_BLOOKS.map((blook) => {
                       const count = inventory[blook.id] || 0;
                       const isUnlocked = count > 0;
-                      const isSelected = selectedBlook.id === blook.id;
+                      const isSelected = selectedBlook?.id === blook.id;
                       const rarityColor = RARITY_COLORS[blook.rarity];
 
                       return (
@@ -2327,7 +2734,295 @@ export default function App() {
                     {CHESS_BLOOKS.map((blook) => {
                       const count = inventory[blook.id] || 0;
                       const isUnlocked = count > 0;
-                      const isSelected = selectedBlook.id === blook.id;
+                      const isSelected = selectedBlook?.id === blook.id;
+                      const rarityColor = RARITY_COLORS[blook.rarity];
+
+                      return (
+                        <button
+                          key={blook.id}
+                          type="button"
+                          title={`${blook.name} (${blook.rarity} ${blook.chanceLabel})`}
+                          onClick={() => setSelectedBlook(blook)}
+                          className={`relative aspect-square w-full max-w-[76px] rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'ring-4 ring-white scale-105 shadow-lg bg-white/15'
+                              : 'hover:scale-105'
+                          }`}
+                        >
+                          <div
+                            className="w-full h-full flex items-center justify-center"
+                            style={!isUnlocked ? { filter: 'brightness(0)' } : undefined}
+                          >
+                            <BlookArt
+                              id={blook.id}
+                              animated
+                              className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
+                            />
+                          </div>
+
+                          {!isUnlocked && (
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                              <Lock
+                                className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]"
+                                strokeWidth={2.6}
+                              />
+                            </div>
+                          )}
+
+                          {isUnlocked && (
+                            <span
+                              className="absolute -bottom-1 -left-1 min-w-[24px] h-6 px-1.5 rounded-full font-nunito font-black text-xs flex items-center justify-center border-2 border-white/90 shadow-md"
+                              style={{
+                                backgroundColor: rarityColor,
+                                color: blook.rarity === 'Godly' ? '#422006' : '#ffffff',
+                              }}
+                            >
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* DEEP SEA PACK BLOOKS */}
+                <div className="bg-sky-900/45 border-2 border-white/15 rounded-3xl p-6 shadow-[0_8px_0_rgba(0,0,0,0.18)] w-full">
+                  <div className="flex items-center justify-between border-b-2 border-white/20 pb-3 mb-6">
+                    <div className="flex items-center gap-3">
+                      <h2 className="font-titan text-2xl text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]">
+                        Deep Sea Pack
+                      </h2>
+                      <span className="text-sm font-nunito font-extrabold text-white/85">
+                        {unlockedDeepSeaCount} / {DEEP_SEA_BLOOKS.length} Unlocked
+                      </span>
+                    </div>
+                    <span className="text-xs font-nunito font-extrabold text-white/90">
+                      20 Tokens per Pack
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-x-5 gap-y-6 justify-items-center">
+                    {DEEP_SEA_BLOOKS.map((blook) => {
+                      const count = inventory[blook.id] || 0;
+                      const isUnlocked = count > 0;
+                      const isSelected = selectedBlook?.id === blook.id;
+                      const rarityColor = RARITY_COLORS[blook.rarity];
+
+                      return (
+                        <button
+                          key={blook.id}
+                          type="button"
+                          title={`${blook.name} (${blook.rarity} ${blook.chanceLabel})`}
+                          onClick={() => setSelectedBlook(blook)}
+                          className={`relative aspect-square w-full max-w-[76px] rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'ring-4 ring-white scale-105 shadow-lg bg-white/15'
+                              : 'hover:scale-105'
+                          }`}
+                        >
+                          <div
+                            className="w-full h-full flex items-center justify-center"
+                            style={!isUnlocked ? { filter: 'brightness(0)' } : undefined}
+                          >
+                            <BlookArt
+                              id={blook.id}
+                              animated
+                              className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
+                            />
+                          </div>
+
+                          {!isUnlocked && (
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                              <Lock
+                                className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]"
+                                strokeWidth={2.6}
+                              />
+                            </div>
+                          )}
+
+                          {isUnlocked && (
+                            <span
+                              className="absolute -bottom-1 -left-1 min-w-[24px] h-6 px-1.5 rounded-full font-nunito font-black text-xs flex items-center justify-center border-2 border-white/90 shadow-md"
+                              style={{
+                                backgroundColor: rarityColor,
+                                color: blook.rarity === 'Godly' ? '#422006' : '#ffffff',
+                              }}
+                            >
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* DRINKS PACK BLOOKS */}
+                <div className="bg-pink-900/45 border-2 border-white/15 rounded-3xl p-6 shadow-[0_8px_0_rgba(0,0,0,0.18)] w-full">
+                  <div className="flex items-center justify-between border-b-2 border-white/20 pb-3 mb-6">
+                    <div className="flex items-center gap-3">
+                      <h2 className="font-titan text-2xl text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]">
+                        Drinks Pack
+                      </h2>
+                      <span className="text-sm font-nunito font-extrabold text-white/85">
+                        {unlockedDrinksCount} / {DRINKS_BLOOKS.length} Unlocked
+                      </span>
+                    </div>
+                    <span className="text-xs font-nunito font-extrabold text-white/90">
+                      20 Tokens per Pack
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-x-5 gap-y-6 justify-items-center">
+                    {DRINKS_BLOOKS.map((blook) => {
+                      const count = inventory[blook.id] || 0;
+                      const isUnlocked = count > 0;
+                      const isSelected = selectedBlook?.id === blook.id;
+                      const rarityColor = RARITY_COLORS[blook.rarity];
+
+                      return (
+                        <button
+                          key={blook.id}
+                          type="button"
+                          title={`${blook.name} (${blook.rarity} ${blook.chanceLabel})`}
+                          onClick={() => setSelectedBlook(blook)}
+                          className={`relative aspect-square w-full max-w-[76px] rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'ring-4 ring-white scale-105 shadow-lg bg-white/15'
+                              : 'hover:scale-105'
+                          }`}
+                        >
+                          <div
+                            className="w-full h-full flex items-center justify-center"
+                            style={!isUnlocked ? { filter: 'brightness(0)' } : undefined}
+                          >
+                            <BlookArt
+                              id={blook.id}
+                              animated
+                              className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
+                            />
+                          </div>
+
+                          {!isUnlocked && (
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                              <Lock
+                                className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]"
+                                strokeWidth={2.6}
+                              />
+                            </div>
+                          )}
+
+                          {isUnlocked && (
+                            <span
+                              className="absolute -bottom-1 -left-1 min-w-[24px] h-6 px-1.5 rounded-full font-nunito font-black text-xs flex items-center justify-center border-2 border-white/90 shadow-md"
+                              style={{
+                                backgroundColor: rarityColor,
+                                color: blook.rarity === 'Godly' ? '#422006' : '#ffffff',
+                              }}
+                            >
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* BALL PACK BLOOKS */}
+                <div className="bg-amber-900/45 border-2 border-white/15 rounded-3xl p-6 shadow-[0_8px_0_rgba(0,0,0,0.18)] w-full">
+                  <div className="flex items-center justify-between border-b-2 border-white/20 pb-3 mb-6">
+                    <div className="flex items-center gap-3">
+                      <h2 className="font-titan text-2xl text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]">
+                        Ball Pack
+                      </h2>
+                      <span className="text-sm font-nunito font-extrabold text-white/85">
+                        {unlockedBallCount} / {BALL_BLOOKS.length} Unlocked
+                      </span>
+                    </div>
+                    <span className="text-xs font-nunito font-extrabold text-white/90">
+                      20 Tokens per Pack
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-x-5 gap-y-6 justify-items-center">
+                    {BALL_BLOOKS.map((blook) => {
+                      const count = inventory[blook.id] || 0;
+                      const isUnlocked = count > 0;
+                      const isSelected = selectedBlook?.id === blook.id;
+                      const rarityColor = RARITY_COLORS[blook.rarity];
+
+                      return (
+                        <button
+                          key={blook.id}
+                          type="button"
+                          title={`${blook.name} (${blook.rarity} ${blook.chanceLabel})`}
+                          onClick={() => setSelectedBlook(blook)}
+                          className={`relative aspect-square w-full max-w-[76px] rounded-2xl flex items-center justify-center transition-all cursor-pointer ${
+                            isSelected
+                              ? 'ring-4 ring-white scale-105 shadow-lg bg-white/15'
+                              : 'hover:scale-105'
+                          }`}
+                        >
+                          <div
+                            className="w-full h-full flex items-center justify-center"
+                            style={!isUnlocked ? { filter: 'brightness(0)' } : undefined}
+                          >
+                            <BlookArt
+                              id={blook.id}
+                              animated
+                              className="w-full h-full drop-shadow-[0_3px_0_rgba(0,0,0,0.2)]"
+                            />
+                          </div>
+
+                          {!isUnlocked && (
+                            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                              <Lock
+                                className="w-6 h-6 text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.95)]"
+                                strokeWidth={2.6}
+                              />
+                            </div>
+                          )}
+
+                          {isUnlocked && (
+                            <span
+                              className="absolute -bottom-1 -left-1 min-w-[24px] h-6 px-1.5 rounded-full font-nunito font-black text-xs flex items-center justify-center border-2 border-white/90 shadow-md"
+                              style={{
+                                backgroundColor: rarityColor,
+                                color: blook.rarity === 'Godly' ? '#422006' : '#ffffff',
+                              }}
+                            >
+                              {count}
+                            </span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* DESSERT PACK BLOOKS */}
+                <div className="bg-purple-900/45 border-2 border-white/15 rounded-3xl p-6 shadow-[0_8px_0_rgba(0,0,0,0.18)] w-full">
+                  <div className="flex items-center justify-between border-b-2 border-white/20 pb-3 mb-6">
+                    <div className="flex items-center gap-3">
+                      <h2 className="font-titan text-2xl text-white drop-shadow-[0_2px_0_rgba(0,0,0,0.18)]">
+                        Dessert Pack
+                      </h2>
+                      <span className="text-sm font-nunito font-extrabold text-white/85">
+                        {unlockedDessertCount} / {DESSERT_BLOOKS.length} Unlocked
+                      </span>
+                    </div>
+                    <span className="text-xs font-nunito font-extrabold text-white/90">
+                      20 Tokens per Pack
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 sm:grid-cols-6 xl:grid-cols-8 gap-x-5 gap-y-6 justify-items-center">
+                    {DESSERT_BLOOKS.map((blook) => {
+                      const count = inventory[blook.id] || 0;
+                      const isUnlocked = count > 0;
+                      const isSelected = selectedBlook?.id === blook.id;
                       const rarityColor = RARITY_COLORS[blook.rarity];
 
                       return (
@@ -2381,140 +3076,210 @@ export default function App() {
               </div>
 
               <div className="w-full lg:w-[340px] shrink-0 flex flex-col items-center bg-white/95 rounded-3xl p-5 shadow-[0_8px_0_rgba(0,0,0,0.18)]">
-                <div className="relative w-full h-[270px] bg-[#ff3d3d] rounded-[28px] p-3 flex flex-col items-center justify-between overflow-hidden shadow-lg">
-                  {(inventory[selectedBlook.id] || 0) <= 0 && (
-                    <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.28)_0%,rgba(255,255,255,0.08)_42%,transparent_72%)]" />
-                  )}
+                {!selectedBlook ? (
+                  <>
+                    <div className="relative w-full h-[270px] bg-[#ff3d3d] rounded-[28px] p-3 flex flex-col items-center justify-between overflow-hidden shadow-lg">
+                      <div className="z-10 text-center pt-1">
+                        <h3
+                          className="font-titan text-white text-2xl tracking-wide"
+                          style={{ WebkitTextStroke: '1.5px #3b1908', paintOrder: 'stroke fill' }}
+                        >
+                          Default Clicket PFP
+                        </h3>
+                        <span className="inline-block font-nunito font-black text-sm text-amber-200 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]">
+                          Starter Profile Picture
+                        </span>
+                      </div>
 
-                  <div className="z-10 text-center pt-1">
-                    <h3
-                      className="font-titan text-white text-2xl tracking-wide"
-                      style={{ WebkitTextStroke: '1.5px #3b1908', paintOrder: 'stroke fill' }}
-                    >
-                      {selectedBlook.name}
-                    </h3>
-                    <span
-                      className="font-nunito font-black text-sm drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
-                      style={{ color: RARITY_COLORS[selectedBlook.rarity] }}
-                    >
-                      {selectedBlook.rarity} {selectedBlook.chanceLabel}
-                    </span>
-                  </div>
-
-                  <div className="relative z-10 w-28 h-28 flex items-center justify-center my-auto">
-                    <div
-                      className="w-full h-full flex items-center justify-center"
-                      style={
-                        (inventory[selectedBlook.id] || 0) <= 0
-                          ? { filter: 'brightness(0)' }
-                          : undefined
-                      }
-                    >
-                      <BlookArt
-                        id={selectedBlook.id}
-                        animated
-                        className="w-full h-full"
-                      />
-                    </div>
-                    {(inventory[selectedBlook.id] || 0) <= 0 && (
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-                        <Lock
-                          className="w-9 h-9 text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]"
-                          strokeWidth={2.6}
+                      <div className="relative z-10 w-28 h-28 flex items-center justify-center my-auto">
+                        <DefaultAvatarPfp
+                          alt="Default Clicket Profile Picture"
+                          className="w-full h-full rounded-3xl border-4 border-white/85 shadow-xl"
                         />
                       </div>
-                    )}
-                  </div>
 
-                  <div className="z-10 pb-1">
-                    <span className="font-titan text-white text-lg">
-                      Owned: {inventory[selectedBlook.id] || 0}
-                    </span>
-                  </div>
-                </div>
+                      <div className="z-10 pb-1">
+                        <span className="font-titan text-white text-lg">
+                          Default Avatar
+                        </span>
+                      </div>
+                    </div>
 
-                <div className="w-full mt-4 flex flex-col gap-2.5">
-                  {(inventory[selectedBlook.id] || 0) > 0 ? (
-                    <button
-                      onClick={() => setEquippedBlookId(selectedBlook.id)}
-                      className="w-full py-2.5 rounded-xl bg-[#f87171] text-white font-titan text-lg shadow-[0_5px_0_#dc2626] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
-                    >
-                      {activeAvatarBlookId === selectedBlook.id ? (
-                        <>
-                          <Check className="w-5 h-5" />
-                          <span>Equipped as Avatar</span>
-                        </>
-                      ) : (
-                        <span>Use as Profile Blook</span>
-                      )}
-                    </button>
-                  ) : (
-                    <button
-                      type="button"
-                      disabled
-                      className="w-full py-2.5 rounded-xl bg-slate-200 text-slate-500 font-titan text-base cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
-                    >
-                      <Lock className="w-4 h-4" />
-                      <span>Obtain Blook to Use as Avatar</span>
-                    </button>
-                  )}
-
-                  {(inventory[selectedBlook.id] || 0) > 0 ? (
-                    <>
+                    <div className="w-full mt-4 flex flex-col gap-2.5">
                       <button
-                        onClick={() => handleSellBlook(selectedBlook, 1)}
-                        className="w-full py-2.5 rounded-xl bg-[#ef4444] text-white font-titan text-lg shadow-[0_5px_0_#b91c1c] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
+                        type="button"
+                        onClick={() => setEquippedBlookId('')}
+                        className={`w-full py-2.5 rounded-xl font-titan text-lg active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap shrink-0 ${
+                          activeAvatarBlookId === ''
+                            ? 'bg-emerald-500 text-white shadow-[0_5px_0_#059669]'
+                            : 'bg-[#f87171] text-white shadow-[0_5px_0_#dc2626]'
+                        }`}
                       >
-                        <BlooketTokenIcon className="w-5 h-5" />
-                        <span>Sell 1 for {selectedBlook.sellPrice} Tokens</span>
+                        {activeAvatarBlookId === '' ? (
+                          <>
+                            <Check className="w-5 h-5" />
+                            <span>Equipped as Profile Picture</span>
+                          </>
+                        ) : (
+                          <span>Use Default Profile Picture</span>
+                        )}
                       </button>
 
-                      {(inventory[selectedBlook.id] || 0) > 1 && (
+                      <p className="font-nunito font-bold text-xs text-slate-500 text-center px-2 pt-1">
+                        Click any Blook on the left to inspect, equip, or sell it.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="relative w-full h-[270px] bg-[#ff3d3d] rounded-[28px] p-3 flex flex-col items-center justify-between overflow-hidden shadow-lg">
+                      {(inventory[selectedBlook.id] || 0) <= 0 && (
+                        <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.28)_0%,rgba(255,255,255,0.08)_42%,transparent_72%)]" />
+                      )}
+
+                      <div className="z-10 text-center pt-1">
+                        <h3
+                          className="font-titan text-white text-2xl tracking-wide"
+                          style={{ WebkitTextStroke: '1.5px #3b1908', paintOrder: 'stroke fill' }}
+                        >
+                          {selectedBlook.name}
+                        </h3>
+                        <span
+                          className={`inline-block font-nunito font-black text-sm ${
+                            selectedBlook.rarity === 'Secret'
+                              ? 'bg-black text-white px-2.5 py-0.5 rounded-full border border-white/60 mt-0.5'
+                              : 'drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]'
+                          }`}
+                          style={
+                            selectedBlook.rarity === 'Secret'
+                              ? undefined
+                              : { color: RARITY_COLORS[selectedBlook.rarity] }
+                          }
+                        >
+                          {selectedBlook.rarity} {selectedBlook.chanceLabel}
+                        </span>
+                      </div>
+
+                      <div className="relative z-10 w-28 h-28 flex items-center justify-center my-auto">
+                        <div
+                          className="w-full h-full flex items-center justify-center"
+                          style={
+                            (inventory[selectedBlook.id] || 0) <= 0
+                              ? { filter: 'brightness(0)' }
+                              : undefined
+                          }
+                        >
+                          <BlookArt
+                            id={selectedBlook.id}
+                            animated
+                            className="w-full h-full"
+                          />
+                        </div>
+                        {(inventory[selectedBlook.id] || 0) <= 0 && (
+                          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+                            <Lock
+                              className="w-9 h-9 text-white drop-shadow-[0_2px_6px_rgba(0,0,0,0.95)]"
+                              strokeWidth={2.6}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="z-10 pb-1">
+                        <span className="font-titan text-white text-lg">
+                          Owned: {inventory[selectedBlook.id] || 0}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="w-full mt-4 flex flex-col gap-2.5">
+                      {(inventory[selectedBlook.id] || 0) > 0 ? (
                         <button
                           onClick={() =>
-                            handleSellBlook(
-                              selectedBlook,
-                              (inventory[selectedBlook.id] || 0) - 1
+                            setEquippedBlookId(
+                              activeAvatarBlookId === selectedBlook.id ? '' : selectedBlook.id
                             )
                           }
-                          className="w-full py-2.5 rounded-xl bg-[#f59e0b] text-amber-950 font-titan text-base shadow-[0_5px_0_#b45309] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
+                          className="w-full py-2.5 rounded-xl bg-[#f87171] text-white font-titan text-lg shadow-[0_5px_0_#dc2626] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
                         >
-                          <BlooketTokenIcon className="w-5 h-5" />
-                          <span>
-                            Sell Until ONE Left (+
-                            {(
-                              ((inventory[selectedBlook.id] || 0) - 1) *
-                              selectedBlook.sellPrice
-                            ).toLocaleString()}
-                            )
-                          </span>
+                          {activeAvatarBlookId === selectedBlook.id ? (
+                            <>
+                              <Check className="w-5 h-5" />
+                              <span>Equipped (Click to Unequip)</span>
+                            </>
+                          ) : (
+                            <span>Use as Profile Blook</span>
+                          )}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          disabled
+                          className="w-full py-2.5 rounded-xl bg-slate-200 text-slate-500 font-titan text-base cursor-not-allowed flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
+                        >
+                          <Lock className="w-4 h-4" />
+                          <span>Obtain Blook to Use as Avatar</span>
                         </button>
                       )}
-                    </>
-                  ) : (
-                    <button
-                      onClick={() => setActiveTab('Market')}
-                      className="w-full py-2.5 rounded-xl bg-[#dc2626] text-white font-titan text-lg shadow-[0_5px_0_#991b1b] cursor-pointer whitespace-nowrap shrink-0"
-                    >
-                      Unlock in Market (20 Tokens)
-                    </button>
-                  )}
-                </div>
+
+                      {(inventory[selectedBlook.id] || 0) > 0 ? (
+                        <>
+                          <button
+                            onClick={() => handleSellBlook(selectedBlook, 1)}
+                            className="w-full py-2.5 rounded-xl bg-[#ef4444] text-white font-titan text-lg shadow-[0_5px_0_#b91c1c] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
+                          >
+                            <BlooketTokenIcon className="w-5 h-5" />
+                            <span>Sell 1 for {selectedBlook.sellPrice} Tokens</span>
+                          </button>
+
+                          {(inventory[selectedBlook.id] || 0) > 1 && (
+                            <button
+                              onClick={() =>
+                                handleSellBlook(
+                                  selectedBlook,
+                                  (inventory[selectedBlook.id] || 0) - 1
+                                )
+                              }
+                              className="w-full py-2.5 rounded-xl bg-[#f59e0b] text-amber-950 font-titan text-base shadow-[0_5px_0_#b45309] active:translate-y-0.5 active:shadow-none cursor-pointer flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
+                            >
+                              <BlooketTokenIcon className="w-5 h-5" />
+                              <span>
+                                Sell Until ONE Left (+
+                                {(
+                                  ((inventory[selectedBlook.id] || 0) - 1) *
+                                  selectedBlook.sellPrice
+                                ).toLocaleString()}
+                                )
+                              </span>
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => setActiveTab('Market')}
+                          className="w-full py-2.5 rounded-xl bg-[#dc2626] text-white font-titan text-lg shadow-[0_5px_0_#991b1b] cursor-pointer whitespace-nowrap shrink-0"
+                        >
+                          Unlock in Market (20 Tokens)
+                        </button>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </div>
         )}
 
-        {/* TAB 3B: BLOOK BAZAAR (TRADE BLOOKS UP IN RARITY ACROSS ALL PACKS) */}
-        {activeTab === 'Bazaar' && (
+        {/* TAB 3B: BLOOK CRAFTING (CRAFT BLOOKS UP IN RARITY ACROSS ALL PACKS) */}
+        {activeTab === 'Crafting' && (
           <div className="relative z-10 px-9 pt-6 pb-16 min-h-full flex flex-col">
             <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
               <div>
                 <h1 className="font-titan text-white text-[44px] leading-none tracking-wide drop-shadow-[0_3px_0_rgba(0,0,0,0.18)]">
-                  Blook Bazaar
+                  Crafting
                 </h1>
                 <p className="font-nunito font-extrabold text-white/90 text-sm mt-1">
-                  Mix and trade Blooks across Circus, Athletes, Fruit, and Chess packs to craft rarer Blooks!
+                  Mix and craft Blooks across Circus, Athletes, Fruit, Chess, Deep Sea, Drinks, Ball, and Dessert packs to unlock rarer Blooks!
                 </p>
               </div>
               <button
@@ -2559,6 +3324,10 @@ export default function App() {
                   { id: 'athletes', label: 'Athletes Pack' },
                   { id: 'fruit', label: 'Fruit Pack' },
                   { id: 'chess', label: 'Chess Pack' },
+                  { id: 'deep-sea', label: 'Deep Sea Pack' },
+                  { id: 'drinks', label: 'Drinks Pack' },
+                  { id: 'ball', label: 'Ball Pack' },
+                  { id: 'dessert', label: 'Dessert Pack' },
                 ] as const
               ).map((packOpt) => (
                 <button
@@ -2578,7 +3347,7 @@ export default function App() {
 
             {/* Rarity Filter Bar */}
             <div className="inline-flex flex-wrap self-start items-center gap-1.5 p-1.5 rounded-2xl bg-white/20 mb-6">
-              {(['All', 'Rare', 'Epic', 'Legendary', 'Chroma', 'Mystic', 'Clicked', 'Godly'] as const).map((tier) => (
+              {(['All', 'Rare', 'Epic', 'Legendary', 'Chroma', 'Mystic', 'Clicked', 'Godly', 'Secret'] as const).map((tier) => (
                 <button
                   key={tier}
                   type="button"
@@ -2612,10 +3381,10 @@ export default function App() {
                 return (
                   <div className="bg-white/95 rounded-3xl p-8 max-w-xl text-center shadow-[0_8px_0_rgba(0,0,0,0.18)]">
                     <p className="font-titan text-2xl text-slate-800 mb-1">
-                      No matching Bazaar offers
+                      No matching crafting recipes
                     </p>
                     <p className="font-nunito font-bold text-sm text-slate-500">
-                      Try switching the Pack or Rarity filter above to view available trades.
+                      Try switching the Pack or Rarity filter above to view available crafting recipes.
                     </p>
                   </div>
                 );
@@ -2626,6 +3395,10 @@ export default function App() {
                 athletes: { label: 'Athletes', bg: 'bg-emerald-100', text: 'text-emerald-700' },
                 fruit: { label: 'Fruit', bg: 'bg-orange-100', text: 'text-orange-700' },
                 chess: { label: 'Chess', bg: 'bg-indigo-100', text: 'text-indigo-700' },
+                'deep-sea': { label: 'Deep Sea', bg: 'bg-sky-100', text: 'text-sky-900' },
+                drinks: { label: 'Drinks', bg: 'bg-pink-100', text: 'text-pink-800' },
+                ball: { label: 'Ball', bg: 'bg-yellow-100', text: 'text-yellow-900' },
+                dessert: { label: 'Dessert', bg: 'bg-purple-100', text: 'text-purple-800' },
               };
 
               return (
@@ -2759,7 +3532,7 @@ export default function App() {
                           </div>
                         </div>
 
-                        {/* Trade CTA */}
+                        {/* Craft CTA */}
                         <button
                           type="button"
                           disabled={!canTrade}
@@ -2770,10 +3543,10 @@ export default function App() {
                               : 'bg-slate-200 text-slate-400 cursor-not-allowed'
                           }`}
                         >
-                          <ArrowLeftRight className="w-5 h-5" />
+                          <Hammer className="w-5 h-5" />
                           <span>
                             {canTrade
-                              ? `Trade for ${target.name}`
+                              ? `Craft ${target.name}`
                               : `Need ${totalMissing} More ${totalMissing === 1 ? 'Blook' : 'Blooks'}`}
                           </span>
                         </button>
@@ -2786,7 +3559,24 @@ export default function App() {
           </div>
         )}
 
-        {/* TAB 3C: GLOBAL MARKET & LIVE TRADING */}
+        {/* TAB 3B2: BAZAAR (GLOBAL TRADE MARKET & POST GLOBAL TRADE) */}
+        {activeTab === 'Bazaar' && (
+          <BazaarView
+            myUserId={currentUser.id}
+            inventory={inventory}
+            globalTrades={globalTrades}
+            loadingGlobalTrades={loadingGlobalTrades}
+            tradeError={tradeError}
+            tradeNotice={tradeNotice}
+            onDismissNotice={() => setTradeNotice(null)}
+            onPostGlobalTrade={handlePostGlobalTrade}
+            onFulfillGlobalTrade={handleFulfillGlobalTrade}
+            onCancelGlobalTrade={handleCancelGlobalTrade}
+            onRefreshGlobalTrades={fetchGlobalTrades}
+          />
+        )}
+
+        {/* TAB 3C: LIVE 1-TO-1 TRADING */}
         {activeTab === 'Trading' && (
           <TradingView
             myClientId={presenceClientId}
@@ -2799,8 +3589,6 @@ export default function App() {
             tradeError={tradeError}
             tradeNotice={tradeNotice}
             tradeHistory={tradeHistory}
-            globalTrades={globalTrades}
-            loadingGlobalTrades={loadingGlobalTrades}
             onDismissNotice={() => setTradeNotice(null)}
             onInitiateTrade={(targetClientId) => {
               setTradeError(null);
@@ -2818,10 +3606,7 @@ export default function App() {
             onCancelTrade={(tradeId) => {
               sendPresenceWs({ type: 'trade:cancel', tradeId });
             }}
-            onPostGlobalTrade={handlePostGlobalTrade}
-            onFulfillGlobalTrade={handleFulfillGlobalTrade}
-            onCancelGlobalTrade={handleCancelGlobalTrade}
-            onRefreshGlobalTrades={fetchGlobalTrades}
+            onGoToBazaar={() => setActiveTab('Bazaar')}
           />
         )}
 
@@ -2849,6 +3634,8 @@ export default function App() {
             wsConnected={presenceConnected}
             messages={chatMessages}
             onlinePlayers={onlinePlayers}
+            knownAvatarsByUserId={knownAvatarsByUserId}
+            knownAvatarsByUsername={knownAvatarsByUsername}
             typingUsernames={typingUsernames}
             chatError={chatError}
             onSendMessage={sendChatMessage}
@@ -2857,7 +3644,22 @@ export default function App() {
           />
         )}
 
-        {/* TAB 3E: ACHIEVEMENTS AREA */}
+        {/* TAB 3E: LEADERBOARD AREA */}
+        {activeTab === 'Leaderboard' && (
+          <LeaderboardView
+            myUserId={currentUser.id}
+            myUsername={username}
+            myTokens={tokens}
+            myInventory={inventory}
+            myEquippedBlookId={equippedBlookId}
+            myAchievements={userAchievements}
+            myIsOwner={hasOwnerBadge || isOwnerAccount}
+            myClanInfo={myClanInfo}
+            onGoToMarket={() => setActiveTab('Market')}
+          />
+        )}
+
+        {/* TAB 3E-1: ACHIEVEMENTS AREA */}
         {activeTab === 'Achievements' && (
           <AchievementsView
             unlockedIds={userAchievements}
@@ -3110,7 +3912,15 @@ export default function App() {
           <div
             onClick={(e) => e.stopPropagation()}
             className={`w-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl border-4 border-white/30 text-white p-6 md:p-8 max-h-[92vh] overflow-y-auto ${
-              showcasePackTab === 'chess'
+              showcasePackTab === 'dessert'
+                ? 'bg-gradient-to-br from-purple-600 via-fuchsia-700 to-purple-950'
+                : showcasePackTab === 'ball'
+                ? 'bg-gradient-to-br from-yellow-600 via-amber-700 to-yellow-950'
+                : showcasePackTab === 'drinks'
+                ? 'bg-gradient-to-br from-pink-600 via-rose-700 to-pink-950'
+                : showcasePackTab === 'deep-sea'
+                ? 'bg-gradient-to-br from-sky-800 via-sky-950 to-slate-950'
+                : showcasePackTab === 'chess'
                 ? 'bg-gradient-to-br from-slate-800 via-indigo-950 to-slate-950'
                 : showcasePackTab === 'fruit'
                 ? 'bg-gradient-to-br from-orange-600 via-amber-600 to-red-800'
@@ -3122,7 +3932,15 @@ export default function App() {
             <div className="flex flex-wrap items-center justify-between gap-4 mb-5">
               <div>
                 <h2 className="font-titan text-3xl md:text-4xl text-white drop-shadow-[0_3px_0_rgba(0,0,0,0.4)]">
-                  {showcasePackTab === 'chess'
+                  {showcasePackTab === 'dessert'
+                    ? 'Dessert Pack — All 12 Blooks & Exact Drop Rates'
+                    : showcasePackTab === 'ball'
+                    ? 'Ball Pack — All 12 Blooks & Exact Drop Rates'
+                    : showcasePackTab === 'drinks'
+                    ? 'Drinks Pack — All 12 Blooks & Exact Drop Rates'
+                    : showcasePackTab === 'deep-sea'
+                    ? 'Deep Sea Pack — All 14 Blooks & Exact Drop Rates'
+                    : showcasePackTab === 'chess'
                     ? 'Chess Pack — All 12 Blooks & Exact Drop Rates'
                     : showcasePackTab === 'fruit'
                     ? 'Fruit Pack — All 12 Blooks & Exact Drop Rates'
@@ -3180,6 +3998,50 @@ export default function App() {
                   Chess Pack
                 </button>
                 <button
+                  type="button"
+                  onClick={() => setShowcasePackTab('deep-sea')}
+                  className={`px-4 py-2 rounded-xl font-titan text-sm cursor-pointer transition-all ${
+                    showcasePackTab === 'deep-sea'
+                      ? 'bg-sky-400 text-sky-950 shadow-md'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                >
+                  Deep Sea Pack
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowcasePackTab('drinks')}
+                  className={`px-4 py-2 rounded-xl font-titan text-sm cursor-pointer transition-all ${
+                    showcasePackTab === 'drinks'
+                      ? 'bg-pink-300 text-pink-950 shadow-md'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                >
+                  Drinks Pack
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowcasePackTab('ball')}
+                  className={`px-4 py-2 rounded-xl font-titan text-sm cursor-pointer transition-all ${
+                    showcasePackTab === 'ball'
+                      ? 'bg-yellow-300 text-yellow-950 shadow-md'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                >
+                  Ball Pack
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowcasePackTab('dessert')}
+                  className={`px-4 py-2 rounded-xl font-titan text-sm cursor-pointer transition-all ${
+                    showcasePackTab === 'dessert'
+                      ? 'bg-purple-300 text-purple-950 shadow-md'
+                      : 'bg-white/20 text-white hover:bg-white/30'
+                  }`}
+                >
+                  Dessert Pack
+                </button>
+                <button
                   onClick={() => setShowCircusSheetModal(false)}
                   className="px-5 py-2 rounded-xl bg-white text-slate-900 font-titan text-base shadow-[0_4px_0_#cbd5e1] cursor-pointer whitespace-nowrap shrink-0"
                 >
@@ -3188,7 +4050,285 @@ export default function App() {
               </div>
             </div>
 
-            {showcasePackTab === 'chess' ? (
+            {showcasePackTab === 'dessert' ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 items-center mb-8">
+                  {DESSERT_BLOOKS.slice(0, 7).map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => {
+                        setShowCircusSheetModal(false);
+                        setRevealState({
+                          pack: DESSERT_PACK,
+                          pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                        });
+                      }}
+                      className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                    >
+                      <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                        <BlookArt id={b.id} className="w-full h-full" />
+                      </div>
+                      <span
+                        className="font-nunito font-black text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+                        style={{ color: RARITY_COLORS[b.rarity] }}
+                      >
+                        {b.rarity} {b.chanceLabel}
+                      </span>
+                      <span className="font-nunito font-black text-lg text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.7)]">
+                        {b.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl bg-slate-950/75 border-2 border-purple-400/50 p-6 text-white">
+                  <h3 className="font-titan text-2xl text-purple-300 mb-4">
+                    Legendary, Chroma, Mystic & Secret Dessert Blooks
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5 items-center">
+                    {DESSERT_BLOOKS.slice(7).map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          setShowCircusSheetModal(false);
+                          setRevealState({
+                            pack: DESSERT_PACK,
+                            pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                          });
+                        }}
+                        className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                      >
+                        <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                          <BlookArt id={b.id} className="w-full h-full" />
+                        </div>
+                        <span
+                          className={`font-nunito font-black text-sm ${
+                            b.rarity === 'Secret'
+                              ? 'bg-black text-white px-2.5 py-0.5 rounded-full border border-white/60 mb-1'
+                              : 'text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]'
+                          }`}
+                          style={
+                            b.rarity === 'Secret' ? undefined : { color: RARITY_COLORS[b.rarity] }
+                          }
+                        >
+                          {b.rarity} {b.chanceLabel}
+                        </span>
+                        <span className="font-nunito font-black text-lg text-white">
+                          {b.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : showcasePackTab === 'ball' ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 items-center mb-8">
+                  {BALL_BLOOKS.slice(0, 7).map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => {
+                        setShowCircusSheetModal(false);
+                        setRevealState({
+                          pack: BALL_PACK,
+                          pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                        });
+                      }}
+                      className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                    >
+                      <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                        <BlookArt id={b.id} className="w-full h-full" />
+                      </div>
+                      <span
+                        className="font-nunito font-black text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+                        style={{ color: RARITY_COLORS[b.rarity] }}
+                      >
+                        {b.rarity} {b.chanceLabel}
+                      </span>
+                      <span className="font-nunito font-black text-lg text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.7)]">
+                        {b.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl bg-slate-950/75 border-2 border-yellow-400/50 p-6 text-white">
+                  <h3 className="font-titan text-2xl text-yellow-300 mb-4">
+                    Legendary, Chroma, Mystic & Secret Ball Blooks
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5 items-center">
+                    {BALL_BLOOKS.slice(7).map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          setShowCircusSheetModal(false);
+                          setRevealState({
+                            pack: BALL_PACK,
+                            pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                          });
+                        }}
+                        className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                      >
+                        <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                          <BlookArt id={b.id} className="w-full h-full" />
+                        </div>
+                        <span
+                          className={`font-nunito font-black text-sm ${
+                            b.rarity === 'Secret'
+                              ? 'bg-black text-white px-2.5 py-0.5 rounded-full border border-white/60 mb-1'
+                              : 'text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]'
+                          }`}
+                          style={
+                            b.rarity === 'Secret' ? undefined : { color: RARITY_COLORS[b.rarity] }
+                          }
+                        >
+                          {b.rarity} {b.chanceLabel}
+                        </span>
+                        <span className="font-nunito font-black text-lg text-white">
+                          {b.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : showcasePackTab === 'drinks' ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 items-center mb-8">
+                  {DRINKS_BLOOKS.slice(0, 7).map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => {
+                        setShowCircusSheetModal(false);
+                        setRevealState({
+                          pack: DRINKS_PACK,
+                          pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                        });
+                      }}
+                      className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                    >
+                      <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                        <BlookArt id={b.id} className="w-full h-full" />
+                      </div>
+                      <span
+                        className="font-nunito font-black text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+                        style={{ color: RARITY_COLORS[b.rarity] }}
+                      >
+                        {b.rarity} {b.chanceLabel}
+                      </span>
+                      <span className="font-nunito font-black text-lg text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.7)]">
+                        {b.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl bg-slate-950/75 border-2 border-pink-400/50 p-6 text-white">
+                  <h3 className="font-titan text-2xl text-pink-300 mb-4">
+                    Legendary, Chroma, Mystic & Godly Drinks Blooks
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-5 items-center">
+                    {DRINKS_BLOOKS.slice(7).map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          setShowCircusSheetModal(false);
+                          setRevealState({
+                            pack: DRINKS_PACK,
+                            pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                          });
+                        }}
+                        className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                      >
+                        <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                          <BlookArt id={b.id} className="w-full h-full" />
+                        </div>
+                        <span
+                          className="font-nunito font-black text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]"
+                          style={{ color: RARITY_COLORS[b.rarity] }}
+                        >
+                          {b.rarity} {b.chanceLabel}
+                        </span>
+                        <span className="font-nunito font-black text-lg text-white">
+                          {b.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : showcasePackTab === 'deep-sea' ? (
+              <>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 items-center mb-8">
+                  {DEEP_SEA_BLOOKS.slice(0, 8).map((b) => (
+                    <div
+                      key={b.id}
+                      onClick={() => {
+                        setShowCircusSheetModal(false);
+                        setRevealState({
+                          pack: DEEP_SEA_PACK,
+                          pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                        });
+                      }}
+                      className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                    >
+                      <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                        <BlookArt id={b.id} className="w-full h-full" />
+                      </div>
+                      <span
+                        className="font-nunito font-black text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]"
+                        style={{ color: RARITY_COLORS[b.rarity] }}
+                      >
+                        {b.rarity} {b.chanceLabel}
+                      </span>
+                      <span className="font-nunito font-black text-lg text-white drop-shadow-[0_2px_2px_rgba(0,0,0,0.7)]">
+                        {b.name}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="rounded-2xl bg-slate-950/75 border-2 border-sky-400/50 p-6 text-white">
+                  <h3 className="font-titan text-2xl text-sky-300 mb-4">
+                    Legendary, Chroma, Mystic & Secret Deep Sea Blooks
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-5 items-center">
+                    {DEEP_SEA_BLOOKS.slice(8).map((b) => (
+                      <div
+                        key={b.id}
+                        onClick={() => {
+                          setShowCircusSheetModal(false);
+                          setRevealState({
+                            pack: DEEP_SEA_PACK,
+                            pulls: [{ blook: b, isNew: (inventory[b.id] || 0) === 0 }],
+                          });
+                        }}
+                        className="bg-white/10 hover:bg-white/20 rounded-2xl p-4 flex flex-col items-center text-center cursor-pointer transition-transform hover:scale-105"
+                      >
+                        <div className="w-24 h-24 mb-2 flex items-center justify-center">
+                          <BlookArt id={b.id} className="w-full h-full" />
+                        </div>
+                        <span
+                          className={`font-nunito font-black text-sm ${
+                            b.rarity === 'Secret'
+                              ? 'bg-black text-white px-2.5 py-0.5 rounded-full border border-white/60 mb-1'
+                              : 'text-base drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]'
+                          }`}
+                          style={
+                            b.rarity === 'Secret' ? undefined : { color: RARITY_COLORS[b.rarity] }
+                          }
+                        >
+                          {b.rarity} {b.chanceLabel}
+                        </span>
+                        <span className="font-nunito font-black text-lg text-white">
+                          {b.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
+            ) : showcasePackTab === 'chess' ? (
               <>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-5 items-center mb-8">
                   {CHESS_BLOOKS.slice(0, 7).map((b) => (
@@ -3490,11 +4630,11 @@ export default function App() {
             className="bg-white rounded-3xl p-6 sm:p-7 max-w-sm w-full shadow-2xl text-slate-800 animate-pop-reveal"
           >
             <div className="flex items-center gap-3 mb-4">
-              <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center p-1.5 shrink-0">
+              <div className="w-12 h-12 rounded-2xl bg-red-100 flex items-center justify-center p-1 shrink-0 overflow-hidden">
                 {activeAvatarBlookId ? (
                   <BlookArt id={activeAvatarBlookId} className="w-full h-full" />
                 ) : (
-                  <User className="w-6 h-6 text-[#dc2626]" />
+                  <DefaultAvatarPfp className="w-full h-full rounded-xl" />
                 )}
               </div>
               <div>
@@ -3767,6 +4907,10 @@ export default function App() {
         const isAthletesModal = purchaseModalPack.id === 'athletes';
         const isFruitModal = purchaseModalPack.id === 'fruit';
         const isChessModal = purchaseModalPack.id === 'chess';
+        const isDeepSeaModal = purchaseModalPack.id === 'deep-sea';
+        const isDrinksModal = purchaseModalPack.id === 'drinks';
+        const isBallModal = purchaseModalPack.id === 'ball';
+        const isDessertModal = purchaseModalPack.id === 'dessert';
         const maxAffordableForModal = Math.max(
           1,
           Math.min(100, Math.floor(tokens / purchaseModalPack.price))
@@ -3810,7 +4954,15 @@ export default function App() {
                   <div>
                     <h2
                       className={`font-titan text-2xl leading-tight ${
-                        isChessModal
+                        isDessertModal
+                          ? 'text-purple-700'
+                          : isBallModal
+                          ? 'text-yellow-700'
+                          : isDrinksModal
+                          ? 'text-pink-700'
+                          : isDeepSeaModal
+                          ? 'text-sky-700'
+                          : isChessModal
                           ? 'text-indigo-700'
                           : isFruitModal
                           ? 'text-orange-600'
@@ -3858,7 +5010,15 @@ export default function App() {
                       onClick={() => setPurchaseQuantity(preset)}
                       className={`py-2 rounded-xl font-nunito font-black text-xs cursor-pointer transition-colors ${
                         purchaseQuantity === preset
-                          ? isChessModal
+                          ? isDessertModal
+                            ? 'bg-purple-600 text-white'
+                            : isBallModal
+                            ? 'bg-yellow-600 text-white'
+                            : isDrinksModal
+                            ? 'bg-pink-600 text-white'
+                            : isDeepSeaModal
+                            ? 'bg-sky-600 text-white'
+                            : isChessModal
                             ? 'bg-indigo-600 text-white'
                             : isFruitModal
                             ? 'bg-orange-600 text-white'
@@ -3899,7 +5059,15 @@ export default function App() {
                       }
                     }}
                     className={`w-24 px-3 py-1.5 rounded-xl border-2 border-slate-200 bg-white font-nunito font-black text-sm text-center text-slate-800 focus:outline-none ${
-                      isChessModal
+                      isDessertModal
+                        ? 'focus:border-purple-600'
+                        : isBallModal
+                        ? 'focus:border-yellow-600'
+                        : isDrinksModal
+                        ? 'focus:border-pink-600'
+                        : isDeepSeaModal
+                        ? 'focus:border-sky-600'
+                        : isChessModal
                         ? 'focus:border-indigo-600'
                         : isFruitModal
                         ? 'focus:border-orange-600'
@@ -3933,7 +5101,15 @@ export default function App() {
                 }}
                 className={`w-full py-3 rounded-2xl font-titan text-lg flex items-center justify-center gap-2 cursor-pointer transition-all ${
                   canAffordModal
-                    ? isChessModal
+                    ? isDessertModal
+                      ? 'bg-purple-600 hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#581c87] text-white'
+                      : isBallModal
+                      ? 'bg-yellow-600 hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#854d0e] text-white'
+                      : isDrinksModal
+                      ? 'bg-pink-600 hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#9d174d] text-white'
+                      : isDeepSeaModal
+                      ? 'bg-sky-600 hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#075985] text-white'
+                      : isChessModal
                       ? 'bg-indigo-600 hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#3730a3] text-white'
                       : isFruitModal
                       ? 'bg-orange-500 hover:brightness-105 active:translate-y-0.5 active:shadow-none shadow-[0_5px_0_#c2410c] text-white'
@@ -3955,7 +5131,15 @@ export default function App() {
                   type="button"
                   onClick={() => {
                     setShowcasePackTab(
-                      isChessModal
+                      isDessertModal
+                        ? 'dessert'
+                        : isBallModal
+                        ? 'ball'
+                        : isDrinksModal
+                        ? 'drinks'
+                        : isDeepSeaModal
+                        ? 'deep-sea'
+                        : isChessModal
                         ? 'chess'
                         : isFruitModal
                         ? 'fruit'
@@ -3967,7 +5151,15 @@ export default function App() {
                     setShowCircusSheetModal(true);
                   }}
                   className={`py-2 rounded-xl font-nunito font-extrabold text-xs transition-colors cursor-pointer ${
-                    isChessModal
+                    isDessertModal
+                      ? 'bg-purple-50 hover:bg-purple-100 text-purple-800'
+                      : isBallModal
+                      ? 'bg-yellow-50 hover:bg-yellow-100 text-yellow-800'
+                      : isDrinksModal
+                      ? 'bg-pink-50 hover:bg-pink-100 text-pink-700'
+                      : isDeepSeaModal
+                      ? 'bg-sky-50 hover:bg-sky-100 text-sky-700'
+                      : isChessModal
                       ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700'
                       : isFruitModal
                       ? 'bg-orange-50 hover:bg-orange-100 text-orange-700'

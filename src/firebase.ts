@@ -21,6 +21,7 @@ import {
   setDoc,
   updateDoc,
   deleteDoc,
+  getDocs,
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 
@@ -517,6 +518,136 @@ export async function cancelFirestoreTrade(tradeId: string): Promise<void> {
       return;
     }
     handleFirestoreError(error, OperationType.UPDATE, docPath);
+  }
+}
+
+export interface FirestoreLeaderboardProfile {
+  id: string;
+  username: string;
+  tokens: number;
+  blooksWorth: number;
+  totalWorth: number;
+  uniqueBlooksCount: number;
+  totalBlooksCount: number;
+  equippedBlookId?: string;
+  mostValuableBlookId?: string;
+  achievements?: string[];
+  isOwner?: boolean;
+  clanTag?: string;
+  clanColor?: string;
+  dailyStreak?: number;
+  bestDailyStreak?: number;
+  updatedAt: number;
+}
+
+/**
+ * Sync public player worth profile to Firestore /users/{userId}
+ * (strictly non-PII public fields for the Worth Leaderboard)
+ */
+export async function syncFirestoreLeaderboardProfile(
+  profile: FirestoreLeaderboardProfile
+): Promise<void> {
+  if (firestoreQuotaExceeded) return;
+  const cleanUsername = profile.username.trim().slice(0, 30);
+  if (cleanUsername.length < 2 || !profile.id) return;
+  const docPath = `users/${profile.id}`;
+  try {
+    const payload: Record<string, unknown> = {
+      id: profile.id,
+      username: cleanUsername,
+      tokens: Math.max(0, Math.floor(profile.tokens || 0)),
+      blooksWorth: Math.max(0, Math.floor(profile.blooksWorth || 0)),
+      totalWorth: Math.max(0, Math.floor(profile.totalWorth || 0)),
+      uniqueBlooksCount: Math.max(0, Math.floor(profile.uniqueBlooksCount || 0)),
+      totalBlooksCount: Math.max(0, Math.floor(profile.totalBlooksCount || 0)),
+      equippedBlookId: (profile.equippedBlookId || '').slice(0, 64),
+      mostValuableBlookId: (profile.mostValuableBlookId || '').slice(0, 64),
+      achievements: Array.isArray(profile.achievements) ? profile.achievements.slice(0, 12) : [],
+      isOwner: Boolean(profile.isOwner),
+      dailyStreak: Math.max(0, Math.floor(profile.dailyStreak || 0)),
+      bestDailyStreak: Math.max(0, Math.floor(profile.bestDailyStreak || 0)),
+      updatedAt: Date.now(),
+    };
+    if (profile.clanTag) payload.clanTag = profile.clanTag.slice(0, 10);
+    if (profile.clanColor) payload.clanColor = profile.clanColor.slice(0, 16);
+
+    await setDoc(doc(db, 'users', profile.id), payload, { merge: true });
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markFirestoreQuotaExceeded(docPath);
+      return;
+    }
+    handleFirestoreError(error, OperationType.WRITE, docPath);
+  }
+}
+
+/**
+ * Fetch global player worth leaderboard from Firestore /users
+ */
+export async function fetchFirestoreLeaderboard(): Promise<FirestoreLeaderboardProfile[]> {
+  if (firestoreQuotaExceeded) return [];
+  const usersPath = 'users';
+  try {
+    let snapshot;
+    try {
+      const q = query(collection(db, usersPath), orderBy('totalWorth', 'desc'), limit(250));
+      snapshot = await getDocs(q);
+    } catch {
+      const qFallback = query(collection(db, usersPath), limit(250));
+      snapshot = await getDocs(qFallback);
+    }
+
+    const byUsername = new Map<string, FirestoreLeaderboardProfile>();
+    snapshot.forEach((d) => {
+      const data = d.data();
+      const username = typeof data.username === 'string' ? data.username.trim() : '';
+      if (!username) return;
+      const tokens = Math.max(0, Math.floor(Number(data.tokens) || 0));
+      const blooksWorth = Math.max(0, Math.floor(Number(data.blooksWorth) || 0));
+      const totalWorth = Math.max(
+        tokens + blooksWorth,
+        Math.floor(Number(data.totalWorth) || tokens + blooksWorth)
+      );
+      const candidate: FirestoreLeaderboardProfile = {
+        id: String(data.id || d.id),
+        username,
+        tokens,
+        blooksWorth,
+        totalWorth,
+        uniqueBlooksCount: Math.max(0, Math.floor(Number(data.uniqueBlooksCount) || 0)),
+        totalBlooksCount: Math.max(0, Math.floor(Number(data.totalBlooksCount) || 0)),
+        equippedBlookId: typeof data.equippedBlookId === 'string' ? data.equippedBlookId : '',
+        mostValuableBlookId:
+          typeof data.mostValuableBlookId === 'string' ? data.mostValuableBlookId : '',
+        achievements: Array.isArray(data.achievements) ? data.achievements : [],
+        isOwner: Boolean(data.isOwner),
+        ...(data.clanTag ? { clanTag: String(data.clanTag) } : {}),
+        ...(data.clanColor ? { clanColor: String(data.clanColor) } : {}),
+        dailyStreak: Math.max(0, Math.floor(Number(data.dailyStreak) || 0)),
+        bestDailyStreak: Math.max(0, Math.floor(Number(data.bestDailyStreak) || 0)),
+        updatedAt: Number(data.updatedAt) || 0,
+      };
+
+      const nameKey = username.toLowerCase();
+      const existing = byUsername.get(nameKey);
+      if (
+        !existing ||
+        candidate.updatedAt > existing.updatedAt ||
+        (candidate.updatedAt === existing.updatedAt && candidate.totalWorth > existing.totalWorth)
+      ) {
+        byUsername.set(nameKey, candidate);
+      }
+    });
+
+    return Array.from(byUsername.values()).sort(
+      (a, b) => b.totalWorth - a.totalWorth || b.blooksWorth - a.blooksWorth
+    );
+  } catch (error) {
+    if (isQuotaExceededError(error)) {
+      markFirestoreQuotaExceeded(usersPath);
+      return [];
+    }
+    handleFirestoreError(error, OperationType.LIST, usersPath);
   }
 }
 

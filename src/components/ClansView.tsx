@@ -16,7 +16,7 @@ import {
   X,
 } from 'lucide-react';
 import { ALL_BLOOKS } from '../data/blooks';
-import { BlookArt, BlooketTokenIcon } from './BlookArt';
+import { BlookArt, BlooketTokenIcon, DefaultAvatarPfp } from './BlookArt';
 import { OwnerAchievementIcon, DeveloperAchievementIcon } from './AchievementsView';
 import { apiFetch } from '../lib/apiClient';
 
@@ -504,11 +504,15 @@ export const ClansView: React.FC<ClansViewProps> = ({
                       }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 p-1 shrink-0 flex items-center justify-center">
-                          <BlookArt
-                            id={member.equippedBlookId || 'jester'}
-                            className="w-full h-full"
-                          />
+                        <div className="w-11 h-11 rounded-xl bg-white border border-slate-200 p-0.5 shrink-0 flex items-center justify-center overflow-hidden">
+                          {member.equippedBlookId ? (
+                            <BlookArt
+                              id={member.equippedBlookId}
+                              className="w-full h-full"
+                            />
+                          ) : (
+                            <DefaultAvatarPfp className="w-full h-full rounded-lg" />
+                          )}
                         </div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
@@ -588,27 +592,40 @@ export const ClansView: React.FC<ClansViewProps> = ({
                     No messages yet. Say hello to your clan!
                   </p>
                 ) : (
-                  myClan.messages.map((m) => (
-                    <div
-                      key={m.id}
-                      className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-100"
-                    >
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="font-nunito font-black text-xs text-[#dc2626]">
-                          {m.username}
-                        </span>
-                        <span className="font-nunito font-bold text-[10px] text-slate-400">
-                          {new Date(m.createdAt).toLocaleTimeString([], {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
+                  myClan.messages.map((m) => {
+                    const memberAvatar =
+                      myClan.members.find((mem) => mem.id === m.userId)?.equippedBlookId || '';
+                    return (
+                      <div
+                        key={m.id}
+                        className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-100 flex items-start gap-2.5"
+                      >
+                        <div className="w-7 h-7 rounded-lg bg-white border border-slate-200 flex items-center justify-center shrink-0 mt-0.5 p-0.5">
+                          {memberAvatar ? (
+                            <BlookArt id={memberAvatar} className="w-full h-full" />
+                          ) : (
+                            <DefaultAvatarPfp className="w-6 h-6 rounded-md" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="font-nunito font-black text-xs text-[#dc2626] truncate">
+                              {m.username}
+                            </span>
+                            <span className="font-nunito font-bold text-[10px] text-slate-400 shrink-0">
+                              {new Date(m.createdAt).toLocaleTimeString([], {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                              })}
+                            </span>
+                          </div>
+                          <p className="font-nunito font-bold text-xs text-slate-700 mt-0.5 break-words">
+                            {m.text}
+                          </p>
+                        </div>
                       </div>
-                      <p className="font-nunito font-bold text-xs text-slate-700 mt-0.5 break-words">
-                        {m.text}
-                      </p>
-                    </div>
-                  ))
+                    );
+                  })
                 )}
               </div>
 
